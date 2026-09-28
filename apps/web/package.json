@@ -1,0 +1,35 @@
+{
+  "name": "@dopl/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "eslint .",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@dopl/db": "workspace:*",
+    "@dopl/shared": "workspace:*",
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@next/env": "16.3.6",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "catalog:",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.6",
+    "server-only": "^0.0.1",
+    "tailwindcss": "^4",
+    "typescript": "catalog:"
+  },
+  "type": "module"
+}

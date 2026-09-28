@@ -1,0 +1,41 @@
+{
+  "name": "dopl",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @dopl/web --filter @dopl/worker dev",
+    "build": "pnpm -r --filter ./apps/* build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "pnpm --filter @dopl/web e2e",
+    "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.dev.yml down",
+    "db:migrate": "pnpm --filter @dopl/db migrate",
+    "db:deploy": "pnpm --filter @dopl/db migrate:deploy",
+    "db:generate": "pnpm --filter @dopl/db generate",
+    "db:seed": "pnpm --filter @dopl/db seed",
+    "db:reset": "pnpm --filter @dopl/db reset",
+    "db:drift": "pnpm --filter @dopl/db drift",
+    "db:studio": "pnpm --filter @dopl/db studio",
+    "dopl:bootstrap": "pnpm --filter @dopl/db bootstrap"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "catalog:",
+    "dotenv": "catalog:",
+    "eslint": "^9.39.5",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "catalog:"
+  }
+}

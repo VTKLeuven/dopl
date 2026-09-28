@@ -1,0 +1,37 @@
+{
+  "name": "@dopl/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./browser": "./src/generated/prisma/browser.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "reset": "prisma migrate reset --force && pnpm run generate && pnpm run seed",
+    "seed": "prisma db seed",
+    "drift": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
+    "studio": "prisma studio",
+    "bootstrap": "tsx src/bootstrap.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@dopl/shared": "workspace:*",
+    "@prisma/adapter-pg": "catalog:",
+    "@prisma/client": "catalog:",
+    "dotenv": "catalog:",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "prisma": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

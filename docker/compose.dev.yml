@@ -1,0 +1,36 @@
+# Local development services. Start with `pnpm db:up`.
+name: dopl-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: dopl
+      POSTGRES_PASSWORD: dopl
+      POSTGRES_DB: dopl
+    ports:
+      - "54320:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init-dev.sql:/docker-entrypoint-initdb.d/10-init-dev.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dopl -d dopl"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Captures every email the app sends (magic links, invites, confirmations).
+  # UI: http://localhost:8025 — tests read messages through its API.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

@@ -1,0 +1,29 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Shared versions — reference with "catalog:" in package.json files.
+catalog:
+  "@types/node": ^24.19.0
+  typescript: ~6.0.3
+  zod: ^4.6.5
+  vitest: ^5.0.2
+  tsx: ^4.23.15
+  dotenv: ^18.0.4
+  pg: ^8.23.0
+  "@types/pg": ^8.23.1
+  # Prisma is pinned to 7.x on purpose — npm "latest" for `prisma` is the 8.0 RC (D-049).
+  prisma: ~7.10.0
+  "@prisma/client": ~7.10.0
+  "@prisma/adapter-pg": ~7.10.0
+  pino: ^10.3.1
+  fractional-indexing: ^4.0.0
+
+# pnpm 10 blocks dependency build scripts unless allowlisted.
+onlyBuiltDependencies:
+  - "@prisma/engines"
+  - "@tailwindcss/oxide"
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
