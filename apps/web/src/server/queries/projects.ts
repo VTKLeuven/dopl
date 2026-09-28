@@ -73,7 +73,8 @@ export const getProjectAccess = cache(
     const role = effectiveProjectRole(ctx.policyActor, policy);
     // Invisible projects 404 rather than 403 so their existence doesn't leak.
     if (!role) notFound();
-    const { members: _members, ...rest } = project;
+    const { members, ...rest } = project;
+    void members;
     return { project: rest, role, policy, can: (a) => canProject(ctx.policyActor, policy, a) };
   },
 );

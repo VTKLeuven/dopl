@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRelativeTime } from "@/lib/use-relative-time";
@@ -212,15 +213,13 @@ function TwoFactor({ enabled, ws }: { enabled: boolean; ws: string }) {
 function Sessions() {
   const t = useTranslations("settings.account");
   const relative = useRelativeTime();
+  const queryClient = useQueryClient();
   const { data: current } = authClient.useSession();
-  const [sessions, setSessions] = useState<Array<{ id: string; token: string; userAgent?: string | null; ipAddress?: string | null; updatedAt: Date }>>([]);
-  const load = async () => {
-    const res = await authClient.listSessions();
-    if (res.data) setSessions(res.data);
-  };
-  useEffect(() => {
-    void load();
-  }, []);
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["auth", "sessions"],
+    queryFn: async () => (await authClient.listSessions()).data ?? [],
+  });
+  const reload = () => queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] });
 
   const device = (ua?: string | null) => {
     if (!ua) return t("unknownDevice");
@@ -248,7 +247,7 @@ function Sessions() {
                 </p>
               </div>
               {!isCurrent ? (
-                <Button size="xs" variant="ghost" onClick={async () => { await authClient.revokeSession({ token: s.token }); await load(); }}>
+                <Button size="xs" variant="ghost" onClick={async () => { await authClient.revokeSession({ token: s.token }); await reload(); }}>
                   {t("revoke")}
                 </Button>
               ) : null}
@@ -257,7 +256,7 @@ function Sessions() {
         })}
       </ul>
       {sessions.length > 1 ? (
-        <Button size="sm" className="self-start" onClick={async () => { await authClient.revokeOtherSessions(); await load(); }}>
+        <Button size="sm" className="self-start" onClick={async () => { await authClient.revokeOtherSessions(); await reload(); }}>
           {t("revokeOthers")}
         </Button>
       ) : null}
