@@ -1,0 +1,2290 @@
+// =============================================================================
+// Dopl — Prisma schema (all phases, designed up front)
+//
+// Prisma ORM 7. The datasource URL lives in packages/db/prisma.config.ts,
+// NOT here. Read docs/DATA_MODEL.md before changing anything in this file.
+//
+// Conventions (details + rationale in docs/DATA_MODEL.md / docs/DECISIONS.md):
+//   • IDs are UUIDv7 (`uuid(7)`, time-ordered) stored as native `uuid`.
+//   • Timestamps are `timestamptz(3)`; calendar dates (start/due) are `date`.
+//   • Model names are PascalCase; tables are snake_case plural (@@map);
+//     columns keep Prisma's camelCase (quote them in raw SQL).
+//   • `workspaceId` is present on every tenant-scoped row. Root entities have
+//     a real FK to Workspace; child rows carry it as a denormalized scalar
+//     that the domain layer copies from the parent (never from client input).
+//   • Manual ordering uses fractional-index string keys (`sortKey`). These
+//     columns are altered to COLLATE "C" in a hand-written migration step —
+//     byte-order comparison is required for fractional keys.
+//   • `archivedAt` = user-facing archive (restorable, hidden from views).
+//     `deletedAt` = soft delete (undo / trash), hard-purged after the
+//     retention window by the worker.
+//   • Rich text is stored as ProseMirror/Tiptap JSON (`Json`) plus a derived
+//     plain-text column (`…Text`) used for search, previews and embeddings.
+//   • Anything that must not be edited after the fact (Activity, AuditLog,
+//     RealtimeEvent) is append-only; AuditLog is protected by a DB trigger.
+//   • Hand-written SQL (COLLATE "C", CHECK constraints, triggers, the
+//     `search` schema) lives in its own migrations — verified drift-free with
+//     Prisma 7.10 as long as Prisma creates its own temporary shadow DB.
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "esm"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pg_trgm, vector]
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum UserKind {
+  HUMAN
+  AGENT // the AI teammate; cannot sign in, acts via MCP token
+  SYSTEM // automation / migrations
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  DEACTIVATED
+}
+
+enum ProjectRole {
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum ProjectVisibility {
+  WORKSPACE // every workspace member (not guests) can see it
+  PRIVATE // project members only
+}
+
+enum EstimateSystem {
+  NONE
+  POINTS
+  HOURS
+}
+
+/// Order matters: Postgres sorts enums by declaration order.
+enum StateGroup {
+  TRIAGE // hidden; holds pending intake items only
+  BACKLOG
+  UNSTARTED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+/// Order matters: ORDER BY priority yields URGENT first.
+enum Priority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
+/// Canonical direction only. "blocked by" = inverse of BLOCKS.
+/// RELATES_TO is symmetric and stored once.
+enum RelationType {
+  BLOCKS
+  RELATES_TO
+  DUPLICATE_OF
+}
+
+/// Where a piece of content came from. Drives the agent trust boundary.
+enum ItemOrigin {
+  APP
+  INTAKE_FORM
+  INTAKE_GUEST
+  EMAIL
+  MESSAGE
+  NOTE
+  AGENT
+  API
+  IMPORT
+}
+
+enum SubscriptionReason {
+  CREATOR
+  ASSIGNEE
+  MENTIONED
+  COMMENTER
+  MANUAL
+}
+
+enum CommentVisibility {
+  INTERNAL // team only
+  PUBLIC // also visible to the submitter (guest or contact status page)
+}
+
+enum AttachmentStatus {
+  PENDING // upload URL issued, not confirmed
+  READY
+  QUARANTINED // public upload awaiting submission / failed checks
+  FAILED
+}
+
+enum ViewLayout {
+  LIST
+  BOARD
+  CALENDAR
+  TABLE
+  TIMELINE
+}
+
+enum Visibility {
+  PRIVATE
+  WORKSPACE
+}
+
+/// "Snoozed" is not a status: it is PENDING with snoozedUntil > now().
+enum IntakeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  DUPLICATE
+}
+
+enum IntakeSource {
+  IN_APP
+  FORM
+  EMAIL
+  API
+}
+
+enum FormFieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  SELECT
+  MULTI_SELECT
+  DATE
+  FILE
+  EMAIL
+  CHECKBOX
+}
+
+enum FormFieldTarget {
+  NONE // custom intake field, stored on the submission only
+  TITLE
+  DESCRIPTION
+  PRIORITY
+  TYPE
+  LABELS
+  DUE_DATE
+  CONTACT_EMAIL
+  CONTACT_NAME
+}
+
+enum NotificationType {
+  MENTION
+  ASSIGNED
+  WORK_ITEM_UPDATED
+  COMMENT
+  INTAKE_SUBMITTED
+  INTAKE_REPLY
+  AGENT_APPROVAL_REQUESTED
+  AGENT_RUN_FINISHED
+  EMAIL_ASSIGNED
+  EMAIL_MENTION
+  EMAIL_REPLY
+  DUE_SOON
+  SNOOZE_ENDED
+}
+
+enum OutboundStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum PresenceState {
+  VIEWING
+  TYPING
+  REPLYING
+}
+
+enum ChannelKind {
+  PROJECT
+  CUSTOM
+  DM
+  GROUP_DM
+}
+
+enum ChannelRole {
+  OWNER
+  MEMBER
+}
+
+enum ChannelNotifyLevel {
+  ALL
+  MENTIONS
+  NONE
+}
+
+enum MessageKind {
+  USER
+  SYSTEM
+  AGENT
+}
+
+enum NoteVisibility {
+  PRIVATE
+  WORKSPACE
+}
+
+enum MailProvider {
+  GMAIL
+}
+
+enum MailboxStatus {
+  CONNECTING
+  BACKFILLING
+  ACTIVE
+  PAUSED
+  ERROR
+  DISCONNECTED
+}
+
+enum MailboxSyncKind {
+  BACKFILL
+  PARTIAL
+  FULL_RESYNC
+  WATCH_RENEW
+  POLL
+}
+
+/// "Snoozed" and "Unassigned" are derived views, not statuses.
+enum EmailThreadStatus {
+  OPEN
+  SOLVED
+  IGNORED // spam / newsletters / not actionable — excluded from SLA stats
+}
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum AgentRuntimeKind {
+  HERMES
+}
+
+enum AgentStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum AgentRunTrigger {
+  COMMENT_MENTION
+  MESSAGE_MENTION
+  DIRECT_MESSAGE
+  ASSIGNMENT
+  MANUAL
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  WAITING_FOR_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+  INTERRUPTED
+}
+
+enum AgentStepKind {
+  ASSISTANT_MESSAGE
+  TOOL_CALL
+  COMMAND
+  APPROVAL
+  STATUS
+  ERROR
+  SUBAGENT
+}
+
+enum AgentStepStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DENIED
+  CANCELLED
+}
+
+enum ApprovalKind {
+  INFRA_COMMAND // Dopl's own infra_exec tool (primary gate)
+  RUNTIME_TOOL // approval.request raised by the agent runtime (Hermes)
+  MCP_WRITE // a Dopl MCP write while the run is tainted by untrusted input
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+  CANCELLED
+}
+
+enum HostEnvironment {
+  PRODUCTION
+  STAGING
+  LAB
+}
+
+enum CommandRuleKind {
+  ALLOW_READONLY // may run without approval (never for untrusted runs)
+  DENY // never runs, not even with approval
+}
+
+enum ApiTokenKind {
+  MCP
+  PERSONAL
+}
+
+enum ActorType {
+  USER
+  AGENT
+  CONTACT
+  SYSTEM
+}
+
+enum ReferenceKind {
+  MENTIONED // `#INFRA-42` written in the source
+  LINKED // explicitly linked by a person
+  CREATED_FROM // the work item was created from the source
+}
+
+enum EntityType {
+  WORKSPACE
+  MEMBER
+  PROJECT
+  STATE
+  LABEL
+  WORK_ITEM
+  COMMENT
+  VIEW
+  INTAKE_ITEM
+  INTAKE_FORM
+  CONTACT
+  CHANNEL
+  MESSAGE
+  NOTE
+  NOTE_TODO
+  MAILBOX
+  EMAIL_THREAD
+  EMAIL_MESSAGE
+  AGENT_RUN
+  AGENT_APPROVAL
+  DASHBOARD
+}
+
+enum ChartType {
+  BAR
+  STACKED_BAR
+  LINE
+  AREA
+  DONUT
+  NUMBER
+  TABLE
+}
+
+// =============================================================================
+// Auth — Better Auth core schema (field names must match Better Auth).
+// Better Auth is configured with `advanced.database.generateId: false`
+// so ids come from the uuid(7) defaults below.
+// =============================================================================
+
+model User {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  // --- Dopl additions (Better Auth `user.additionalFields`, input: false) ---
+  kind          UserKind  @default(HUMAN)
+  timezone      String?
+  locale        String?
+  lastActiveAt  DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  sessions Session[]
+  accounts Account[]
+
+  memberships        WorkspaceMember[]
+  projectMemberships ProjectMember[]
+  invitesSent        WorkspaceInvite[] @relation("InviteInvitedBy")
+  invitesAccepted    WorkspaceInvite[] @relation("InviteAcceptedUser")
+  workspacesPaused   Workspace[]       @relation("WorkspaceAgentPausedBy")
+  projectsLed        Project[]         @relation("ProjectLead")
+  projectsCreated    Project[]         @relation("ProjectCreatedBy")
+
+  workItemsCreated    WorkItem[]           @relation("WorkItemCreatedBy")
+  trustReviews        WorkItem[]           @relation("WorkItemTrustReviewedBy")
+  assignments         WorkItemAssignee[]   @relation("AssigneeUser")
+  assignmentsMade     WorkItemAssignee[]   @relation("AssigneeAssignedBy")
+  subscriptions       WorkItemSubscriber[]
+  relationsCreated    WorkItemRelation[]
+  linksCreated        WorkItemLink[]
+  referencesCreated   WorkItemReference[]
+  comments            Comment[]
+  reactions           Reaction[]
+  attachmentsUploaded Attachment[]
+  activities          Activity[]
+
+  viewsOwned      View[]
+  viewPreferences ViewPreference[]
+  favorites       Favorite[]
+  recentVisits    RecentVisit[]
+
+  contactLinks         Contact[]
+  intakeFormsCreated   IntakeForm[]
+  intakeItemsSubmitted IntakeItem[] @relation("IntakeSubmitter")
+  intakeItemsTriaged   IntakeItem[] @relation("IntakeTriagedBy")
+
+  notificationsReceived   Notification[]           @relation("NotificationRecipient")
+  notificationsTriggered  Notification[]           @relation("NotificationActor")
+  notificationPreferences NotificationPreference[]
+  presences               Presence[]
+
+  channelsCreated Channel[]
+  channelMembers  ChannelMember[]
+  messages        Message[]
+  threadsFollowed ThreadFollower[]
+
+  notes     Note[]
+  tags      Tag[]
+  noteTodos NoteTodo[]
+
+  mailboxesCreated         Mailbox[]       @relation("MailboxCreatedBy")
+  mailboxesDefaultAssignee Mailbox[]       @relation("MailboxDefaultAssignee")
+  mailboxMemberships       MailboxMember[]
+  emailThreadsAssigned     EmailThread[]
+  emailMessagesSent        EmailMessage[]
+  emailComments            EmailComment[]
+
+  agentProfile        AgentProfile?
+  agentHostsCreated   AgentHost[]
+  commandRulesCreated AgentCommandRule[]
+  apiTokens           ApiToken[]         @relation("ApiTokenUser")
+  apiTokensCreated    ApiToken[]         @relation("ApiTokenCreatedBy")
+  agentRunsAsAgent    AgentRun[]         @relation("AgentRunAgent")
+  agentRunsTriggered  AgentRun[]         @relation("AgentRunTriggeredBy")
+  agentRunsCancelled  AgentRun[]         @relation("AgentRunCancelledBy")
+  approvalsDecided    AgentApproval[]
+
+  dashboards Dashboard[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  token     String   @unique
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+/// Better Auth rate-limit storage (`rateLimit.storage: "database"`).
+model RateLimit {
+  id          String @id @default(uuid(7)) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("auth_rate_limits")
+}
+
+// =============================================================================
+// Workspace, members, projects
+// =============================================================================
+
+model Workspace {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  slug                String    @unique
+  name                String
+  logoKey             String?
+  timezone            String    @default("Europe/Brussels")
+  weekStartsOn        Int       @default(1) // 0 = Sunday, 1 = Monday
+  /// Google Workspace domains whose users may sign in as members.
+  allowedEmailDomains String[]
+  /// Auto-create a MEMBER on first Google sign-in from an allowed domain.
+  autoJoinDomainUsers Boolean   @default(true)
+  settings            Json      @default("{}")
+  /// Global agent kill switch. Non-null = no new runs, running runs stopped.
+  agentPausedAt       DateTime? @db.Timestamptz(3)
+  agentPausedById     String?   @db.Uuid
+  agentPausedBy       User?     @relation("WorkspaceAgentPausedBy", fields: [agentPausedById], references: [id], onDelete: SetNull)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  members       WorkspaceMember[]
+  invites       WorkspaceInvite[]
+  projects      Project[]
+  workItemTypes WorkItemType[]
+  labels        Label[]
+  views         View[]
+  contacts      Contact[]
+  channels      Channel[]
+  notes         Note[]
+  tags          Tag[]
+  mailboxes     Mailbox[]
+  notifications Notification[]
+  agentProfiles AgentProfile[]
+  agentHosts    AgentHost[]
+  commandRules  AgentCommandRule[]
+  apiTokens     ApiToken[]
+  dashboards    Dashboard[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id                     String        @id @default(uuid(7)) @db.Uuid
+  workspaceId            String        @db.Uuid
+  workspace              Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId                 String        @db.Uuid
+  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                   WorkspaceRole @default(MEMBER)
+  status                 MemberStatus  @default(ACTIVE)
+  title                  String?
+  /// May approve/deny agent infrastructure actions (Admins always can).
+  canApproveAgentActions Boolean       @default(false)
+  /// UI preferences: density, home layout, shortcut hints, etc.
+  preferences            Json          @default("{}")
+  joinedAt               DateTime      @default(now()) @db.Timestamptz(3)
+  deactivatedAt          DateTime?     @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId, role])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvite {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  workspaceId    String        @db.Uuid
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email          String
+  role           WorkspaceRole
+  /// Projects the invitee joins on acceptance (with ProjectRole = role mapped).
+  projectIds     String[]      @db.Uuid
+  tokenHash      String        @unique
+  invitedById    String        @db.Uuid
+  invitedBy      User          @relation("InviteInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedUserId String?       @db.Uuid
+  acceptedUser   User?         @relation("InviteAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+  expiresAt      DateTime      @db.Timestamptz(3)
+  acceptedAt     DateTime?     @db.Timestamptz(3)
+  revokedAt      DateTime?     @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([workspaceId, email])
+  @@map("workspace_invites")
+}
+
+model Project {
+  id                   String            @id @default(uuid(7)) @db.Uuid
+  workspaceId          String            @db.Uuid
+  workspace            Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Work-item prefix, e.g. INFRA → INFRA-42. Uppercase A–Z0–9, 2–10 chars.
+  identifier           String
+  /// Old identifiers so `#OLD-12` references keep resolving after a rename.
+  previousIdentifiers  String[]
+  name                 String
+  description          Json?
+  icon                 String?
+  color                String?
+  leadId               String?           @db.Uuid
+  lead                 User?             @relation("ProjectLead", fields: [leadId], references: [id], onDelete: SetNull)
+  visibility           ProjectVisibility @default(WORKSPACE)
+  /// Guests who are project members may browse the project read-only.
+  guestsCanViewProject Boolean           @default(false)
+  intakeEnabled        Boolean           @default(true)
+  estimateSystem       EstimateSystem    @default(NONE)
+  /// Counters, incremented atomically (UPDATE … RETURNING) inside the tx.
+  nextSequence         Int               @default(1)
+  nextIntakeNumber     Int               @default(1)
+  /// Pointer to a View (no FK to avoid a Project↔View cycle; app-validated).
+  defaultViewId        String?           @db.Uuid
+  settings             Json              @default("{}")
+  createdById          String?           @db.Uuid
+  createdBy            User?             @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  archivedAt           DateTime?         @db.Timestamptz(3)
+  deletedAt            DateTime?         @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(3)
+
+  members         ProjectMember[]
+  states          WorkflowState[]
+  workItemTypes   WorkItemType[]
+  labels          Label[]
+  workItems       WorkItem[]
+  views           View[]
+  intakeForms     IntakeForm[]
+  intakeItems     IntakeItem[]
+  channel         Channel?
+  notes           Note[]
+  mailboxesIntake Mailbox[]
+  dashboards      Dashboard[]
+  dailyStats      ProjectDailyStat[]
+
+  @@unique([workspaceId, identifier])
+  @@index([workspaceId, archivedAt])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  projectId   String      @db.Uuid
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceId String      @db.Uuid
+  userId      String      @db.Uuid
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        ProjectRole @default(MEMBER)
+  /// This member's personal order of projects in the sidebar.
+  sortKey     String
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@unique([projectId, userId])
+  @@index([userId, workspaceId])
+  @@map("project_members")
+}
+
+model WorkflowState {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  projectId   String     @db.Uuid
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceId String     @db.Uuid
+  name        String
+  group       StateGroup
+  color       String
+  description String?
+  sortKey     String
+  /// Exactly one default per project (enforced in the domain layer).
+  isDefault   Boolean    @default(false)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(3)
+
+  workItems WorkItem[]
+
+  @@unique([projectId, name])
+  @@index([projectId, group])
+  @@map("workflow_states")
+}
+
+/// Configurable work-item types (task, bug, incident, request, feature, …).
+/// projectId = null → available in every project.
+model WorkItemType {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?   @db.Uuid
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  icon        String
+  color       String
+  description String?
+  isDefault   Boolean   @default(false)
+  sortKey     String
+  archivedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  workItems WorkItem[]
+
+  @@unique([workspaceId, projectId, name])
+  @@map("work_item_types")
+}
+
+/// Coloured labels. projectId = null → workspace label (email threads, notes,
+/// cross-project use). `color` is a tag-palette token (purple, red, …).
+model Label {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?   @db.Uuid
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId    String?   @db.Uuid
+  parent      Label?    @relation("LabelGroup", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Label[]   @relation("LabelGroup")
+  name        String
+  color       String
+  description String?
+  sortKey     String
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  workItems    WorkItemLabel[]
+  emailThreads EmailThreadLabel[]
+
+  @@unique([projectId, name])
+  @@index([workspaceId])
+  @@map("labels")
+}
+
+// =============================================================================
+// Work items
+// =============================================================================
+
+model WorkItem {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  workspaceId        String        @db.Uuid
+  projectId          String        @db.Uuid
+  project            Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Per-project number (INFRA-42). NULL while the item is a pending intake
+  /// submission; assigned on acceptance so declined spam never burns numbers.
+  sequence           Int?
+  title              String
+  description        Json?
+  descriptionText    String        @default("")
+  stateId            String        @db.Uuid
+  state              WorkflowState @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  /// Denormalized from state.group for fast filters, grouping and analytics.
+  stateGroup         StateGroup
+  priority           Priority      @default(NONE)
+  typeId             String?       @db.Uuid
+  type               WorkItemType? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  parentId           String?       @db.Uuid
+  parent             WorkItem?     @relation("WorkItemParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children           WorkItem[]    @relation("WorkItemParent")
+  /// Manual order within the project (board columns, list "manual" order).
+  sortKey            String
+  startDate          DateTime?     @db.Date
+  dueDate            DateTime?     @db.Date
+  estimate           Float?
+  origin             ItemOrigin    @default(APP)
+  /// Content came from outside the team (intake form, email, contact).
+  /// Agent runs that include this item are flagged untrusted.
+  untrusted          Boolean       @default(false)
+  trustReviewedById  String?       @db.Uuid
+  trustReviewedBy    User?         @relation("WorkItemTrustReviewedBy", fields: [trustReviewedById], references: [id], onDelete: SetNull)
+  trustReviewedAt    DateTime?     @db.Timestamptz(3)
+  createdById        String?       @db.Uuid
+  createdBy          User?         @relation("WorkItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdByContactId String?       @db.Uuid
+  createdByContact   Contact?      @relation(fields: [createdByContactId], references: [id], onDelete: SetNull)
+  /// First entry into a STARTED-group state (cycle time start).
+  startedAt          DateTime?     @db.Timestamptz(3)
+  /// Entry into COMPLETED group; cleared if reopened.
+  completedAt        DateTime?     @db.Timestamptz(3)
+  archivedAt         DateTime?     @db.Timestamptz(3)
+  deletedAt          DateTime?     @db.Timestamptz(3)
+  // Denormalized counters maintained by the domain layer (recomputable).
+  childCount         Int           @default(0)
+  childDoneCount     Int           @default(0)
+  commentCount       Int           @default(0)
+  attachmentCount    Int           @default(0)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+
+  assignees        WorkItemAssignee[]
+  labels           WorkItemLabel[]
+  subscribers      WorkItemSubscriber[]
+  relationsOut     WorkItemRelation[]   @relation("RelationSource")
+  relationsIn      WorkItemRelation[]   @relation("RelationTarget")
+  links            WorkItemLink[]
+  references       WorkItemReference[]
+  comments         Comment[]
+  attachments      Attachment[]
+  activities       Activity[]
+  intakeItem       IntakeItem?          @relation("IntakeWorkItem")
+  intakeDuplicates IntakeItem[]         @relation("IntakeDuplicateOf")
+  notifications    Notification[]
+  notes            Note[]
+  noteTodos        NoteTodo[]
+  agentRuns        AgentRun[]
+
+  @@unique([projectId, sequence])
+  @@index([projectId, stateId])
+  @@index([projectId, stateGroup])
+  @@index([projectId, priority])
+  @@index([projectId, typeId])
+  @@index([projectId, sortKey])
+  @@index([projectId, startDate])
+  @@index([projectId, dueDate])
+  @@index([projectId, createdAt])
+  @@index([projectId, updatedAt])
+  @@index([projectId, completedAt])
+  @@index([workspaceId, stateGroup, dueDate])
+  @@index([workspaceId, updatedAt])
+  @@index([workspaceId, completedAt])
+  @@index([parentId])
+  @@index([createdById])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("work_items")
+}
+
+model WorkItemAssignee {
+  workItemId   String   @db.Uuid
+  workItem     WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  userId       String   @db.Uuid
+  user         User     @relation("AssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId  String   @db.Uuid
+  assignedById String?  @db.Uuid
+  assignedBy   User?    @relation("AssigneeAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([workItemId, userId])
+  @@index([userId, workspaceId])
+  @@map("work_item_assignees")
+}
+
+model WorkItemLabel {
+  workItemId  String   @db.Uuid
+  workItem    WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  labelId     String   @db.Uuid
+  label       Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  workspaceId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([workItemId, labelId])
+  @@index([labelId])
+  @@map("work_item_labels")
+}
+
+model WorkItemSubscriber {
+  workItemId  String             @db.Uuid
+  workItem    WorkItem           @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  userId      String             @db.Uuid
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String             @db.Uuid
+  reason      SubscriptionReason
+  /// Explicit unsubscribe — prevents auto re-subscribe on later activity.
+  muted       Boolean            @default(false)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+
+  @@id([workItemId, userId])
+  @@index([userId])
+  @@map("work_item_subscribers")
+}
+
+model WorkItemRelation {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  workspaceId String       @db.Uuid
+  sourceId    String       @db.Uuid
+  source      WorkItem     @relation("RelationSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetId    String       @db.Uuid
+  target      WorkItem     @relation("RelationTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  type        RelationType
+  createdById String?      @db.Uuid
+  createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@unique([sourceId, targetId, type])
+  @@index([targetId, type])
+  @@map("work_item_relations")
+}
+
+/// External URLs attached to a work item.
+model WorkItemLink {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  workItemId  String   @db.Uuid
+  workItem    WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  url         String
+  title       String?
+  metadata    Json     @default("{}")
+  createdById String?  @db.Uuid
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([workItemId])
+  @@map("work_item_links")
+}
+
+/// "One place": links a work item to chat messages, notes, email threads and
+/// comments on other items. Exactly one source FK is set (CHECK in migration).
+model WorkItemReference {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  workspaceId   String        @db.Uuid
+  workItemId    String        @db.Uuid
+  workItem      WorkItem      @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  kind          ReferenceKind
+  sourceType    EntityType
+  messageId     String?       @db.Uuid
+  message       Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  noteId        String?       @db.Uuid
+  note          Note?         @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteTodoId    String?       @db.Uuid
+  noteTodo      NoteTodo?     @relation(fields: [noteTodoId], references: [id], onDelete: SetNull)
+  emailThreadId String?       @db.Uuid
+  emailThread   EmailThread?  @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+  commentId     String?       @db.Uuid
+  comment       Comment?      @relation("CommentReferences", fields: [commentId], references: [id], onDelete: Cascade)
+  createdById   String?       @db.Uuid
+  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([workItemId, messageId])
+  @@unique([workItemId, noteId])
+  @@unique([workItemId, emailThreadId])
+  @@unique([workItemId, commentId])
+  @@index([workItemId, createdAt])
+  @@index([messageId])
+  @@index([noteId])
+  @@index([emailThreadId])
+  @@map("work_item_references")
+}
+
+model Comment {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  workspaceId     String            @db.Uuid
+  projectId       String            @db.Uuid
+  workItemId      String            @db.Uuid
+  workItem        WorkItem          @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  authorId        String?           @db.Uuid
+  author          User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  /// Set when an external contact replied from the status page.
+  authorContactId String?           @db.Uuid
+  authorContact   Contact?          @relation(fields: [authorContactId], references: [id], onDelete: SetNull)
+  visibility      CommentVisibility @default(INTERNAL)
+  body            Json
+  bodyText        String
+  /// Optional reply threading (flat in the UI for now).
+  parentId        String?           @db.Uuid
+  parent          Comment?          @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies         Comment[]         @relation("CommentReplies")
+  /// Posted by the AI teammate as part of this run.
+  agentRunId      String?           @db.Uuid
+  agentRun        AgentRun?         @relation("AgentRunComments", fields: [agentRunId], references: [id], onDelete: SetNull)
+  editedAt        DateTime?         @db.Timestamptz(3)
+  deletedAt       DateTime?         @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(3)
+
+  reactions          Reaction[]
+  attachments        Attachment[]
+  references         WorkItemReference[] @relation("CommentReferences")
+  agentRunsTriggered AgentRun[]          @relation("AgentRunTriggerComment")
+
+  @@index([workItemId, createdAt])
+  @@index([authorId])
+  @@map("comments")
+}
+
+/// Emoji reactions on comments, chat messages and internal email comments.
+/// Exactly one target FK is set (CHECK in migration).
+model Reaction {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  workspaceId    String        @db.Uuid
+  userId         String        @db.Uuid
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji          String
+  commentId      String?       @db.Uuid
+  comment        Comment?      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  messageId      String?       @db.Uuid
+  message        Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  emailCommentId String?       @db.Uuid
+  emailComment   EmailComment? @relation(fields: [emailCommentId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, emoji, commentId])
+  @@unique([userId, emoji, messageId])
+  @@unique([userId, emoji, emailCommentId])
+  @@index([commentId])
+  @@index([messageId])
+  @@index([emailCommentId])
+  @@map("reactions")
+}
+
+/// Files in object storage. Exactly one owner FK is set once READY
+/// (CHECK in migration); PENDING/QUARANTINED uploads may have none yet.
+model Attachment {
+  id                  String            @id @default(uuid(7)) @db.Uuid
+  workspaceId         String            @db.Uuid
+  storageKey          String            @unique
+  filename            String
+  mimeType            String
+  size                Int
+  checksumSha256      String?
+  status              AttachmentStatus  @default(PENDING)
+  width               Int?
+  height              Int?
+  uploadedById        String?           @db.Uuid
+  uploadedBy          User?             @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedByContactId String?           @db.Uuid
+  uploadedByContact   Contact?          @relation(fields: [uploadedByContactId], references: [id], onDelete: SetNull)
+  workItemId          String?           @db.Uuid
+  workItem            WorkItem?         @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  commentId           String?           @db.Uuid
+  comment             Comment?          @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  messageId           String?           @db.Uuid
+  message             Message?          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  noteId              String?           @db.Uuid
+  note                Note?             @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  intakeSubmissionId  String?           @db.Uuid
+  intakeSubmission    IntakeSubmission? @relation(fields: [intakeSubmissionId], references: [id], onDelete: Cascade)
+  emailCommentId      String?           @db.Uuid
+  emailComment        EmailComment?     @relation(fields: [emailCommentId], references: [id], onDelete: Cascade)
+  deletedAt           DateTime?         @db.Timestamptz(3)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@index([workItemId])
+  @@index([commentId])
+  @@index([messageId])
+  @@index([noteId])
+  @@index([intakeSubmissionId])
+  @@index([emailCommentId])
+  @@index([status, createdAt])
+  @@map("attachments")
+}
+
+/// Append-only history. Every mutation writes one or more rows in the same
+/// transaction as the change. Rendered in timelines; also feeds analytics
+/// (state transitions) and the realtime outbox.
+model Activity {
+  id             String     @id @default(uuid(7)) @db.Uuid
+  workspaceId    String     @db.Uuid
+  projectId      String?    @db.Uuid
+  workItemId     String?    @db.Uuid
+  workItem       WorkItem?  @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  entityType     EntityType
+  entityId       String     @db.Uuid
+  /// created | updated | deleted | restored | archived | unarchived |
+  /// commented | linked | unlinked | converted | triaged | …
+  verb           String
+  field          String?
+  fromValue      Json?
+  toValue        Json?
+  /// Snapshots (names/colours at the time) so history survives renames.
+  meta           Json       @default("{}")
+  actorType      ActorType
+  actorId        String?    @db.Uuid
+  actor          User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorContactId String?    @db.Uuid
+  agentRunId     String?    @db.Uuid
+  /// Groups rows produced by one bulk action / one request.
+  batchId        String?    @db.Uuid
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([workItemId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([projectId, field, createdAt])
+  @@map("activities")
+}
+
+// =============================================================================
+// Views, preferences, favorites
+// =============================================================================
+
+/// Saved views. projectId = null → workspace (cross-project) view.
+model View {
+  id             String     @id @default(uuid(7)) @db.Uuid
+  workspaceId    String     @db.Uuid
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId      String?    @db.Uuid
+  project        Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId        String     @db.Uuid
+  owner          User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  icon           String?
+  visibility     Visibility @default(PRIVATE)
+  layout         ViewLayout @default(LIST)
+  /// Filter AST (zod: FilterGroupSchema in @dopl/shared).
+  filters        Json       @default("{}")
+  /// groupBy, subGroupBy, orderBy, showSubItems, showEmptyGroups,
+  /// visibleProperties, density, column widths/order, calendar/timeline zoom.
+  displayOptions Json       @default("{}")
+  sortKey        String
+  isLocked       Boolean    @default(false)
+  archivedAt     DateTime?  @db.Timestamptz(3)
+  deletedAt      DateTime?  @db.Timestamptz(3)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+
+  @@index([workspaceId, projectId])
+  @@index([ownerId])
+  @@map("views")
+}
+
+/// A user's last-used (unsaved) layout/filters/display options per scope,
+/// e.g. "project:<id>", "view:<id>", "my-work", "workspace-items".
+model ViewPreference {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  userId         String      @db.Uuid
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId    String      @db.Uuid
+  scope          String
+  layout         ViewLayout?
+  filters        Json        @default("{}")
+  displayOptions Json        @default("{}")
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@unique([userId, scope])
+  @@map("view_preferences")
+}
+
+/// Sidebar pins (projects, views, items, notes, channels…).
+model Favorite {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  userId      String     @db.Uuid
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String     @db.Uuid
+  entityType  EntityType
+  entityId    String     @db.Uuid
+  sortKey     String
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, entityType, entityId])
+  @@map("favorites")
+}
+
+/// Powers "recent" in the ⌘K palette.
+model RecentVisit {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  userId      String     @db.Uuid
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String     @db.Uuid
+  entityType  EntityType
+  entityId    String     @db.Uuid
+  visitedAt   DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId, visitedAt])
+  @@map("recent_visits")
+}
+
+// =============================================================================
+// Contacts & intake
+// =============================================================================
+
+/// External person without an account. One per (workspace, email).
+model Contact {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  workspaceId     String      @db.Uuid
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email           String
+  /// lower(trim(email)); the uniqueness key.
+  emailNormalized String
+  name            String?
+  organization    String?
+  phone           String?
+  notes           String?
+  /// Linked when the same person later gets a guest account.
+  userId          String?     @db.Uuid
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstSource     ItemOrigin?
+  blockedAt       DateTime?   @db.Timestamptz(3)
+  lastSeenAt      DateTime?   @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(3)
+
+  accessTokens     ContactAccessToken[]
+  intakeItems      IntakeItem[]
+  submissions      IntakeSubmission[]
+  workItemsCreated WorkItem[]
+  comments         Comment[]
+  attachments      Attachment[]
+  emailThreads     EmailThread[]
+  emailMessages    EmailMessage[]
+
+  @@unique([workspaceId, emailNormalized])
+  @@index([emailNormalized(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("contacts")
+}
+
+/// Magic-link access for a contact's status page (`/s/<token>`).
+/// Only the SHA-256 of the token is stored.
+model ContactAccessToken {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  workspaceId  String      @db.Uuid
+  contactId    String      @db.Uuid
+  contact      Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  /// Scope: one submission (null = all of this contact's submissions).
+  intakeItemId String?     @db.Uuid
+  intakeItem   IntakeItem? @relation(fields: [intakeItemId], references: [id], onDelete: Cascade)
+  tokenHash    String      @unique
+  expiresAt    DateTime    @db.Timestamptz(3)
+  lastUsedAt   DateTime?   @db.Timestamptz(3)
+  revokedAt    DateTime?   @db.Timestamptz(3)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([contactId])
+  @@map("contact_access_tokens")
+}
+
+model IntakeForm {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  projectId   String    @db.Uuid
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Public URL: /f/<slug>
+  slug        String    @unique
+  title       String
+  description Json?
+  isPublished Boolean   @default(false)
+  /// successMessage, defaults (type/priority/labels/assignees), notify list,
+  /// turnstileEnabled, allowedEmbedOrigins, maxFileSizeMb, allowedMimeTypes,
+  /// rateLimit overrides, confirmation email copy.
+  settings    Json      @default("{}")
+  /// Embed button text/position, accent override (token name only).
+  theme       Json      @default("{}")
+  createdById String?   @db.Uuid
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  archivedAt  DateTime? @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  fields      IntakeFormField[]
+  submissions IntakeSubmission[]
+  intakeItems IntakeItem[]
+
+  @@index([projectId])
+  @@map("intake_forms")
+}
+
+model IntakeFormField {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  formId      String          @db.Uuid
+  form        IntakeForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  /// Stable machine key; submissions store values under it.
+  key         String
+  label       String
+  type        FormFieldType
+  required    Boolean         @default(false)
+  helpText    String?
+  placeholder String?
+  /// Select options, file limits, etc.
+  options     Json            @default("[]")
+  validation  Json            @default("{}")
+  target      FormFieldTarget @default(NONE)
+  sortKey     String
+  /// Removed fields are archived (old submissions still reference them).
+  archivedAt  DateTime?       @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@unique([formId, key])
+  @@map("intake_form_fields")
+}
+
+/// Triage record. Every intake submission is backed by a WorkItem in the
+/// project's TRIAGE state so comments, attachments and the timeline work
+/// identically before and after acceptance.
+model IntakeItem {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  workspaceId     String       @db.Uuid
+  projectId       String       @db.Uuid
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Per-project intake number, shown as "Intake #12" until accepted.
+  number          Int
+  workItemId      String       @unique @db.Uuid
+  workItem        WorkItem     @relation("IntakeWorkItem", fields: [workItemId], references: [id], onDelete: Cascade)
+  status          IntakeStatus @default(PENDING)
+  source          IntakeSource
+  formId          String?      @db.Uuid
+  form            IntakeForm?  @relation(fields: [formId], references: [id], onDelete: SetNull)
+  submitterUserId String?      @db.Uuid
+  submitterUser   User?        @relation("IntakeSubmitter", fields: [submitterUserId], references: [id], onDelete: SetNull)
+  contactId       String?      @db.Uuid
+  contact         Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  emailThreadId   String?      @db.Uuid
+  emailThread     EmailThread? @relation(fields: [emailThreadId], references: [id], onDelete: SetNull)
+  snoozedUntil    DateTime?    @db.Timestamptz(3)
+  duplicateOfId   String?      @db.Uuid
+  duplicateOf     WorkItem?    @relation("IntakeDuplicateOf", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  declineReason   String?
+  triagedById     String?      @db.Uuid
+  triagedBy       User?        @relation("IntakeTriagedBy", fields: [triagedById], references: [id], onDelete: SetNull)
+  triagedAt       DateTime?    @db.Timestamptz(3)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
+
+  submission   IntakeSubmission?
+  accessTokens ContactAccessToken[]
+
+  @@unique([projectId, number])
+  @@index([projectId, status, createdAt])
+  @@index([contactId])
+  @@index([submitterUserId])
+  @@map("intake_items")
+}
+
+model IntakeSubmission {
+  id                 String     @id @default(uuid(7)) @db.Uuid
+  workspaceId        String     @db.Uuid
+  formId             String     @db.Uuid
+  form               IntakeForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  intakeItemId       String     @unique @db.Uuid
+  intakeItem         IntakeItem @relation(fields: [intakeItemId], references: [id], onDelete: Cascade)
+  contactId          String?    @db.Uuid
+  contact            Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  /// Client-generated id; makes retries/double-clicks idempotent.
+  clientSubmissionId String     @unique
+  /// { [fieldKey]: value }
+  values             Json
+  /// Field labels/types at submit time (forms change later).
+  fieldSnapshot      Json
+  ipHash             String?
+  userAgent          String?
+  embedOrigin        String?
+  turnstileVerified  Boolean    @default(false)
+  spamSignals        Json       @default("{}")
+  createdAt          DateTime   @default(now()) @db.Timestamptz(3)
+
+  attachments Attachment[]
+
+  @@index([formId, createdAt])
+  @@map("intake_submissions")
+}
+
+// =============================================================================
+// Inbox (notifications), outbound email, realtime
+// =============================================================================
+
+model Notification {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  workspaceId     String           @db.Uuid
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  recipientId     String           @db.Uuid
+  recipient       User             @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actorId         String?          @db.Uuid
+  actor           User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type            NotificationType
+  entityType      EntityType
+  entityId        String           @db.Uuid
+  projectId       String?          @db.Uuid
+  workItemId      String?          @db.Uuid
+  workItem        WorkItem?        @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  emailThreadId   String?          @db.Uuid
+  messageId       String?          @db.Uuid
+  agentApprovalId String?          @db.Uuid
+  /// Collapses repeated updates on one entity into a single inbox row.
+  groupKey        String?
+  /// Render payload (titles, identifiers, changed fields, excerpt).
+  data            Json             @default("{}")
+  readAt          DateTime?        @db.Timestamptz(3)
+  archivedAt      DateTime?        @db.Timestamptz(3)
+  snoozedUntil    DateTime?        @db.Timestamptz(3)
+  emailedAt       DateTime?        @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([recipientId, archivedAt, createdAt])
+  @@index([recipientId, readAt])
+  @@index([recipientId, groupKey])
+  @@index([workItemId])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  userId      String           @db.Uuid
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String           @db.Uuid
+  /// null = workspace-wide default for this user.
+  projectId   String?          @db.Uuid
+  type        NotificationType
+  inApp       Boolean          @default(true)
+  email       Boolean          @default(false)
+
+  @@unique([userId, workspaceId, projectId, type])
+  @@map("notification_preferences")
+}
+
+/// Transactional email outbox (confirmations, magic links, digests, declines).
+model OutboundEmail {
+  id                String         @id @default(uuid(7)) @db.Uuid
+  workspaceId       String?        @db.Uuid
+  /// e.g. intake.confirmation, intake.declined, auth.magic_link, inbox.digest
+  kind              String
+  toAddress         String
+  subject           String
+  templateKey       String
+  payload           Json
+  status            OutboundStatus @default(QUEUED)
+  providerMessageId String?
+  error             String?
+  attempts          Int            @default(0)
+  contactId         String?        @db.Uuid
+  userId            String?        @db.Uuid
+  sentAt            DateTime?      @db.Timestamptz(3)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@map("outbound_emails")
+}
+
+/// Transactional outbox for realtime. Inserted in the same transaction as
+/// the mutation; `pg_notify('dopl_realtime', id)` fires on commit. Also
+/// serves SSE `Last-Event-ID` replay. Pruned after 24h.
+model RealtimeEvent {
+  id          BigInt   @id @default(autoincrement())
+  workspaceId String   @db.Uuid
+  /// e.g. project:<id>, workItem:<id>, user:<id>, channel:<id>, mailbox:<id>
+  topic       String
+  type        String
+  payload     Json
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([workspaceId, id])
+  @@index([createdAt])
+  @@map("realtime_events")
+}
+
+/// Collision indicators ("Alex is replying…"). Heartbeat rows with a TTL.
+/// Typing indicators in chat are NOTIFY-only and never stored.
+model Presence {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// e.g. emailThread:<id>, workItem:<id>
+  resourceKey String
+  state       PresenceState
+  expiresAt   DateTime      @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([userId, resourceKey])
+  @@index([resourceKey, expiresAt])
+  @@map("presences")
+}
+
+/// Fixed-window counters for public endpoints (no Redis).
+model RateLimitCounter {
+  key         String
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int      @default(0)
+  expiresAt   DateTime @db.Timestamptz(3)
+
+  @@id([key, windowStart])
+  @@index([expiresAt])
+  @@map("rate_limit_counters")
+}
+
+// =============================================================================
+// Messages (team chat)
+// =============================================================================
+
+model Channel {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  workspaceId   String      @db.Uuid
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  kind          ChannelKind
+  /// Set for kind = PROJECT (auto-created with the project).
+  projectId     String?     @unique @db.Uuid
+  project       Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String?
+  slug          String?
+  topic         String?
+  description   String?
+  isPrivate     Boolean     @default(false)
+  /// Sorted participant ids joined with ":" — makes DMs unique.
+  dmKey         String?     @unique
+  createdById   String?     @db.Uuid
+  createdBy     User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lastMessageAt DateTime?   @db.Timestamptz(3)
+  archivedAt    DateTime?   @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
+
+  members   ChannelMember[]
+  messages  Message[]
+  agentRuns AgentRun[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, kind])
+  @@map("channels")
+}
+
+model ChannelMember {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  channelId   String             @db.Uuid
+  channel     Channel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId      String             @db.Uuid
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String             @db.Uuid
+  role        ChannelRole        @default(MEMBER)
+  notifyLevel ChannelNotifyLevel @default(ALL)
+  /// Unread = messages in channel with createdAt > lastReadAt.
+  lastReadAt  DateTime?          @db.Timestamptz(3)
+  mutedUntil  DateTime?          @db.Timestamptz(3)
+  /// DMs closed from the sidebar (reopen on new message).
+  hiddenAt    DateTime?          @db.Timestamptz(3)
+  joinedAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  @@unique([channelId, userId])
+  @@index([userId, workspaceId])
+  @@map("channel_members")
+}
+
+model Message {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  workspaceId  String      @db.Uuid
+  channelId    String      @db.Uuid
+  channel      Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId     String?     @db.Uuid
+  author       User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  kind         MessageKind @default(USER)
+  /// Thread replies point at the root message.
+  threadRootId String?     @db.Uuid
+  threadRoot   Message?    @relation("MessageThread", fields: [threadRootId], references: [id], onDelete: Cascade)
+  replies      Message[]   @relation("MessageThread")
+  body         Json
+  bodyText     String
+  replyCount   Int         @default(0)
+  lastReplyAt  DateTime?   @db.Timestamptz(3)
+  agentRunId   String?     @db.Uuid
+  agentRun     AgentRun?   @relation("AgentRunMessages", fields: [agentRunId], references: [id], onDelete: SetNull)
+  editedAt     DateTime?   @db.Timestamptz(3)
+  deletedAt    DateTime?   @db.Timestamptz(3)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+
+  reactions          Reaction[]
+  attachments        Attachment[]
+  references         WorkItemReference[]
+  followers          ThreadFollower[]
+  agentRunsTriggered AgentRun[]          @relation("AgentRunTriggerMessage")
+
+  @@index([channelId, createdAt])
+  @@index([threadRootId, createdAt])
+  @@index([bodyText(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("messages")
+}
+
+model ThreadFollower {
+  messageId  String    @db.Uuid
+  message    Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("thread_followers")
+}
+
+// =============================================================================
+// Notes, tags, personal to-dos
+// =============================================================================
+
+model Note {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  workspaceId    String         @db.Uuid
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ownerId        String         @db.Uuid
+  owner          User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  content        Json
+  contentText    String         @default("")
+  /// Tag-palette token (null = plain white card).
+  color          String?
+  visibility     NoteVisibility @default(PRIVATE)
+  /// Attaching makes the note visible to that project's members.
+  projectId      String?        @db.Uuid
+  project        Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workItemId     String?        @db.Uuid
+  workItem       WorkItem?      @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  pinnedAt       DateTime?      @db.Timestamptz(3)
+  archivedAt     DateTime?      @db.Timestamptz(3)
+  deletedAt      DateTime?      @db.Timestamptz(3)
+  // To-do projection summary (kept in sync with NoteTodo).
+  hasTodos       Boolean        @default(false)
+  openTodoCount  Int            @default(0)
+  // Daily review / resurfacing.
+  lastReviewedAt DateTime?      @db.Timestamptz(3)
+  nextReviewAt   DateTime?      @db.Timestamptz(3)
+  reviewCount    Int            @default(0)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+
+  tags        NoteTag[]
+  todos       NoteTodo[]
+  attachments Attachment[]
+  references  WorkItemReference[]
+
+  @@index([ownerId, deletedAt, archivedAt, updatedAt])
+  @@index([ownerId, nextReviewAt])
+  @@index([workspaceId, visibility])
+  @@index([projectId])
+  @@index([workItemId])
+  @@index([contentText(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("notes")
+}
+
+/// Hierarchical tags written inline (`#infra/proxmox`). Per owner.
+model Tag {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ownerId     String    @db.Uuid
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  /// Full lowercase path, e.g. "infra/proxmox".
+  path        String
+  /// Last segment, e.g. "proxmox".
+  name        String
+  parentId    String?   @db.Uuid
+  parent      Tag?      @relation("TagTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Tag[]     @relation("TagTree")
+  icon        String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  notes NoteTag[]
+
+  @@unique([ownerId, path])
+  @@map("tags")
+}
+
+model NoteTag {
+  noteId String @db.Uuid
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tagId  String @db.Uuid
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@index([tagId])
+  @@map("note_tags")
+}
+
+/// Projection of checkbox items inside a note's content (content is the
+/// source of truth; rows are keyed by the task node's stable `blockId`).
+model NoteTodo {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  noteId      String    @db.Uuid
+  note        Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  ownerId     String    @db.Uuid
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  blockId     String
+  text        String
+  checked     Boolean   @default(false)
+  checkedAt   DateTime? @db.Timestamptz(3)
+  position    Int
+  dueDate     DateTime? @db.Date
+  /// Set when this line was converted into a work item.
+  workItemId  String?   @db.Uuid
+  workItem    WorkItem? @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  references WorkItemReference[]
+
+  @@unique([noteId, blockId])
+  @@index([ownerId, checked, dueDate])
+  @@map("note_todos")
+}
+
+// Semantic-search vectors are deliberately NOT modelled here. They live in
+// `search.embeddings` (separate Postgres schema, created by a hand-written
+// migration with an HNSW index). Prisma cannot express HNSW indexes and would
+// try to drop them on every `migrate dev`; keeping the table outside the
+// `public` schema makes it invisible to Prisma's diffing. Access it through
+// packages/db/src/search/*.ts (raw SQL). See docs/DATA_MODEL.md §Search.
+
+// =============================================================================
+// Shared mailbox (Google Workspace / Gmail)
+// =============================================================================
+
+model Mailbox {
+  id                  String        @id @default(uuid(7)) @db.Uuid
+  workspaceId         String        @db.Uuid
+  workspace           Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Must be a real user mailbox (not a Google Group address).
+  emailAddress        String
+  displayName         String?
+  provider            MailProvider  @default(GMAIL)
+  status              MailboxStatus @default(CONNECTING)
+  // --- sync state (owned by the worker) ---
+  historyId           String?
+  backfillDays        Int           @default(90)
+  backfillPageToken   String?
+  backfillCompletedAt DateTime?     @db.Timestamptz(3)
+  lastSyncedAt        DateTime?     @db.Timestamptz(3)
+  lastFullSyncAt      DateTime?     @db.Timestamptz(3)
+  watchExpiresAt      DateTime?     @db.Timestamptz(3)
+  syncError           String?
+  syncErrorAt         DateTime?     @db.Timestamptz(3)
+  // --- behaviour ---
+  mirrorLabels        Boolean       @default(false)
+  /// Dopl status → Gmail label id, e.g. { "SOLVED": "Label_123" }.
+  gmailLabelMap       Json          @default("{}")
+  sendEnabled         Boolean       @default(false)
+  intakeProjectId     String?       @db.Uuid
+  intakeProject       Project?      @relation(fields: [intakeProjectId], references: [id], onDelete: SetNull)
+  defaultAssigneeId   String?       @db.Uuid
+  defaultAssignee     User?         @relation("MailboxDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+  createdById         String?       @db.Uuid
+  createdBy           User?         @relation("MailboxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  deletedAt           DateTime?     @db.Timestamptz(3)
+  createdAt           DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
+
+  members  MailboxMember[]
+  threads  EmailThread[]
+  syncLogs MailboxSyncLog[]
+
+  @@unique([workspaceId, emailAddress])
+  @@map("mailboxes")
+}
+
+/// Who can see and work a mailbox (workspace admins always can).
+model MailboxMember {
+  mailboxId   String   @db.Uuid
+  mailbox     Mailbox  @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([mailboxId, userId])
+  @@index([userId])
+  @@map("mailbox_members")
+}
+
+model MailboxSyncLog {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  mailboxId     String          @db.Uuid
+  mailbox       Mailbox         @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  kind          MailboxSyncKind
+  fromHistoryId String?
+  toHistoryId   String?
+  /// messagesAdded, labelsChanged, deleted, pages, durationMs…
+  stats         Json            @default("{}")
+  error         String?
+  startedAt     DateTime        @default(now()) @db.Timestamptz(3)
+  finishedAt    DateTime?       @db.Timestamptz(3)
+
+  @@index([mailboxId, startedAt])
+  @@map("mailbox_sync_logs")
+}
+
+model EmailThread {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  workspaceId      String            @db.Uuid
+  mailboxId        String            @db.Uuid
+  mailbox          Mailbox           @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  gmailThreadId    String
+  subject          String
+  snippet          String            @default("")
+  status           EmailThreadStatus @default(OPEN)
+  assigneeId       String?           @db.Uuid
+  assignee         User?             @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  /// Primary external correspondent.
+  contactId        String?           @db.Uuid
+  contact          Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  snoozedUntil     DateTime?         @db.Timestamptz(3)
+  lastMessageAt    DateTime          @db.Timestamptz(3)
+  lastInboundAt    DateTime?         @db.Timestamptz(3)
+  lastOutboundAt   DateTime?         @db.Timestamptz(3)
+  /// First outbound after the first inbound — SLA analytics.
+  firstResponseAt  DateTime?         @db.Timestamptz(3)
+  solvedAt         DateTime?         @db.Timestamptz(3)
+  messageCount     Int               @default(0)
+  unreadInGmail    Boolean           @default(false)
+  hasAttachments   Boolean           @default(false)
+  gmailLabelIds    String[]
+  /// [{ email, name, contactId? }]
+  participants     Json              @default("[]")
+  deletedInGmailAt DateTime?         @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  messages    EmailMessage[]
+  comments    EmailComment[]
+  labels      EmailThreadLabel[]
+  references  WorkItemReference[]
+  intakeItems IntakeItem[]
+  agentRuns   AgentRun[]
+
+  @@unique([mailboxId, gmailThreadId])
+  @@index([mailboxId, status, lastMessageAt])
+  @@index([assigneeId, status])
+  @@index([workspaceId, lastMessageAt])
+  @@index([contactId])
+  @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("email_threads")
+}
+
+model EmailThreadLabel {
+  threadId String      @db.Uuid
+  thread   EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  labelId  String      @db.Uuid
+  label    Label       @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, labelId])
+  @@index([labelId])
+  @@map("email_thread_labels")
+}
+
+model EmailMessage {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  workspaceId       String          @db.Uuid
+  mailboxId         String          @db.Uuid
+  threadId          String          @db.Uuid
+  thread            EmailThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  /// NULL for an outbound reply that has not been accepted by Gmail yet.
+  gmailMessageId    String?
+  /// RFC 5322 Message-ID header (threading + cross-mailbox dedupe).
+  rfc822MessageId   String?
+  inReplyTo         String?
+  references        String[]
+  direction         EmailDirection
+  fromAddress       String
+  fromName          String?
+  /// [{ email, name }]
+  toAddresses       Json            @default("[]")
+  ccAddresses       Json            @default("[]")
+  bccAddresses      Json            @default("[]")
+  replyTo           String?
+  subject           String
+  snippet           String          @default("")
+  bodyText          String?
+  /// Raw HTML as received — never rendered directly.
+  bodyHtmlRaw       String?
+  /// Sanitized at ingest (DOMPurify, remote images rewritten); rendered in a
+  /// sandboxed iframe only.
+  bodyHtmlSanitized String?
+  hasRemoteImages   Boolean         @default(false)
+  sentAt            DateTime        @db.Timestamptz(3)
+  gmailLabelIds     String[]
+  sizeEstimate      Int?
+  contactId         String?         @db.Uuid
+  contact           Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  /// Outbound replies sent from Dopl.
+  sentById          String?         @db.Uuid
+  sentBy            User?           @relation(fields: [sentById], references: [id], onDelete: SetNull)
+  outboundStatus    OutboundStatus?
+  outboundError     String?
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+
+  attachments EmailAttachment[]
+
+  @@unique([mailboxId, gmailMessageId])
+  @@index([threadId, sentAt])
+  @@index([rfc822MessageId])
+  @@map("email_messages")
+}
+
+/// Metadata only; bytes are fetched lazily by the worker and cached in
+/// object storage (storageKey) on first open.
+model EmailAttachment {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  messageId         String       @db.Uuid
+  message           EmailMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  gmailAttachmentId String?
+  filename          String
+  mimeType          String
+  size              Int
+  /// Inline image reference (cid:…)
+  contentId         String?
+  isInline          Boolean      @default(false)
+  storageKey        String?
+  fetchedAt         DateTime?    @db.Timestamptz(3)
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([messageId])
+  @@map("email_attachments")
+}
+
+/// Internal team comments interleaved with the email thread (never sent).
+model EmailComment {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  workspaceId String      @db.Uuid
+  threadId    String      @db.Uuid
+  thread      EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId    String?     @db.Uuid
+  author      User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  body        Json
+  bodyText    String
+  editedAt    DateTime?   @db.Timestamptz(3)
+  deletedAt   DateTime?   @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  reactions   Reaction[]
+  attachments Attachment[]
+
+  @@index([threadId, createdAt])
+  @@map("email_comments")
+}
+
+// =============================================================================
+// AI teammate
+// =============================================================================
+
+/// Runtime configuration for an agent member (User.kind = AGENT).
+/// Secrets are referenced by env-var NAME, never stored.
+model AgentProfile {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  workspaceId        String           @db.Uuid
+  workspace          Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId             String           @unique @db.Uuid
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runtime            AgentRuntimeKind @default(HERMES)
+  baseUrl            String
+  /// Name of the env var holding the runtime bearer key, e.g. HERMES_API_KEY.
+  apiKeyEnv          String
+  model              String?
+  instructions       String?
+  status             AgentStatus      @default(ACTIVE)
+  maxConcurrentRuns  Int              @default(1)
+  runTimeoutSec      Int              @default(1800)
+  approvalTimeoutSec Int              @default(3600)
+  settings           Json             @default("{}")
+  createdAt          DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@map("agent_profiles")
+}
+
+/// Host allowlist. Anything not listed here is unreachable for the agent.
+model AgentHost {
+  id                    String          @id @default(uuid(7)) @db.Uuid
+  workspaceId           String          @db.Uuid
+  workspace             Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name                  String
+  hostname              String
+  /// Warpgate target name the SSH session is routed to.
+  warpgateTarget        String
+  environment           HostEnvironment @default(LAB)
+  description           String?
+  tags                  String[]
+  enabled               Boolean         @default(true)
+  /// Ignore the read-only allowlist for this host (e.g. production).
+  alwaysRequireApproval Boolean         @default(false)
+  createdById           String?         @db.Uuid
+  createdBy             User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt             DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @db.Timestamptz(3)
+
+  commandRules AgentCommandRule[]
+  steps        AgentRunStep[]
+  approvals    AgentApproval[]
+
+  @@unique([workspaceId, name])
+  @@map("agent_hosts")
+}
+
+model AgentCommandRule {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  workspaceId String          @db.Uuid
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  kind        CommandRuleKind
+  /// Anchored regex over the full, normalized command line.
+  pattern     String
+  description String?
+  /// null = applies to every host.
+  hostId      String?         @db.Uuid
+  host        AgentHost?      @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  enabled     Boolean         @default(true)
+  createdById String?         @db.Uuid
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@index([workspaceId, kind])
+  @@map("agent_command_rules")
+}
+
+/// Bearer tokens for Dopl's MCP server (agents) and personal API access.
+/// Only the SHA-256 hash is stored; the prefix is for display.
+model ApiToken {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  workspaceId String       @db.Uuid
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String       @db.Uuid
+  user        User         @relation("ApiTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+  kind        ApiTokenKind
+  name        String
+  tokenPrefix String
+  tokenHash   String       @unique
+  /// e.g. work_items:read, work_items:write, comments:write,
+  /// email_threads:read_assigned, notes:read, infra:exec
+  scopes      String[]
+  /// Empty = all projects the user can access.
+  projectIds  String[]     @db.Uuid
+  expiresAt   DateTime?    @db.Timestamptz(3)
+  lastUsedAt  DateTime?    @db.Timestamptz(3)
+  revokedAt   DateTime?    @db.Timestamptz(3)
+  createdById String?      @db.Uuid
+  createdBy   User?        @relation("ApiTokenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("api_tokens")
+}
+
+model AgentRun {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  workspaceId      String          @db.Uuid
+  agentUserId      String          @db.Uuid
+  agentUser        User            @relation("AgentRunAgent", fields: [agentUserId], references: [id], onDelete: Cascade)
+  triggeredById    String?         @db.Uuid
+  triggeredBy      User?           @relation("AgentRunTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  trigger          AgentRunTrigger
+  status           AgentRunStatus  @default(QUEUED)
+  /// Exact text sent to the runtime (for the audit trail).
+  prompt           String
+  /// What context was included (ids + provenance), not the content itself.
+  context          Json            @default("{}")
+  /// Tainted by untrusted content (at start, or later via an MCP read):
+  /// every tool action then requires approval.
+  untrusted        Boolean         @default(false)
+  untrustedReasons String[]
+  taintedAt        DateTime?       @db.Timestamptz(3)
+  /// SHA-256 of the per-run capability token passed to MCP tools.
+  runTokenHash     String          @unique
+  runtimeRunId     String?
+  runtimeSessionId String?
+  // Where the run was requested / what it is about (all optional).
+  workItemId       String?         @db.Uuid
+  workItem         WorkItem?       @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  channelId        String?         @db.Uuid
+  channel          Channel?        @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  triggerMessageId String?         @db.Uuid
+  triggerMessage   Message?        @relation("AgentRunTriggerMessage", fields: [triggerMessageId], references: [id], onDelete: SetNull)
+  triggerCommentId String?         @db.Uuid
+  triggerComment   Comment?        @relation("AgentRunTriggerComment", fields: [triggerCommentId], references: [id], onDelete: SetNull)
+  emailThreadId    String?         @db.Uuid
+  emailThread      EmailThread?    @relation(fields: [emailThreadId], references: [id], onDelete: SetNull)
+  result           String?
+  error            String?
+  usage            Json?
+  startedAt        DateTime?       @db.Timestamptz(3)
+  finishedAt       DateTime?       @db.Timestamptz(3)
+  cancelledById    String?         @db.Uuid
+  cancelledBy      User?           @relation("AgentRunCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  cancelReason     String?
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+
+  steps     AgentRunStep[]
+  approvals AgentApproval[]
+  comments  Comment[]       @relation("AgentRunComments")
+  messages  Message[]       @relation("AgentRunMessages")
+
+  @@index([workItemId, createdAt])
+  @@index([agentUserId, status])
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@map("agent_runs")
+}
+
+model AgentRunStep {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  runId            String          @db.Uuid
+  run              AgentRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  seq              Int
+  kind             AgentStepKind
+  status           AgentStepStatus @default(RUNNING)
+  title            String?
+  toolName         String?
+  input            Json?
+  /// Head of the output (≤ 64 KB); the full log lives in object storage.
+  output           String?
+  outputTruncated  Boolean         @default(false)
+  outputStorageKey String?
+  command          String?
+  exitCode         Int?
+  hostId           String?         @db.Uuid
+  host             AgentHost?      @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  startedAt        DateTime        @default(now()) @db.Timestamptz(3)
+  finishedAt       DateTime?       @db.Timestamptz(3)
+
+  approval AgentApproval?
+
+  @@unique([runId, seq])
+  @@map("agent_run_steps")
+}
+
+model AgentApproval {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  workspaceId      String         @db.Uuid
+  runId            String         @db.Uuid
+  run              AgentRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepId           String?        @unique @db.Uuid
+  step             AgentRunStep?  @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  kind             ApprovalKind
+  status           ApprovalStatus @default(PENDING)
+  /// The exact command (or tool call rendering) shown to the approver.
+  command          String
+  hostId           String?        @db.Uuid
+  host             AgentHost?     @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  /// Host name/target/environment at request time.
+  hostSnapshot     Json?
+  toolName         String?
+  toolArgs         Json?
+  /// The agent's stated reason — untrusted text, rendered as such.
+  agentReason      String?
+  /// e.g. untrusted_input, production_host, destructive_pattern
+  riskFlags        String[]
+  /// Runtime-side request id (Hermes approval) for RUNTIME_TOOL approvals.
+  runtimeRequestId String?
+  requestedAt      DateTime       @default(now()) @db.Timestamptz(3)
+  expiresAt        DateTime       @db.Timestamptz(3)
+  decidedById      String?        @db.Uuid
+  decidedBy        User?          @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt        DateTime?      @db.Timestamptz(3)
+  decisionNote     String?
+
+  @@index([workspaceId, status, requestedAt])
+  @@index([runId])
+  @@map("agent_approvals")
+}
+
+/// Security/compliance log (auth, roles, settings, mailbox connections,
+/// agent approvals & commands, exports). Append-only: a trigger created in
+/// the initial migration rejects UPDATE and DELETE. No FKs on purpose —
+/// entries must outlive the rows they describe.
+model AuditLog {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String?   @db.Uuid
+  actorType   ActorType
+  actorId     String?   @db.Uuid
+  /// Display snapshot, e.g. "Jane Doe <jane@…>" or "Dopl Agent".
+  actorLabel  String?
+  /// dotted verb, e.g. agent.approval.approved, member.role_changed
+  action      String
+  targetType  String?
+  targetId    String?
+  ip          String?
+  userAgent   String?
+  requestId   String?
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([workspaceId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Analytics
+// =============================================================================
+
+model Dashboard {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  workspaceId String     @db.Uuid
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// null = workspace-wide dashboard.
+  projectId   String?    @db.Uuid
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId     String     @db.Uuid
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  visibility  Visibility @default(PRIVATE)
+  sortKey     String
+  deletedAt   DateTime?  @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(3)
+
+  widgets DashboardWidget[]
+
+  @@index([workspaceId, projectId])
+  @@map("dashboards")
+}
+
+/// One chart on a dashboard: metric × x-axis × segment (+ filters).
+model DashboardWidget {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  dashboardId String    @db.Uuid
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  title       String
+  chartType   ChartType
+  /// e.g. count, created, completed, cycle_time_p50, lead_time_p50,
+  /// first_response_p50, time_to_triage_p50 (validated in @dopl/shared).
+  metric      String
+  xAxis       String?
+  segment     String?
+  filters     Json      @default("{}")
+  options     Json      @default("{}")
+  /// Grid placement { x, y, w, h }.
+  position    Json
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@map("dashboard_widgets")
+}
+
+/// Nightly snapshot for "over time" charts that current rows can't answer
+/// (e.g. open items by state on a past date).
+model ProjectDailyStat {
+  projectId      String   @db.Uuid
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date           DateTime @db.Date
+  workspaceId    String   @db.Uuid
+  /// { BACKLOG: n, UNSTARTED: n, … }
+  byStateGroup   Json
+  byPriority     Json
+  openCount      Int
+  createdCount   Int
+  completedCount Int
+  cancelledCount Int
+  overdueCount   Int
+  intakeCount    Int
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([projectId, date])
+  @@index([workspaceId, date])
+  @@map("project_daily_stats")
+}
