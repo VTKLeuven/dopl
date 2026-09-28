@@ -23,6 +23,9 @@ services:
   # UI: http://localhost:8025 — tests read messages through its API.
   mailpit:
     image: axllent/mailpit:latest
+    environment:
+      # Reverse-DNS on every SMTP connection costs ~8s under Docker Desktop.
+      MP_SMTP_DISABLE_RDNS: "true"
     ports:
       - "1025:1025"
       - "8025:8025"

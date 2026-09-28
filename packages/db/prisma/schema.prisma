@@ -423,21 +423,25 @@ enum ChartType {
 // =============================================================================
 
 model User {
-  id            String    @id @default(uuid(7)) @db.Uuid
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
+  id               String    @id @default(uuid(7)) @db.Uuid
+  name             String
+  email            String    @unique
+  emailVerified    Boolean   @default(false)
+  image            String?
   // --- Dopl additions (Better Auth `user.additionalFields`, input: false) ---
-  kind          UserKind  @default(HUMAN)
-  timezone      String?
-  locale        String?
-  lastActiveAt  DateTime? @db.Timestamptz(3)
-  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  kind             UserKind  @default(HUMAN)
+  /// Better Auth twoFactor plugin
+  twoFactorEnabled Boolean?  @default(false)
+  timezone         String?
+  locale           String?
+  lastActiveAt     DateTime? @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
 
-  sessions Session[]
-  accounts Account[]
+  sessions     Session[]
+  accounts     Account[]
+  twoFactors   TwoFactor[]
+  ssoProviders SsoProvider[]
 
   memberships        WorkspaceMember[]
   projectMemberships ProjectMember[]
@@ -553,6 +557,39 @@ model Verification {
 
   @@index([identifier])
   @@map("verifications")
+}
+
+/// Better Auth twoFactor plugin (TOTP + backup codes). Field names must
+/// match better-auth/dist/plugins/two-factor/schema.mjs.
+model TwoFactor {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  secret                  String
+  backupCodes             String
+  userId                  String    @db.Uuid
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime? @db.Timestamptz(3)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("two_factors")
+}
+
+/// @better-auth/sso providers (OIDC / SAML), registered by workspace admins.
+/// oidcConfig / samlConfig are JSON strings owned by the plugin.
+model SsoProvider {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  issuer         String
+  oidcConfig     String?
+  samlConfig     String?
+  userId         String? @db.Uuid
+  user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  providerId     String  @unique
+  organizationId String?
+  domain         String
+
+  @@map("sso_providers")
 }
 
 /// Better Auth rate-limit storage (`rateLimit.storage: "database"`).

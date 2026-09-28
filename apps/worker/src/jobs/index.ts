@@ -1,6 +1,8 @@
 import type { PgBoss } from "pg-boss";
 import type { Logger } from "pino";
 import type { DbClient } from "@dopl/db";
+import { queues } from "@dopl/shared/jobs/queues";
+import { sendOutboundEmail } from "../email/send";
 
 export interface JobContext {
   boss: PgBoss;
@@ -11,6 +13,14 @@ export interface JobContext {
 /** Wires queue handlers and schedules. Each queue gets its own module as features land. */
 export async function registerHandlers(ctx: JobContext): Promise<void> {
   const { boss, db, logger } = ctx;
+
+  await boss.work("email.send", { batchSize: 5 }, async (jobs) => {
+    for (const job of jobs) {
+      const { outboundEmailId } = queues["email.send"].parse(job.data);
+      const result = await sendOutboundEmail(db, outboundEmailId);
+      logger.info({ outboundEmailId, result }, "email.send");
+    }
+  });
 
   // Nightly: prune ephemeral tables (D-023, D-025).
   await boss.schedule("maintenance.prune", "17 3 * * *", {}, { tz: "Europe/Brussels" });

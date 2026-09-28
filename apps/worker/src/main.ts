@@ -16,6 +16,7 @@ const boss = new PgBoss({
   connectionString: env.DATABASE_URL,
   schema: "pgboss",
   application_name: "dopl-worker-boss",
+  useListenNotify: true, // jobs start the moment they commit (magic links!)
 });
 boss.on("error", (err) => {
   logger.error({ err }, "pg-boss error");
@@ -25,8 +26,10 @@ let healthy = false;
 
 async function main() {
   await boss.start();
+  const queueOptions = { retryLimit: 5, retryDelay: 10, retryBackoff: true, notify: true };
   for (const name of queueNames) {
-    await boss.createQueue(name);
+    await boss.createQueue(name, queueOptions); // no-op when it exists
+    await boss.updateQueue(name, queueOptions); // keep options in sync
   }
   await registerHandlers({ boss, db, logger });
   healthy = true;

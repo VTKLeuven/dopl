@@ -12,7 +12,10 @@
     "./policy": "./src/policy/index.ts",
     "./query-keys": "./src/query-keys.ts",
     "./jobs/queues": "./src/jobs/queues.ts",
-    "./palette": "./src/schemas/palette.ts"
+    "./palette": "./src/schemas/palette.ts",
+    "./crypto": "./src/crypto/tokens.ts",
+    "./emails": "./src/emails/templates.ts",
+    "./defaults": "./src/domain/defaults.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

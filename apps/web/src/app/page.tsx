@@ -1,25 +1,20 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
-import { db } from "@/server/db";
+import { redirect } from "next/navigation";
+import { defaultWorkspaceSlug, getActor } from "@/server/session";
 
-async function DbCheck() {
-  await connection();
-  const rows = await db.$queryRaw<{ now: Date }[]>`SELECT now() as now`;
-  const users = await db.user.count();
+/** "/" → the user's workspace, or sign-in. */
+export default function RootPage() {
   return (
-    <p>
-      db ok: {rows[0]?.now.toISOString()} · users: {users}
-    </p>
+    <Suspense fallback={<div className="min-h-full bg-canvas" />}>
+      <RootRedirect />
+    </Suspense>
   );
 }
 
-export default function Page() {
-  return (
-    <main>
-      <h1>Dopl</h1>
-      <Suspense fallback={<p>checking…</p>}>
-        <DbCheck />
-      </Suspense>
-    </main>
-  );
+async function RootRedirect(): Promise<null> {
+  const actor = await getActor();
+  if (!actor) redirect("/sign-in");
+  const slug = await defaultWorkspaceSlug(actor.userId);
+  if (!slug) redirect("/sign-in");
+  redirect(`/${slug}/home` as never);
 }
