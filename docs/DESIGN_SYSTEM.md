@@ -304,7 +304,7 @@ Dopl is desktop-first but must work at phone width for triage, approvals, inbox 
 
 - **Left:** the breadcrumb (feature icon, parent, `›`, current page in `nav` weight 500 `--text`), plus an optional ⓘ popover with a description.
 - **Right:** secondary outlined buttons (icon + label + chevron) for layout and view settings and import/export, then the **one primary button** ("New item", C), then `⋮` for overflow.
-- **Toolbar:** view search (`/`), a sort chip ("Sorted by **Updated**"), the filter chip (showing a count badge when active) and quick-filter chips.
+- **Toolbar:** view search (`/`), a sort chip ("Sorted by **Updated**"), the filter chip (showing a count badge when active), the **"Done hidden · 23" toggle chip** (D-053, `⇧H`) and quick-filter chips.
   - Active filters render as removable chips on a second row that only appears when filters exist.
   - Display options live in a popover from "View settings": group by, sub-group, order, properties, density and "show sub-items".
 
@@ -433,7 +433,7 @@ Every component lives in `components/ui` (primitives) or `components` (product c
 | Scope | Keys |
 |---|---|
 | Global | `⌘K` palette · `C` create item (prefilled from the current view's filters) · `Q` quick note · `/` focus search · `?` shortcuts · `G` then `H` Home, `I` Inbox, `N` Notes, `M` Messages, `E` Mail, `P` projects · `[` toggle sidebar |
-| Lists and boards | `J`/`K` or `↑`/`↓` move · `Enter` open peek · `⌘Enter` open full page · `X` select · `⇧`-click range · `⌘A` select all · `A` assign · `⇧A` assign to me · `S` status · `P` priority · `L` labels · `T` type · `D` due date · `E` edit title · `⌘⇧,` copy link · `⌘.` copy identifier · `⌘⌫` delete (undo toast) · `Esc` clear selection |
+| Lists and boards | `J`/`K` or `↑`/`↓` move · `Enter` open peek · `⌘Enter` open full page · `X` select · `⇧`-click range · `⌘A` select all · `A` assign · `⇧A` assign to me · `S` status · `P` priority · `L` labels · `T` type · `D` due date · `E` edit title · `⌘⇧,` copy link · `⌘.` copy identifier · `⇧H` show/hide done items · `⌘⌫` delete (undo toast) · `Esc` clear selection |
 | Peek | `Esc` close · `J`/`K` next/previous item · `M` comment |
 | Create dialog | `⌘Enter` create · `⌘⇧Enter` create and continue (keeps properties) · pasting multiple lines offers "Create N items" |
 | Intake (Phase 3) | `Y` accept · `N` decline · `U` mark duplicate · `Z` snooze |

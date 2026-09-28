@@ -18,7 +18,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - [x] Full `packages/db/prisma/schema.prisma`, validated with Prisma 7.10 and migrated on Postgres 17.11 + pgvector. Spikes confirmed:
   - no drift from `COLLATE "C"`, CHECK constraints, the audit trigger or `search.embeddings`
   - HNSW inside `public` *does* drift, hence D-017
-- [ ] Your approval + answers to the blocking open questions (Q-1…Q-4)
+- [x] Your approval + answers to Q-1…Q-4 (2026-09-29), plus two new requirements: Discord webhooks (D-052) and email+password/SSO sign-in (D-050)
 
 ---
 
@@ -68,17 +68,22 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - Navigating between sidebar destinations shows the new page's shell instantly, with no blank panel and no layout shift. The `instant()` tests pass.
 - The shell matches the reference's measurements (§2 of the design system) within ±2 px, checked with an overlay screenshot.
 
-### 1.4 Authentication
-- Better Auth with the Prisma adapter, `generateId: false`, cookie cache and `nextCookies()`.
-- Google provider with `hd` plus a domain hook, and auto-join per `autoJoinDomainUsers`.
-- The magic-link plugin (guests, invite-only). Emails go through the Mailer, logged to the console in dev.
+### 1.4 Authentication (invite-only, D-050)
+- Better Auth with the Prisma adapter, `generateId: false`, cookie cache, `nextCookies()`, secure cookies and strict auth rate limits (D-051).
+- Invites pre-create the user; the `/invite/<token>` acceptance page offers every enabled method. Account linking by verified email.
+- **Google** (`disableSignUp`, optional `hd` hint), **email + password** (`disableSignUp`; the invite link doubles as "set password"), **TOTP 2FA** (required for password-based Owners and Admins), **SSO** (`@better-auth/sso`, generic OIDC, `disableImplicitSignUp`, admin-configured) and **magic link** (`disableSignUp`).
+- The SSO and 2FA tables are generated with the Better Auth CLI and added to `schema.prisma`.
+- `pnpm dopl:bootstrap --email …` creates the workspace, the first Owner and a one-time invite link.
+- Emails go through the Mailer: the Workspace SMTP relay in production, logged to the console in dev.
 - The sign-in page. `proxy.ts` handles cookie-presence redirects and security headers (D-029 CSP).
 - A dev-only e2e credential provider behind `DOPL_E2E=1`, with a build-time guard.
 - Audit log entries for sign-in, sign-out, failed domain checks and invites.
 
 **Acceptance:**
-- A domain Google account signs in and lands on Home. A non-domain Google account is rejected with a friendly message and an audit entry.
-- An invited guest signs in via magic link. An uninvited address gets the same generic response, so there's no account enumeration.
+- An invited user can accept with Google, a password, SSO (tested against a local mock OIDC IdP) or a magic link, and lands on Home.
+- An **uninvited** user is refused by every method, with a generic message and an audit entry. No user row is created.
+- A password-based Admin is forced through 2FA enrolment.
+- The 6th wrong password within 15 minutes is rate-limited.
 - A production build fails if the e2e provider is enabled.
 
 ### 1.5 Workspace, projects, members, roles
@@ -118,6 +123,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - Basic shortcut registry: `J`/`K`, `Enter`, `X`, `A`, `S`, `P`, `L`, `D`, `C`, `Esc`, with tooltips showing the keys.
 
 **Acceptance:**
+- **Done items are hidden by default** in every project view, with a "Done hidden · N" chip and `⇧H` to toggle. The board shows the Done and Cancelled columns collapsed with counts, and the choice survives a reload (D-053, Plane pain point #3).
 - Changing a property inline updates list, board and peek instantly (optimistic), even with the network throttled to Slow 3G. A server failure rolls back and shows a toast.
 - Dragging a card to another column changes its state and keeps its position after a reload.
 - 2,000 items in one project scroll smoothly: no dropped frames in a Playwright trace, and fewer than 60 row DOM nodes are mounted.
@@ -176,8 +182,10 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 8. **Contacts:** list and detail (submissions, and later threads), merge duplicates, block.
 9. **Emails:** the Mailer with the chosen provider (Q-3), the outbox, templates (confirmation, accepted, declined, duplicate, reply notification) and the status-page magic link.
 10. **Status page `/s/[token]`:** public status, PUBLIC comments, replies (which become comments from the contact) and attachments.
+11. **Discord webhooks (D-052):** Settings → Integrations (add webhook, choose events, projects and whether to include content, send a test message, delivery log with redeliver). The worker's `webhook.deliver` job handles coalescing, 429 handling and auto-disable. Events: `work_item.created`, `state_changed`, `completed`, `assigned`, `intake.submitted`, `intake.accepted`.
 
 **Accept:**
+- A Discord test message arrives. A new intake submission posts one embed with no mentions resolved, and five quick edits to one item produce one message.
 - A form submitted from an embed on a test HTML page (a different origin) appears in the triage queue.
 - The confirmation email arrives (captured by the test mailer) and its link opens the status page.
 - A contact's reply appears on the item as a PUBLIC comment. Internal comments never appear on the status page (test).
@@ -280,6 +288,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - An HTML email containing `<script>` and `onerror` handlers renders inert. A test checks that the iframe sandbox has no `allow-scripts`.
 - Promoting a thread shows it on the item, and a follow-up reply appears on the item's timeline.
 - The web container has no Google credentials, verified by inspecting env and mounts in a test.
+- The Discord webhook posts new threads and messages (`email_thread.created`, `email_message.received`) for the selected mailboxes. An email subject containing `@everyone` pings nobody.
 
 ---
 

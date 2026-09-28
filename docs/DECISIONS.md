@@ -40,7 +40,7 @@ Versions were checked on npm on 2026-09-28.
 | D-023 | Realtime: transactional outbox + `pg_notify` + SSE | Accepted |
 | D-024 | pg-boss 12 in its own schema, separate worker | Accepted |
 | D-025 | Rate limiting in Postgres | Accepted |
-| D-026 | Auth: Better Auth (Google `hd` + guest magic links), contacts tokenized | Accepted |
+| D-026 | Auth: Better Auth (Google `hd` + guest magic links), contacts tokenized | Partly superseded by D-050 |
 | D-027 | Web never holds Google or SSH credentials | Accepted |
 | D-028 | Email HTML: sanitize at ingest + sandboxed iframe | Accepted |
 | D-029 | CSP without nonces initially | Accepted |
@@ -50,7 +50,7 @@ Versions were checked on npm on 2026-09-28.
 | D-033 | Taint tracking for the prompt-injection boundary | Accepted |
 | D-034 | One concurrent run per agent to start | Accepted |
 | D-035 | Gmail: DWD service account, Pub/Sub **pull**, `format=full` | Accepted |
-| D-036 | Transactional email through a provider abstraction | Proposed |
+| D-036 | Transactional email through a provider abstraction (Workspace SMTP relay) | Accepted |
 | D-037 | Object storage via the S3 API; Garage for production | Proposed |
 | D-038 | shadcn/ui (Radix) copied in and fully re-themed | Accepted |
 | D-039 | TanStack Table v9 + TanStack Virtual 3 | Accepted |
@@ -61,8 +61,13 @@ Versions were checked on npm on 2026-09-28.
 | D-044 | Timeline (Gantt) and Calendar are custom-built | Accepted |
 | D-045 | Email templates: React Email, rendered in the worker | Accepted |
 | D-046 | Testing: Vitest + real Postgres, Playwright + `instant()` | Accepted |
-| D-047 | Deployment: Compose, standalone Next, one-shot migrate service | Accepted |
+| D-047 | Deployment: Compose, standalone Next, one-shot migrate service | Accepted (networking → D-051) |
 | D-048 | Explicitly out of scope | Proposed |
+| D-049 | Stay on Prisma 7.x: Prisma 8 is still a release candidate | Accepted |
+| D-050 | Invite-only accounts; Google, email + password, SSO and magic links | Accepted |
+| D-051 | Public deployment at `dopl.vtk.be`, hardened for the open internet | Accepted |
+| D-052 | Discord webhooks for updates, new tickets and new mail | Accepted |
+| D-053 | "Hide done" is a first-class display option, on by default | Accepted |
 
 ---
 
@@ -314,6 +319,7 @@ A nightly job prunes expired rows. Better Auth uses its own `auth_rate_limits` t
 ## Auth & security
 
 ### D-026: Auth: Better Auth (Google `hd` + guest magic links), contacts tokenized
+*Partly superseded by D-050: accounts are invite-only for everyone, and more sign-in methods were added. The contact and agent parts still apply.*
 **Decision:**
 - **Members** sign in with Google.
   - The Google provider sets `hd: "<your-domain>"`, and Better Auth rejects tokens without a matching `hd` claim.
@@ -469,7 +475,8 @@ An admin can clear `WorkItem.untrusted` after reviewing the content ("Mark as re
 - **`format=full` rather than `raw`:** `raw` downloads every attachment's bytes with the message, while `full` only includes attachment ids, which enables lazy fetching (D-027).
 - **Google Groups:** A group address can't be read through the Gmail API. The IT address must be a real user mailbox, or the group must deliver to a member user mailbox that we connect (documented in `docs/ARCHITECTURE.md` §9).
 
-### D-036: Transactional email through a provider abstraction — *Proposed*
+### D-036: Transactional email through a provider abstraction
+*Accepted 2026-09-29: the Google Workspace SMTP relay (`smtp-relay.gmail.com:587`, STARTTLS, SMTP AUTH as a dedicated sender user, with the server's IP registered in the relay settings), sending from `noreply@vtk.be` as "Dopl". Change it in `.env` if needed.*
 **Decision:** The `Mailer` interface has an SMTP implementation via Nodemailer. All sends go through the `outbound_emails` outbox and a worker job with retries. Which provider sits behind it is your call (Q-3). Options are the Google Workspace SMTP relay, Brevo (a Brevo connector is visible in this environment), or another SMTP server.
 **Why not the Gmail API for these?** Confirmation emails, magic links and digests shouldn't depend on the shared IT mailbox's sending quota or show up in its "Sent" folder.
 
@@ -541,6 +548,7 @@ Buckets are never public; downloads always go through a policy check and a signe
 - Test auth uses a dev-only credential provider behind `DOPL_E2E=1`. It is never enabled in production builds; a build-time assertion enforces that.
 
 ### D-047: Deployment: Compose, standalone Next, one-shot migrate service
+*The networking note below is superseded by D-051: the whole app is public.*
 **Decision:**
 - **Services:** `postgres` (`pgvector/pgvector:pg17`), `storage` (Garage), `migrate` (runs `prisma migrate deploy` once, then exits; web and worker `depends_on: service_completed_successfully`), `web` (Next `output: "standalone"`) and `worker`.
 - **Health:** web and worker both expose `/healthz`. Postgres uses `pg_isready`.
@@ -555,3 +563,90 @@ Not planned unless you ask:
 - mobile apps
 - a public REST API beyond MCP
 - importing from Plane (Q-10 asks whether you need one)
+
+---
+
+## Decisions added after Phase 0 review (2026-09-29)
+
+### D-049: Stay on Prisma 7.x: Prisma 8 is still a release candidate
+**Context:** You said to use Prisma 8 "if it's already available". As of 2026-09-29 it isn't released:
+- `prisma@latest` on npm points at `8.0.0-rc.17`, but `@prisma/client@latest` is still `7.10.0`.
+- Prisma's release-status page says 8 is a release candidate, with general availability expected in October 2026.
+
+Prisma 8 is also a rewrite:
+- It ships a new client package (`@prisma/orm-postgres`) and removes `@db.*` attributes.
+- It renames `take`/`skip` to `limit`/`offset`.
+- It doesn't have `$extends`, JSON filtering, atomic `increment`, most nested writes, transaction isolation levels or `P2002`-style unique-violation errors yet.
+
+**Decision:** Stay on `prisma@~7.10` and `@prisma/client@~7.10`.
+**Why:**
+- Better Auth's Prisma adapter supports `prisma ^5 || ^6 || ^7` only.
+- We rely on nested writes, increments and unique-violation handling (sequences, invites, idempotent submissions).
+- Prisma 7 gets fixes and security updates for 18 months after 8 reaches GA.
+
+**Follow-up:** Re-evaluate once Prisma 8 is GA *and* Better Auth supports it. Keep Prisma-specific code inside `packages/db` and `server/data|services` so a migration stays contained.
+
+### D-050: Invite-only accounts; Google, email + password, SSO and magic links
+**Decision:**
+- **No self-sign-up by any method.** An Owner or Admin invites an email address. That creates the `User` row, a `WorkspaceMember` (status INVITED, role Member or Guest) and a `WorkspaceInvite` token.
+- The invite link (`/invite/<token>`) lets the invitee choose how to sign in:
+  - **Google.** `disableSignUp: true`. The optional `GOOGLE_HOSTED_DOMAIN=vtk.be` only pre-selects the Workspace account.
+  - **Email + password** (Better Auth `emailAndPassword`, `disableSignUp: true`). The invite link doubles as the "set password" link, so accepting it verifies the email address.
+  - **SSO** (`@better-auth/sso`, OIDC or SAML). Providers are configured by an Admin in Settings → Authentication, or statically from env. It uses `disableImplicitSignUp: true`.
+  - **Magic link** (`disableSignUp: true`). This is the default for guests and available to members.
+- **Linking:** `account.accountLinking` is enabled with `trustedProviders: ["google", …ssoProviderIds]`. An invited user's first Google or SSO sign-in links to the pre-created user by *verified* email.
+- **2FA:** TOTP 2FA (Better Auth `twoFactor` plugin) is available to password users and **required for Owner and Admin accounts that use a password**, because the app is public (D-051).
+- **Bootstrapping:** `pnpm dopl:bootstrap --email you@vtk.be` creates the workspace and the first Owner and prints a one-time invite link.
+- Admins can disable individual sign-in methods per workspace.
+- The SSO and 2FA tables are generated with the Better Auth CLI in Phase 1.4 and added to `schema.prisma` then. Their exact field names must match the plugins' schemas.
+
+**Why:** You chose invite-only and asked for Better Auth logins and/or SSO. Pre-creating the user makes "invite-only" hold uniformly, because every method runs with sign-up disabled.
+**Open:** Which SSO identity provider (Q-21)? Until then, generic OIDC is supported and covered by an e2e test against a local mock IdP.
+
+### D-051: Public deployment at `dopl.vtk.be`, hardened for the open internet
+**Decision:** The whole app is public behind Caddy at `https://dopl.vtk.be`. There's no VPN, so we add:
+- **Transport:** HSTS (with `includeSubDomains` once confirmed), secure cookies (`useSecureCookies`), and `BETTER_AUTH_URL=https://dopl.vtk.be`.
+- **Auth defences:**
+  - strict rate limits on `/api/auth/*`: 5 password attempts per 15 min per account+IP, then exponential backoff
+  - generic error messages, so no account enumeration
+  - required 2FA for password-based admins (D-050)
+  - session list with remote sign-out
+  - audit entries for failed logins
+- **Surface:**
+  - `/dev/ui` and the e2e auth provider are compiled out of production builds
+  - `/api/healthz` returns no version info
+  - a `robots.txt` that disallows everything except `/f/*`
+- **Headers:** CSP per D-029, `frame-ancestors` per form for `/f/*`, and `Referrer-Policy: strict-origin-when-cross-origin`.
+- The Google OAuth redirect, SSO callbacks and the Workspace SMTP relay are configured for this hostname.
+
+### D-052: Discord webhooks for updates, new tickets and new mail
+**Decision:** Outgoing webhooks are configured in Settings → Integrations (`OutgoingWebhook`, kind `DISCORD`):
+- **Scope:** events, projects and mailboxes. Some example event keys are `work_item.created`, `work_item.state_changed`, `work_item.completed`, `work_item.assigned`, `intake.submitted`, `intake.accepted`, `email_thread.created`, `email_message.received` and `agent.approval_requested`.
+- **Delivery:** services enqueue domain events in the mutation's transaction, and the worker's `webhook.deliver` job renders a Discord **embed**:
+  - title `INFRA-42 · Title` linking to Dopl
+  - colour from the state group
+  - fields for state, priority and assignee
+  - username "Dopl" and the Dopl avatar
+- **Coalescing:** updates to one entity within 60 s become a single message (`coalesceKey`), so a burst of edits doesn't spam the channel.
+- **Safety:**
+  - Every payload sends `allowed_mentions: { parse: [] }`, so untrusted text such as an email subject containing `@everyone` can never ping anyone.
+  - Content is truncated to Discord's limits. `includeContent` is **off** by default: titles and links only, so personal data from contacts doesn't leave Dopl unless an admin opts in.
+  - The webhook URL is encrypted at rest (it contains a token).
+- **Reliability:**
+  - Discord's `429` responses and their `retry_after` are respected.
+  - Failures retry with backoff. After 10 consecutive failures the webhook is auto-disabled and admins get an Inbox notification.
+  - The delivery log is kept 30 days, with "Send test message" and "Redeliver" buttons.
+- **Approvals are never actionable from Discord.** The message links back to Dopl, where approval requires sign-in.
+
+**Phasing:** the framework plus work-item and intake events come in Phase 3, mail events in Phase 7, and agent approval events in Phase 8.
+
+### D-053: "Hide done" is a first-class display option, on by default
+**Context:** This was one of your three Plane pain points: done items can't be filtered out of a project's item overview.
+**Decision:** `DisplayOptions.completed: "hide" | "recent" | "show"`. The default is **"hide"** for project and workspace views.
+- `"recent"` shows items completed or cancelled in the last 14 days.
+- The toolbar always shows a chip, "Done hidden · 23", that toggles it in one click (shortcut `⇧H`).
+- On a board grouped by state, the Done and Cancelled columns stay visible but **collapsed**, showing their counts.
+- The setting is saved per view, and per user for unsaved views.
+
+It's a display option rather than a filter rule, so it composes with any filter. Setting it to "show" can still be combined with an explicit `stateGroup` filter.
+**Acceptance (Phase 1.7):** opening any project list hides done items by default. One click shows them, and the choice survives a reload.

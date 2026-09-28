@@ -21,9 +21,14 @@ References (inspiration only, see licensing in §9):
 
 ### What we want to do better than Plane
 
-> ✏️ **[FILL IN BEFORE SENDING — the specific problems we have with Plane, one bullet each. Delete this note.]**
-> - …
-> - …
+- **Plane doesn't track email.** Our team's mail must live next to the tickets: shared mailbox, assignment, promote-to-ticket (§4.7).
+- **Plane has no feedback/intake forms in the Community Edition.** We need public, embeddable forms (§4.4).
+- **Plane can't hide done items in a project's item overview.** Completed/cancelled work must be filterable away, and hidden by default, in every project view (§4.3).
+
+Added after Phase 0:
+- **Discord webhooks** for updates, new tickets and new mails.
+- **Sign-in:** Better Auth accounts (email + password) and/or SSO, next to Google. Accounts are **invite-only**.
+- Dopl is **publicly reachable** at `dopl.vtk.be`. Outbound email uses the **Google Workspace SMTP relay**.
 
 On top of that, these are non-negotiable product principles:
 - **Fast.** Every interaction feels instant: optimistic updates, no full-page spinners, virtualized long lists, realtime updates without refresh.

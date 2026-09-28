@@ -1,6 +1,6 @@
 # Dopl: data model
 
-The full schema for **all phases** is in `packages/db/prisma/schema.prisma`: 67 models, validated with Prisma 7.10 and migrated drift-free on PostgreSQL 17.11 + pgvector during Phase 0.
+The full schema for **all phases** is in `packages/db/prisma/schema.prisma`: 69 models, validated with Prisma 7.10 and migrated drift-free on PostgreSQL 17.11 + pgvector during Phase 0.
 
 This document explains the shape, the invariants and the reasoning. Decision references (D-xxx) point to `docs/DECISIONS.md`.
 
@@ -35,6 +35,8 @@ This document explains the shape, the invariants and the reasoning. Decision ref
 | Mail | `Mailbox`, `MailboxMember`, `MailboxSyncLog`, `EmailThread`, `EmailThreadLabel`, `EmailMessage`, `EmailAttachment`, `EmailComment` |
 | Agent | `AgentProfile`, `AgentHost`, `AgentCommandRule`, `ApiToken`, `AgentRun`, `AgentRunStep`, `AgentApproval`, `AuditLog` |
 | Analytics | `Dashboard`, `DashboardWidget`, `ProjectDailyStat` |
+| Integrations | `OutgoingWebhook` (Discord), `WebhookDelivery` |
+| Auth plugins (added in Phase 1.4 via the Better Auth CLI) | SSO provider, two-factor tables |
 
 ## 3. ER diagrams
 
@@ -456,6 +458,7 @@ type DisplayOptions = {
   orderBy: { field: "manual" | "priority" | "dueDate" | "startDate" | "createdAt" | "updatedAt" | "title" | "sequence"; dir: "asc" | "desc" };
   showSubItems: boolean;
   showEmptyGroups: boolean;
+  completed: "hide" | "recent" | "show"; // default "hide": done/cancelled items are hidden (D-053)
   properties: PropertyKey[];         // visible properties in list/board/table
   density: "comfortable" | "compact";
   table?: { columns: Array<{ id: PropertyKey; width: number }> };

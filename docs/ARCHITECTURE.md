@@ -47,12 +47,13 @@ flowchart LR
   K -- "DWD service account" --> GM
   GM -- publish --> PS
   K -- "streaming pull" --> PS
-  K -- "SMTP (provider TBD)" --> MAIL[(Outbound email)]
+  K -- "SMTP (Workspace relay)" --> MAIL[(Outbound email)]
+  K -- "webhooks" --> DC[Discord channels]
 ```
 
 **Trust zones:**
-- **Internet:** contacts hit only `/f/*`, `/s/*`, `/embed.js` and `/api/public/*`.
-- **Members and guests:** everything else, behind sign-in (and ideally your VPN, Q-4).
+- **Internet:** the whole app is public at `https://dopl.vtk.be` (D-051). Contacts only ever use `/f/*`, `/s/*`, `/embed.js` and `/api/public/*`.
+- **Members and guests:** everything else, behind invite-only sign-in (D-050).
 - **Worker:** the only process holding Google and SSH credentials (D-027).
 - **Hermes:** reaches Dopl only through the MCP endpoint, with a scoped token (D-032).
 
@@ -260,6 +261,7 @@ sequenceDiagram
 | `gmail.poll` | schedule, every 5 min | Safety net if Pub/Sub is quiet |
 | `gmail.fetch-attachment` | web request | Download → blob store → NOTIFY result |
 | `gmail.send` (Phase 7b) | reply action | RFC 822 with `In-Reply-To`/`References`, `threadId` |
+| `webhook.deliver` | domain events (D-052) | Discord embed; 60 s coalescing per entity; honours 429 `retry_after`; auto-disables after 10 failures |
 | `agent.run` | mention / DM / assignment | Starts the Hermes run, consumes SSE, persists steps (§8) |
 | `agent.exec` | approved or allowlisted command | SSH via Warpgate, streams output |
 | `embeddings.index` | note/item saved (debounced) | Calls the AI server's embeddings endpoint, upserts `search.embeddings` |
@@ -310,10 +312,12 @@ sequenceDiagram
 
 **Authentication (D-026):**
 
+All accounts are **invite-only** (D-050). The invite pre-creates the user, so every method runs with sign-up disabled and links to that user by verified email.
+
 | Actor | How | Session |
 |---|---|---|
-| Member | Google OAuth via Better Auth (`hd` claim + domain hook) | Better Auth DB session, httpOnly cookie, 5-min cookie cache |
-| Guest | Better Auth magic link (invite-only, `disableSignUp`) | same |
+| Member | Google, email + password (TOTP 2FA; required for password-based admins), SSO via OIDC/SAML (`@better-auth/sso`), or magic link | Better Auth DB session, secure httpOnly cookie, 5-min cookie cache |
+| Guest | Magic link by default; the other methods can be allowed | same |
 | Contact | Per-submission token in the confirmation email | Short-lived signed cookie scoped to `/s/*` |
 | Agent | MCP bearer token (`api_tokens`, hashed) + per-run token | stateless |
 
@@ -535,6 +539,7 @@ flowchart TB
   - `docker compose -f docker/compose.dev.yml up -d` starts Postgres and Garage.
   - `pnpm dev` runs `next dev` and the worker in watch mode (tsx) together.
   - Blobs go to the local-disk driver.
+- **Networking:** Caddy terminates TLS for `dopl.vtk.be` in front of `web`, with `flush_interval -1` on `/api/realtime`. The whole app is public; D-051 lists the hardening.
 - **Configuration:** everything is env-only (`.env.example` documents each variable). Secrets that are files (the Google SA key, the SSH key) are mounted read-only into the worker only.
 - **Backups:** nightly `pg_dump` and Garage snapshots, run by your existing tooling (documented in the ops guide).
 

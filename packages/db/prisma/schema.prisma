@@ -395,6 +395,17 @@ enum EntityType {
   DASHBOARD
 }
 
+enum WebhookKind {
+  DISCORD
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SENT
+  FAILED // gave up after retries
+  DROPPED // webhook disabled/deleted before delivery
+}
+
 enum ChartType {
   BAR
   STACKED_BAR
@@ -490,7 +501,8 @@ model User {
   agentRunsCancelled  AgentRun[]         @relation("AgentRunCancelledBy")
   approvalsDecided    AgentApproval[]
 
-  dashboards Dashboard[]
+  dashboards      Dashboard[]
+  webhooksCreated OutgoingWebhook[]
 
   @@map("users")
 }
@@ -558,23 +570,19 @@ model RateLimit {
 // =============================================================================
 
 model Workspace {
-  id                  String    @id @default(uuid(7)) @db.Uuid
-  slug                String    @unique
-  name                String
-  logoKey             String?
-  timezone            String    @default("Europe/Brussels")
-  weekStartsOn        Int       @default(1) // 0 = Sunday, 1 = Monday
-  /// Google Workspace domains whose users may sign in as members.
-  allowedEmailDomains String[]
-  /// Auto-create a MEMBER on first Google sign-in from an allowed domain.
-  autoJoinDomainUsers Boolean   @default(true)
-  settings            Json      @default("{}")
+  id              String    @id @default(uuid(7)) @db.Uuid
+  slug            String    @unique
+  name            String
+  logoKey         String?
+  timezone        String    @default("Europe/Brussels")
+  weekStartsOn    Int       @default(1) // 0 = Sunday, 1 = Monday
+  settings        Json      @default("{}")
   /// Global agent kill switch. Non-null = no new runs, running runs stopped.
-  agentPausedAt       DateTime? @db.Timestamptz(3)
-  agentPausedById     String?   @db.Uuid
-  agentPausedBy       User?     @relation("WorkspaceAgentPausedBy", fields: [agentPausedById], references: [id], onDelete: SetNull)
-  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+  agentPausedAt   DateTime? @db.Timestamptz(3)
+  agentPausedById String?   @db.Uuid
+  agentPausedBy   User?     @relation("WorkspaceAgentPausedBy", fields: [agentPausedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
 
   members       WorkspaceMember[]
   invites       WorkspaceInvite[]
@@ -593,6 +601,7 @@ model Workspace {
   commandRules  AgentCommandRule[]
   apiTokens     ApiToken[]
   dashboards    Dashboard[]
+  webhooks      OutgoingWebhook[]
 
   @@map("workspaces")
 }
@@ -2287,4 +2296,74 @@ model ProjectDailyStat {
   @@id([projectId, date])
   @@index([workspaceId, date])
   @@map("project_daily_stats")
+}
+
+// =============================================================================
+// Integrations — outgoing webhooks (Discord first)
+// =============================================================================
+
+/// Posts Dopl events to an external chat channel. The URL embeds a secret
+/// token, so it is stored encrypted (AES-256-GCM, key DOPL_ENCRYPTION_KEY);
+/// only a short hint is ever shown again.
+model OutgoingWebhook {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  workspaceId    String      @db.Uuid
+  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  kind           WebhookKind @default(DISCORD)
+  name           String
+  urlEncrypted   String
+  /// e.g. "…/1234/ab…yz" for display.
+  urlHint        String
+  /// Event keys, e.g. work_item.created, work_item.state_changed,
+  /// work_item.completed, intake.submitted, email_thread.created,
+  /// email_message.received, agent.approval_requested (zod-validated).
+  events         String[]
+  /// Empty = all projects / all mailboxes.
+  projectIds     String[]    @db.Uuid
+  mailboxIds     String[]    @db.Uuid
+  /// Include descriptions / email snippets (off = titles and links only).
+  includeContent Boolean     @default(false)
+  enabled        Boolean     @default(true)
+  /// Consecutive failures; auto-disabled at 10.
+  failureCount   Int         @default(0)
+  lastDeliveryAt DateTime?   @db.Timestamptz(3)
+  lastError      String?
+  disabledReason String?
+  createdById    String?     @db.Uuid
+  createdBy      User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(3)
+
+  deliveries WebhookDelivery[]
+
+  @@index([workspaceId, enabled])
+  @@map("outgoing_webhooks")
+}
+
+/// Delivery log (pruned after 30 days). Rapid updates to one entity are
+/// coalesced into one delivery via coalesceKey.
+model WebhookDelivery {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  webhookId      String                @db.Uuid
+  webhook        OutgoingWebhook       @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  workspaceId    String                @db.Uuid
+  eventType      String
+  entityType     EntityType
+  entityId       String                @db.Uuid
+  /// e.g. "<webhookId>:workItem:<id>" — updates within the window merge.
+  coalesceKey    String?
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  responseStatus Int?
+  error          String?
+  /// The rendered message (for debugging / redelivery).
+  payload        Json
+  notBefore      DateTime              @default(now()) @db.Timestamptz(3)
+  sentAt         DateTime?             @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([webhookId, createdAt])
+  @@index([status, notBefore])
+  @@index([coalesceKey, status])
+  @@map("webhook_deliveries")
 }

@@ -2,6 +2,18 @@
 
 Each question has my **proposed default**. Wherever that works for you, a reply like "Q-5, Q-6: defaults OK" is enough. The questions are grouped by when the answer is needed.
 
+## Answered (2026-09-29)
+
+| # | Answer |
+|---|---|
+| Q-1 | Plane pain points: (1) no email tracking, (2) no feedback forms in the Community Edition, (3) done items can't be filtered away in a project's item overview. Now in PROMPT.md and D-053. |
+| Q-2 | **Invite-only** for everyone (D-050). |
+| Q-3 | **Google Workspace SMTP relay** (D-036). |
+| Q-4 | **Public**, at `dopl.vtk.be` (D-051). |
+| Other defaults | "All choices seem good": defaults apply to every question you haven't answered. Prisma 8 was requested if available; it isn't GA yet (D-049). |
+
+New requirements: Discord webhooks (D-052) and Better Auth email+password logins and/or SSO (D-050).
+
 ## Needed before or early in Phase 1
 
 **Q-1: What should we do better than Plane?**
@@ -88,5 +100,11 @@ Are these right for your team?
 
 **Q-19 (Phase 3): Guest visibility.** Should a guest ever see other guests' submissions in the same project, for example a shared requests board?
 *Default:* no, only their own. Project read-only browsing stays a per-project opt-in.
+
+**Q-21 (Phase 1): SSO identity provider.** Which IdP should SSO work with: Authentik, Keycloak, Microsoft Entra, KU Leuven, or something else? Is it OIDC or SAML? Should it replace Google sign-in or sit next to it?
+*Default:* generic OIDC next to Google and email+password, configured by an Admin in Settings → Authentication.
+
+**Q-22 (Phase 3): Discord.** Which channels should get which events, for example #it-tickets for intake and new items, and #it-mail for new threads? Should message content be included, or only titles and links?
+*Default:* titles and links only (`includeContent` off), with events chosen per webhook.
 
 **Q-20 (Phase 1/7): Google Cloud access.** Who can create the OAuth client (for sign-in), the service account with domain-wide delegation, and the Pub/Sub topic and subscription? Does a GCP project for this exist yet? I'll write a step-by-step admin guide either way.
