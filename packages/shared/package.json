@@ -15,7 +15,9 @@
     "./palette": "./src/schemas/palette.ts",
     "./crypto": "./src/crypto/tokens.ts",
     "./emails": "./src/emails/templates.ts",
-    "./defaults": "./src/domain/defaults.ts"
+    "./defaults": "./src/domain/defaults.ts",
+    "./schemas/project": "./src/schemas/project.ts",
+    "./schemas/members": "./src/schemas/members.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

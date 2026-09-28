@@ -71,11 +71,21 @@ export const getWorkspaceCtx = cache(async (slug: string): Promise<WorkspaceCtx 
   };
 });
 
-/** Pages and actions inside /[ws]: signed in AND an active member, else 404. */
-export async function requireWorkspaceCtx(slug: string): Promise<WorkspaceCtx> {
+/**
+ * Pages and actions inside /[ws]: signed in AND an active member, else 404.
+ * Password-based Owners/Admins without 2FA are sent to enrol first (D-050);
+ * only the account page itself passes `allowWithout2fa`.
+ */
+export async function requireWorkspaceCtx(
+  slug: string,
+  opts: { allowWithout2fa?: boolean } = {},
+): Promise<WorkspaceCtx> {
   await requireActor();
   const ctx = await getWorkspaceCtx(slug);
   if (!ctx) notFound();
+  if (!opts.allowWithout2fa && (await needsTwoFactorEnrollment(ctx))) {
+    redirect(`/${slug}/settings/account?enroll=1` as never);
+  }
   return ctx;
 }
 
