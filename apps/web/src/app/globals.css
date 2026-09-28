@@ -1,26 +1,307 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Dopl design tokens — see docs/DESIGN_SYSTEM.md §3.
+ * The default Tailwind palette is removed on purpose: only these tokens exist,
+ * so components cannot drift into ad-hoc colours.
+ */
+@theme static {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Brand (§3.1) — never for text */
+  --color-brand-lavender: #ada8ff;
+  --color-brand-sky: #42b0ff;
+  --color-brand-mid: #7cacff;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Accent scales (§3.2) — text uses 700+ */
+  --color-lavender-50: #f6f6ff;
+  --color-lavender-100: #ebebfe;
+  --color-lavender-200: #d9d8fe;
+  --color-lavender-300: #ada8ff;
+  --color-lavender-400: #9892f6;
+  --color-lavender-500: #837ded;
+  --color-lavender-600: #6e67e3;
+  --color-lavender-700: #5b4fd9;
+  --color-lavender-800: #4840ac;
+  --color-lavender-900: #36327f;
+
+  --color-sky-50: #f0f8ff;
+  --color-sky-100: #deefff;
+  --color-sky-200: #bee1ff;
+  --color-sky-300: #88c9fe;
+  --color-sky-400: #42b0ff;
+  --color-sky-500: #3199e8;
+  --color-sky-600: #1f82d1;
+  --color-sky-700: #0a6cba;
+  --color-sky-800: #0e5693;
+  --color-sky-900: #12416d;
+
+  /* Neutrals (§3.3) */
+  --color-neutral-0: #ffffff;
+  --color-neutral-25: #fcfcfd;
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f6;
+  --color-neutral-150: #f0f0f2;
+  --color-neutral-200: #ececee;
+  --color-neutral-250: #e2e2e5;
+  --color-neutral-300: #d4d4d8;
+  --color-neutral-400: #a1a1aa;
+  --color-neutral-500: #8b8b93;
+  --color-neutral-600: #6b6b73;
+  --color-neutral-700: #52525b;
+  --color-neutral-800: #3f3f46;
+  --color-neutral-900: #18181b;
+  --color-neutral-950: #16161a;
+
+  /* Semantic surfaces & text */
+  --color-canvas: var(--color-neutral-100);
+  --color-surface: var(--color-neutral-0);
+  --color-surface-muted: var(--color-neutral-50);
+  --color-surface-hover: #f7f7f8;
+  --color-surface-selected: var(--color-sky-50);
+  --color-sidebar-hover: var(--color-neutral-150);
+  --color-sidebar-active: #ebebed;
+  --color-border: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-250);
+  --color-fg: var(--color-neutral-900);
+  --color-fg-secondary: var(--color-neutral-700);
+  --color-fg-muted: var(--color-neutral-600);
+  --color-fg-placeholder: var(--color-neutral-500);
+  --color-fg-disabled: var(--color-neutral-400);
+  --color-fg-nav: var(--color-neutral-800);
+  --color-link: var(--color-sky-700);
+  --color-icon: var(--color-neutral-600);
+  --color-icon-strong: var(--color-neutral-800);
+
+  --color-primary: var(--color-neutral-950);
+  --color-primary-hover: #2a2a30;
+  --color-primary-active: #000000;
+  --color-on-primary: #ffffff;
+  --color-focus: var(--color-sky-600);
+
+  --color-danger: #dc2626;
+  --color-danger-hover: #c21f1f;
+  --color-danger-text: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-warning: #d97706;
+  --color-warning-text: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-success: #16a34a;
+  --color-success-text: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-info-text: var(--color-sky-700);
+  --color-info-bg: var(--color-sky-50);
+  --color-info-border: var(--color-sky-200);
+
+  /* Workflow state groups (§3.5) */
+  --color-state-triage: #837ded;
+  --color-state-backlog: #a1a1aa;
+  --color-state-unstarted: #71717a;
+  --color-state-started: #d97706;
+  --color-state-completed: #16a34a;
+  --color-state-cancelled: #dc2626;
+
+  /* Tag palette (§3.4): bg-50 / border-200 / text-700 */
+  --color-tag-purple-bg: #faf5ff;
+  --color-tag-purple-border: #e9d5ff;
+  --color-tag-purple-text: #7e22ce;
+  --color-tag-purple-solid: #a855f7;
+  --color-tag-red-bg: #fef2f2;
+  --color-tag-red-border: #fecaca;
+  --color-tag-red-text: #b91c1c;
+  --color-tag-red-solid: #ef4444;
+  --color-tag-green-bg: #f0fdf4;
+  --color-tag-green-border: #bbf7d0;
+  --color-tag-green-text: #15803d;
+  --color-tag-green-solid: #22c55e;
+  --color-tag-lime-bg: #f7fee7;
+  --color-tag-lime-border: #d9f99d;
+  --color-tag-lime-text: #4d7c0f;
+  --color-tag-lime-solid: #84cc16;
+  --color-tag-blue-bg: #eff6ff;
+  --color-tag-blue-border: #bfdbfe;
+  --color-tag-blue-text: #1d4ed8;
+  --color-tag-blue-solid: #3b82f6;
+  --color-tag-amber-bg: #fffbeb;
+  --color-tag-amber-border: #fde68a;
+  --color-tag-amber-text: #b45309;
+  --color-tag-amber-solid: #f59e0b;
+  --color-tag-pink-bg: #fdf2f8;
+  --color-tag-pink-border: #fbcfe8;
+  --color-tag-pink-text: #be185d;
+  --color-tag-pink-solid: #ec4899;
+  --color-tag-teal-bg: #f0fdfa;
+  --color-tag-teal-border: #99f6e4;
+  --color-tag-teal-text: #0f766e;
+  --color-tag-teal-solid: #14b8a6;
+  --color-tag-orange-bg: #fff7ed;
+  --color-tag-orange-border: #fed7aa;
+  --color-tag-orange-text: #c2410c;
+  --color-tag-orange-solid: #f97316;
+  --color-tag-grey-bg: #f4f4f5;
+  --color-tag-grey-border: #e4e4e7;
+  --color-tag-grey-text: #52525b;
+  --color-tag-grey-solid: #a1a1aa;
+
+  /* Typography (§3.7) */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+
+  --text-display: 24px;
+  --text-display--line-height: 32px;
+  --text-display--letter-spacing: -0.015em;
+  --text-title-lg: 20px;
+  --text-title-lg--line-height: 28px;
+  --text-title-lg--letter-spacing: -0.012em;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-title--letter-spacing: -0.006em;
+  --text-nav: 15px;
+  --text-nav--line-height: 20px;
+  --text-nav--letter-spacing: -0.006em;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body--letter-spacing: -0.003em;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-micro: 11px;
+  --text-micro--line-height: 14px;
+  --text-micro--letter-spacing: 0.01em;
+
+  /* Radii (§3.8) */
+  --radius-chip: 8px;
+  --radius-control: 10px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+
+  /* Elevation — borders first, shadows only for floating layers */
+  --shadow-xs: 0 1px 2px rgb(16 16 20 / 0.04);
+  --shadow-card: 0 1px 2px rgb(16 16 20 / 0.04), 0 1px 1px rgb(16 16 20 / 0.02);
+  --shadow-popover: 0 8px 24px -6px rgb(16 16 20 / 0.1), 0 2px 6px -2px rgb(16 16 20 / 0.05);
+  --shadow-dialog: 0 24px 64px -12px rgb(16 16 20 / 0.18), 0 4px 12px -4px rgb(16 16 20 / 0.06);
+  --shadow-drag: 0 14px 28px -8px rgb(16 16 20 / 0.2);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-agent-spin: agent-spin 1.6s linear infinite;
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes agent-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root {
+  --brand-gradient: linear-gradient(135deg, #ada8ff 0%, #42b0ff 100%);
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 200ms;
+  --sidebar-width: 248px;
+  --panel-inset: 8px;
+  --header-height: 56px;
+  --toolbar-height: 48px;
+  --row-height: 52px;
+  color-scheme: light;
+}
+
+[data-density="compact"] {
+  --row-height: 36px;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--color-sky-100);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: default;
+  }
+  * {
+    border-color: var(--color-border);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+    }
+  }
+}
+
+/* Tabular figures for tables, dates, counters, identifiers */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Spott-style fade at the bottom edge of scroll areas */
+@utility fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent);
+}
+
+@utility bg-brand-gradient {
+  background-image: var(--brand-gradient);
+}
+
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-150) 0%,
+    var(--color-neutral-100) 50%,
+    var(--color-neutral-150) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+  border-radius: 6px;
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) transparent;
 }

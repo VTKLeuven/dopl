@@ -91,6 +91,7 @@ Versions were checked on npm on 2026-09-28.
 **Follow-up:** Switch when typescript-eslint supports TypeScript 7. Next's `useTypeScriptCli` option makes the build side a one-line change.
 
 ### D-004: ESLint 10 flat config + typescript-eslint + Prettier
+*Amended 2026-09-29: `apps/web` stays on **ESLint 9**. `eslint-plugin-react` (pulled in by `eslint-config-next` 16.3) crashes on ESLint 10 (`Components.componentRule`). The other packages use ESLint 10 through the root `eslint.config.js`. Move web to 10 once `eslint-config-next` supports it.*
 **Decision:** `eslint.config.ts` at the root with `eslint-config-next@16.3`, `typescript-eslint` `strictTypeChecked`, and custom rules:
 - `no-restricted-imports` bans importing `@dopl/db` (Prisma) from React components and client code. Data access only goes through `apps/web/src/server/**`.
 - `no-explicit-any` is an error.

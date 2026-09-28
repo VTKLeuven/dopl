@@ -1,0 +1,36 @@
+{
+  "common": {
+    "appName": "Dopl",
+    "search": "Search…",
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create",
+    "delete": "Delete",
+    "close": "Close",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "more": "More",
+    "none": "None",
+    "undo": "Undo",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "copyIdentifier": "Copy identifier",
+    "open": "Open",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "done": "Done",
+    "back": "Back",
+    "continue": "Continue",
+    "optional": "optional",
+    "required": "required"
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "genericHint": "Try again in a moment. If it keeps happening, let an admin know.",
+    "notFound": "We couldn't find that page.",
+    "notFoundHint": "It may have been moved, archived, or you might not have access.",
+    "forbidden": "You don't have access to this.",
+    "offline": "You're offline. Changes will sync when you reconnect."
+  }
+}

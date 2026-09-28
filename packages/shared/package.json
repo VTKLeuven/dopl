@@ -11,7 +11,8 @@
     "./domain/*": "./src/domain/*.ts",
     "./policy": "./src/policy/index.ts",
     "./query-keys": "./src/query-keys.ts",
-    "./jobs/queues": "./src/jobs/queues.ts"
+    "./jobs/queues": "./src/jobs/queues.ts",
+    "./palette": "./src/schemas/palette.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
