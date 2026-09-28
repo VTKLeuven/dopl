@@ -11,6 +11,7 @@ import {
   type ProjectRole,
 } from "@dopl/shared/policy";
 import { db } from "../db";
+import { NotFoundError } from "../action-result";
 import type { WorkspaceCtx } from "../session";
 
 /** Prisma filter for projects the actor may see (mirrors effectiveProjectRole). */
@@ -43,39 +44,54 @@ export interface ProjectAccess {
   can: (action: ProjectAction) => boolean;
 }
 
+const projectSelect = (userId: string) =>
+  ({
+    id: true,
+    identifier: true,
+    name: true,
+    icon: true,
+    color: true,
+    visibility: true,
+    guestsCanViewProject: true,
+    estimateSystem: true,
+    archivedAt: true,
+    leadId: true,
+    description: true,
+    members: { where: { userId }, select: { role: true } },
+  }) satisfies Prisma.ProjectSelect;
+
+async function loadAccess(ctx: WorkspaceCtx, where: Prisma.ProjectWhereInput): Promise<ProjectAccess | null> {
+  const project = await db.project.findFirst({
+    where: { ...where, workspaceId: ctx.workspace.id, deletedAt: null },
+    select: projectSelect(ctx.actor.userId),
+  });
+  if (!project) return null;
+  const policy: PolicyProject = {
+    visibility: project.visibility,
+    guestsCanViewProject: project.guestsCanViewProject,
+    archivedAt: project.archivedAt,
+    memberRole: project.members[0]?.role ?? null,
+  };
+  const role = effectiveProjectRole(ctx.policyActor, policy);
+  if (!role) return null;
+  const { members, ...rest } = project;
+  void members;
+  return { project: rest, role, policy, can: (a) => canProject(ctx.policyActor, policy, a) };
+}
+
+/** Services: project by id with permissions; invisible projects look nonexistent. */
+export async function projectAccessById(ctx: WorkspaceCtx, projectId: string): Promise<ProjectAccess> {
+  const access = await loadAccess(ctx, { id: projectId });
+  if (!access) throw new NotFoundError();
+  return access;
+}
+
 /** Loads a project by identifier (INFRA) with the actor's permissions, or 404. */
 export const getProjectAccess = cache(
   async (ctx: WorkspaceCtx, identifier: string): Promise<ProjectAccess> => {
-    const project = await db.project.findFirst({
-      where: { workspaceId: ctx.workspace.id, identifier: identifier.toUpperCase(), deletedAt: null },
-      select: {
-        id: true,
-        identifier: true,
-        name: true,
-        icon: true,
-        color: true,
-        visibility: true,
-        guestsCanViewProject: true,
-        estimateSystem: true,
-        archivedAt: true,
-        leadId: true,
-        description: true,
-        members: { where: { userId: ctx.actor.userId }, select: { role: true } },
-      },
-    });
-    if (!project) notFound();
-    const policy: PolicyProject = {
-      visibility: project.visibility,
-      guestsCanViewProject: project.guestsCanViewProject,
-      archivedAt: project.archivedAt,
-      memberRole: project.members[0]?.role ?? null,
-    };
-    const role = effectiveProjectRole(ctx.policyActor, policy);
-    // Invisible projects 404 rather than 403 so their existence doesn't leak.
-    if (!role) notFound();
-    const { members, ...rest } = project;
-    void members;
-    return { project: rest, role, policy, can: (a) => canProject(ctx.policyActor, policy, a) };
+    const access = await loadAccess(ctx, { identifier: identifier.toUpperCase() });
+    if (!access) notFound();
+    return access;
   },
 );
 
