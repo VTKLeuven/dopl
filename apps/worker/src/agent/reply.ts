@@ -72,7 +72,11 @@ export async function postAgentReply(tx: TransactionClient, run: ReplyRun, text:
         agentRunId: run.id,
       },
     });
-    await emit({ topic: `workItem:${item.id}`, type: "comment.created", payload: { id: comment.id } });
+    await emit({
+      topic: `workItem:${item.id}`,
+      type: "comment.created",
+      payload: { id: comment.id },
+    });
     await emit({
       topic: `project:${item.projectId}`,
       type: "workItem.updated",
@@ -158,7 +162,11 @@ export async function postAgentReply(tx: TransactionClient, run: ReplyRun, text:
           data: { hiddenAt: null },
         });
         for (const h of hidden)
-          await emit({ topic: `user:${h.userId}`, type: "channel.joined", payload: { channelId: channel.id } });
+          await emit({
+            topic: `user:${h.userId}`,
+            type: "channel.joined",
+            payload: { channelId: channel.id },
+          });
       }
     }
     await emit({

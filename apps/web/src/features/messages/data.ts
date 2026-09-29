@@ -116,6 +116,7 @@ function optimisticMessage(
     channelId: input.channelId,
     threadRootId: input.threadRootId,
     kind: "USER",
+    agentRunId: null,
     author: me,
     body: input.body,
     deleted: false,

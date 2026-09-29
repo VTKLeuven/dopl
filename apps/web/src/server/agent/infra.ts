@@ -1,11 +1,6 @@
 import "server-only";
 import type { Prisma } from "@dopl/db";
-import {
-  createStep,
-  finishStep,
-  runRefSelect,
-  type RunRef,
-} from "@dopl/server/agent";
+import { createStep, finishStep, runRefSelect, type RunRef } from "@dopl/server/agent";
 import { evaluateInfraExec, normalizeCommand } from "@dopl/shared/domain/agent";
 import { db } from "../db";
 import { enqueue } from "../jobs";
@@ -91,7 +86,12 @@ export async function infraExec(
         action: "agent.command.refused",
         targetType: "agent_run",
         targetId: run.id,
-        metadata: { host: args.host, command, reason: decision.reason, ruleId: decision.ruleId ?? null },
+        metadata: {
+          host: args.host,
+          command,
+          reason: decision.reason,
+          ruleId: decision.ruleId ?? null,
+        },
       });
     });
     return { status: "denied", reason: denyMessage(decision.reason) };
@@ -104,7 +104,12 @@ export async function infraExec(
         title: host!.name,
         command,
         hostId: host!.id,
-        input: { host: host!.name, reason: args.reason, decision: "allowlisted", ruleId: decision.ruleId },
+        input: {
+          host: host!.name,
+          reason: args.reason,
+          decision: "allowlisted",
+          ruleId: decision.ruleId,
+        },
       });
       await enqueue(m.tx, "agent.exec", { stepId: step.id }, { singletonKey: step.id });
       return step.id;
@@ -158,10 +163,16 @@ function denyMessage(reason: string): string {
 const stillRunning = (stepId: string): ToolResult => ({
   status: "running",
   step_id: stepId,
-  message: "The command is still running. Report that to the person; its output will appear on the run.",
+  message:
+    "The command is still running. Report that to the person; its output will appear on the run.",
 });
 
-type StepRow = { status: string; exitCode: number | null; output: string | null; outputTruncated: boolean };
+type StepRow = {
+  status: string;
+  exitCode: number | null;
+  output: string | null;
+  outputTruncated: boolean;
+};
 
 function stepResult(step: StepRow): ToolResult {
   const output = step.output ?? "";
@@ -236,7 +247,10 @@ async function waitForApprovalAndStep(
             message: `DENIED by ${approval.decidedBy?.name ?? "a teammate"}${approval.decisionNote ? `: ${approval.decisionNote}` : ""}`,
           };
         case "EXPIRED":
-          return { status: "expired", message: "Nobody approved this in time. Don't retry it; tell the person." };
+          return {
+            status: "expired",
+            message: "Nobody approved this in time. Don't retry it; tell the person.",
+          };
         case "CANCELLED":
           return { status: "cancelled", message: "The run was stopped." };
         case "APPROVED":
@@ -259,7 +273,11 @@ export async function infraWait(
   run: McpRun,
   approvalId: string,
   wait: WaitOptions,
-  performWrite: (approval: { toolName: string; toolArgs: unknown; stepId: string }) => Promise<ToolResult>,
+  performWrite: (approval: {
+    toolName: string;
+    toolArgs: unknown;
+    stepId: string;
+  }) => Promise<ToolResult>,
 ): Promise<ToolResult> {
   const approval = await db.agentApproval.findUnique({
     where: { id: approvalId },

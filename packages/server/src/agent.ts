@@ -4,12 +4,7 @@
  * transaction and an `emit` that writes to the realtime outbox, so run state
  * and the events describing it commit together.
  */
-import type {
-  AgentStepKind,
-  AgentStepStatus,
-  Prisma,
-  TransactionClient,
-} from "@dopl/db";
+import type { AgentStepKind, AgentStepStatus, Prisma, TransactionClient } from "@dopl/db";
 
 export type AgentEmit = (e: {
   topic: string;
@@ -135,7 +130,11 @@ export async function syncWaitingStatus(tx: TransactionClient, emit: AgentEmit, 
   const pending = await tx.agentApproval.count({ where: { runId: run.id, status: "PENDING" } });
   const next = pending > 0 ? "WAITING_FOR_APPROVAL" : "RUNNING";
   const changed = await tx.agentRun.updateMany({
-    where: { id: run.id, status: { in: ["RUNNING", "WAITING_FOR_APPROVAL"] }, NOT: { status: next } },
+    where: {
+      id: run.id,
+      status: { in: ["RUNNING", "WAITING_FOR_APPROVAL"] },
+      NOT: { status: next },
+    },
     data: { status: next },
   });
   if (changed.count) await emitAgentEvent(emit, run, "agentRun.updated", { status: next });

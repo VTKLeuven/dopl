@@ -57,7 +57,11 @@ export async function createAgent(ctx: WorkspaceCtx) {
   return withMutation(ctx, async (m) => {
     const existing = await m.tx.workspaceMember.findFirst({
       where: { workspaceId: ctx.workspace.id, user: { kind: "AGENT" } },
-      select: { userId: true, status: true, user: { select: { agentProfile: { select: { id: true } } } } },
+      select: {
+        userId: true,
+        status: true,
+        user: { select: { agentProfile: { select: { id: true } } } },
+      },
     });
     let userId = existing?.userId;
     if (!userId) {
@@ -258,7 +262,11 @@ export async function upsertAgentHost(ctx: WorkspaceCtx, raw: unknown) {
   const input = AgentHostSchema.parse(raw);
   return withMutation(ctx, async (m) => {
     const clash = await m.tx.agentHost.findFirst({
-      where: { workspaceId: ctx.workspace.id, name: input.name, ...(input.id ? { id: { not: input.id } } : {}) },
+      where: {
+        workspaceId: ctx.workspace.id,
+        name: input.name,
+        ...(input.id ? { id: { not: input.id } } : {}),
+      },
       select: { id: true },
     });
     if (clash) throw new ConflictError("host_name_taken");
@@ -468,7 +476,11 @@ export async function revokeMcpToken(ctx: WorkspaceCtx, id: string) {
       data: { revokedAt: new Date() },
     });
     if (!n.count) throw new NotFoundError();
-    await audit(m.tx, ctx, { action: "agent.token.revoked", targetType: "api_token", targetId: id });
+    await audit(m.tx, ctx, {
+      action: "agent.token.revoked",
+      targetType: "api_token",
+      targetId: id,
+    });
     settingsChanged(m);
     return { id };
   });
@@ -499,7 +511,8 @@ export async function decideApproval(ctx: WorkspaceCtx, raw: unknown) {
       },
     });
     if (!approval) throw new NotFoundError();
-    if (approval.status !== "PENDING") throw new ConflictError(`already_${approval.status.toLowerCase()}`);
+    if (approval.status !== "PENDING")
+      throw new ConflictError(`already_${approval.status.toLowerCase()}`);
     if (approval.expiresAt < new Date()) throw new ConflictError("expired");
     const approved = input.decision === "APPROVE";
     await m.tx.agentApproval.update({
@@ -519,7 +532,12 @@ export async function decideApproval(ctx: WorkspaceCtx, raw: unknown) {
           output: `Denied by ${ctx.actor.name}${input.note ? `: ${input.note}` : "."}`,
         });
       else if (approval.kind === "INFRA_COMMAND")
-        await enqueue(m.tx, "agent.exec", { stepId: approval.stepId }, { singletonKey: approval.stepId });
+        await enqueue(
+          m.tx,
+          "agent.exec",
+          { stepId: approval.stepId },
+          { singletonKey: approval.stepId },
+        );
     }
     if (approval.kind === "RUNTIME_TOOL")
       await enqueue(m.tx, "agent.runtime-approval", { approvalId: approval.id });

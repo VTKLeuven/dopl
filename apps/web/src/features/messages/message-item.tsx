@@ -228,6 +228,16 @@ export const MessageItem = memo(function MessageItem({
           </ul>
         ) : null}
 
+        {message.agentRunId ? (
+          <Link
+            href={`/${ws}/agent/runs/${message.agentRunId}` as never}
+            className="mt-1 inline-flex items-center gap-1 text-caption text-fg-muted hover:text-fg"
+            data-testid="agent-run-link"
+          >
+            {t("agentRunLink")}
+          </Link>
+        ) : null}
+
         {message.createdItems.length > 0 ? (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {message.createdItems.map((item) => (

@@ -63,9 +63,7 @@ async function taint(principal: McpPrincipal, run: McpRun, reason: string) {
       where: { id: run.id },
       data: {
         untrusted: true,
-        untrustedReasons: current.untrustedReasons.includes(reason)
-          ? undefined
-          : { push: reason },
+        untrustedReasons: current.untrustedReasons.includes(reason) ? undefined : { push: reason },
         taintedAt: current.taintedAt ?? new Date(),
       },
     });
@@ -104,7 +102,8 @@ async function findItem(principal: McpPrincipal, run: McpRun, identifier: string
     },
     select: { id: true, projectId: true, untrusted: true },
   });
-  if (!item) throw new McpError("not_found", `${identifier} doesn't exist or isn't visible to you.`);
+  if (!item)
+    throw new McpError("not_found", `${identifier} doesn't exist or isn't visible to you.`);
   requireProject(principal, item.projectId);
   return item;
 }
@@ -157,7 +156,8 @@ const writes: Record<string, (p: McpPrincipal, run: McpRun, args: never) => Prom
         },
         select: { id: true },
       });
-      if (!state) throw new McpError("invalid_input", `No state named "${args.state}" in that project.`);
+      if (!state)
+        throw new McpError("invalid_input", `No state named "${args.state}" in that project.`);
       stateId = state.id;
     }
     const res = await updateWorkItem(agentCtx(p, run.id), {
@@ -206,7 +206,10 @@ async function searchWorkItems(p: McpPrincipal, run: McpRun, args: Args<"search_
     ...(args.assigned_to_me ? { assignees: { some: { userId: p.agent.userId } } } : {}),
     ...(args.include_done ? {} : { stateGroup: { notIn: ["COMPLETED", "CANCELLED"] } }),
     ...(ident
-      ? { sequence: Number(ident[2]), project: { identifier: ident[1]!.toUpperCase(), ...accessibleProjectsWhere(ctx) } }
+      ? {
+          sequence: Number(ident[2]),
+          project: { identifier: ident[1]!.toUpperCase(), ...accessibleProjectsWhere(ctx) },
+        }
       : q
         ? { title: { contains: q, mode: "insensitive" } }
         : {}),
@@ -330,7 +333,11 @@ async function listAssignedThreads(p: McpPrincipal, run: McpRun) {
       status: true,
       messageCount: true,
       lastMessageAt: true,
-      references: { select: { workItem: { select: { sequence: true, project: { select: { identifier: true } } } } } },
+      references: {
+        select: {
+          workItem: { select: { sequence: true, project: { select: { identifier: true } } } },
+        },
+      },
     },
   });
   // Subjects are written by outsiders: get_email_thread shows them (and flags the run).
@@ -369,7 +376,10 @@ async function getEmailThread(p: McpPrincipal, run: McpRun, args: Args<"get_emai
     },
   });
   if (!thread)
-    throw new McpError("not_found", "You can only read threads assigned to you or linked to this run's item.");
+    throw new McpError(
+      "not_found",
+      "You can only read threads assigned to you or linked to this run's item.",
+    );
   // Email is always untrusted (D-033).
   await taint(p, run, `get_email_thread:${thread.id}`);
   return {
@@ -437,7 +447,8 @@ function errorText(err: unknown): string {
   if (err instanceof NotFoundError) return "Not found or not visible to you.";
   if (err instanceof ConflictError) return `Refused: ${err.message}.`;
   if (err && typeof err === "object" && "issues" in err) return "Invalid arguments.";
-  if (err instanceof Error && err.name === "ForbiddenError") return "You aren't allowed to do that.";
+  if (err instanceof Error && err.name === "ForbiddenError")
+    return "You aren't allowed to do that.";
   console.error("[mcp] tool failed", err);
   return "The tool failed. Tell the person; don't retry in a loop.";
 }
@@ -487,14 +498,23 @@ export function buildMcpServer(principal: McpPrincipal) {
       {
         description,
         inputSchema: McpTools[name],
-        annotations: { readOnlyHint: opts.readOnly ?? false, openWorldHint: name.startsWith("infra") },
+        annotations: {
+          readOnlyHint: opts.readOnly ?? false,
+          openWorldHint: name.startsWith("infra"),
+        },
       },
       // The SDK validated the arguments against McpTools[name].
-      (async (rawArgs: Record<string, unknown>, extra: {
-        signal: AbortSignal;
-        _meta?: { progressToken?: string | number };
-        sendNotification: (n: { method: "notifications/progress"; params: { progressToken: string | number; progress: number; message?: string } }) => Promise<void>;
-      }) => {
+      (async (
+        rawArgs: Record<string, unknown>,
+        extra: {
+          signal: AbortSignal;
+          _meta?: { progressToken?: string | number };
+          sendNotification: (n: {
+            method: "notifications/progress";
+            params: { progressToken: string | number; progress: number; message?: string };
+          }) => Promise<void>;
+        },
+      ) => {
         const args = rawArgs as Args<N> & { run_token: string };
         let run: McpRun;
         try {
@@ -557,7 +577,8 @@ export function buildMcpServer(principal: McpPrincipal) {
             return toText({
               status: "pending_approval",
               approval_id: approvalId,
-              message: "This run read untrusted content, so a person must approve this write. Call infra_wait with the approval_id.",
+              message:
+                "This run read untrusted content, so a person must approve this write. Call infra_wait with the approval_id.",
             });
           if (decided.status !== "APPROVED") return toText(decided.result);
           return toText(await performWrite(run, name, args, stepId));

@@ -40,6 +40,10 @@ export interface FakeHermesOptions {
   streamDelayMs?: number;
 }
 
+/** Tool results are loose JSON: show strings as they are, anything else as JSON. */
+const text = (v: unknown): string =>
+  typeof v === "string" ? v : v === undefined || v === null ? "" : JSON.stringify(v);
+
 const TERMINAL = new Set(["completed", "failed", "cancelled", "interrupted"]);
 const CMD = /`([^`\n]{1,400})`\s+on\s+([\w.-]{1,64})/g;
 
@@ -72,27 +76,30 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
     );
     const call = async (name: string, args: Record<string, unknown>) => {
       if (signal.aborted) throw new Error("stopped");
-      push(run, "tool.started", { tool: `mcp_dopl_${name}`, preview: JSON.stringify(args).slice(0, 80) });
+      push(run, "tool.started", {
+        tool: `mcp_dopl_${name}`,
+        preview: JSON.stringify(args).slice(0, 80),
+      });
       const started = Date.now();
       const res = await client.callTool(
         { name, arguments: { run_token: token, ...args } },
         undefined,
         { timeout: 15 * 60_000, resetTimeoutOnProgress: true, signal },
       );
-      const text = (res.content as Array<{ type: string; text?: string }>)
+      const out = (res.content as Array<{ type: string; text?: string }>)
         .map((c) => c.text ?? "")
         .join("\n");
       push(run, "tool.completed", {
         tool: `mcp_dopl_${name}`,
         duration: (Date.now() - started) / 1000,
         error: Boolean(res.isError),
-        preview: text.slice(0, 120),
+        preview: out.slice(0, 120),
       });
-      let parsed: Record<string, unknown> = {};
+      let parsed: Record<string, unknown>;
       try {
-        parsed = JSON.parse(text) as Record<string, unknown>;
+        parsed = JSON.parse(out) as Record<string, unknown>;
       } catch {
-        parsed = { text };
+        parsed = { text: out };
       }
       return parsed;
     };
@@ -101,12 +108,16 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
       for (let i = 0; i < 5 && r.status === "pending_approval"; i++)
         r = await call("infra_wait", { approval_id: r.approval_id });
       if (r.status === "completed")
-        lines.push(`Ran \`${command}\` on ${host} (exit ${String(r.exit_code)}):\n${String(r.output ?? "").trim() || "(no output)"}`);
+        lines.push(
+          `Ran \`${command}\` on ${host} (exit ${text(r.exit_code)}):\n${text(r.output ?? "").trim() || "(no output)"}`,
+        );
       else
-        lines.push(`\`${command}\` on ${host}: ${String(r.status)}${r.message || r.reason ? ` (${String(r.message ?? r.reason)})` : ""}.`);
+        lines.push(
+          `\`${command}\` on ${host}: ${text(r.status)}${r.message || r.reason ? ` (${text(r.message ?? r.reason)})` : ""}.`,
+        );
     };
     const followInjected = async (text: string) => {
-      for (const m of text.matchAll(CMD)) await exec(m[1]!, m[2]!, "The email asked for it.");
+      for (const m of text.matchAll(CMD)) await exec(m[1] ?? "", m[2] ?? "", "The email asked for it.");
     };
 
     try {
@@ -118,14 +129,16 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
       if (/list hosts/i.test(request)) {
         const r = await call("list_hosts", {});
         const hosts = (r.hosts as Array<{ name: string; environment: string }> | undefined) ?? [];
-        lines.push(`Hosts: ${hosts.map((h) => `${h.name} (${h.environment})`).join(", ") || "none"}.`);
+        lines.push(
+          `Hosts: ${hosts.map((h) => `${h.name} (${h.environment})`).join(", ") || "none"}.`,
+        );
       }
       for (const m of request.matchAll(/\b([A-Z][A-Z0-9]{1,11}-\d+)\b/g)) {
         const r = await call("get_work_item", { identifier: m[1] });
-        if (r.error) lines.push(`${m[1]}: ${String(r.error)}`);
+        if (r.error) lines.push(`${m[1]}: ${text(r.error)}`);
         else {
-          lines.push(`${m[1]} is "${String(r.title)}" (${String(r.state)}).`);
-          await followInjected(String(r.description ?? ""));
+          lines.push(`${m[1]} is "${text(r.title)}" (${text(r.state)}).`);
+          await followInjected(text(r.description ?? ""));
         }
       }
       if (/\b(e-?mails?|mail)\b/i.test(request)) {
@@ -137,21 +150,31 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
           const bodies = ((thread.messages as Array<{ body: string }> | undefined) ?? [])
             .map((msg) => msg.body)
             .join("\n");
-          lines.push(`Read an email thread with ${(thread.messages as unknown[] | undefined)?.length ?? 0} message(s).`);
+          lines.push(
+            `Read an email thread with ${(thread.messages as unknown[] | undefined)?.length ?? 0} message(s).`,
+          );
           await followInjected(bodies);
         }
       }
       const create = request.match(/create (?:an? )?item "([^"]+)" in ([A-Z][A-Z0-9]{1,11})/i);
       if (create) {
         const r = await call("create_work_item", { project: create[2], title: create[1] });
-        lines.push(r.identifier ? `Created ${String(r.identifier)}.` : `Couldn't create it: ${String(r.message ?? r.error ?? r.status)}.`);
+        lines.push(
+          r.identifier
+            ? `Created ${text(r.identifier)}.`
+            : `Couldn't create it: ${text(r.message ?? r.error ?? r.status)}.`,
+        );
       }
       const comment = request.match(/comment "([^"]+)" on ([A-Z][A-Z0-9]{1,11}-\d+)/i);
       if (comment) {
         let r = await call("add_comment", { identifier: comment[2], body: comment[1] });
         for (let i = 0; i < 5 && r.status === "pending_approval"; i++)
           r = await call("infra_wait", { approval_id: r.approval_id });
-        lines.push(r.comment_id || r.status === "completed" ? `Commented on ${comment[2]}.` : `Couldn't comment: ${String(r.message ?? r.error ?? r.status)}.`);
+        lines.push(
+          r.comment_id || r.status === "completed"
+            ? `Commented on ${comment[2]}.`
+            : `Couldn't comment: ${text(r.message ?? r.error ?? r.status)}.`,
+        );
       }
       const hermesApproval = request.match(/ask hermes approval `([^`]+)`/i);
       if (hermesApproval) {
@@ -159,12 +182,18 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         run.status = "waiting_for_approval";
         const decision = await new Promise<string>((resolve) => {
           run.approval = { id, resolve };
-          push(run, "approval.request", { approval_id: id, tool: "terminal", context: hermesApproval[1] });
+          push(run, "approval.request", {
+            approval_id: id,
+            tool: "terminal",
+            context: hermesApproval[1],
+          });
         });
         run.status = "running";
-        lines.push(`Hermes asked about \`${hermesApproval[1]}\`: ${decision === "deny" ? "denied" : "approved once"}.`);
+        lines.push(
+          `Hermes asked about \`${hermesApproval[1]}\`: ${decision === "deny" ? "denied" : "approved once"}.`,
+        );
       }
-      for (const m of request.matchAll(CMD)) await exec(m[1]!, m[2]!, "The person asked for it.");
+      for (const m of request.matchAll(CMD)) await exec(m[1] ?? "", m[2] ?? "", "The person asked for it.");
 
       if (lines.length === 0)
         lines.push(
@@ -179,7 +208,10 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
       if (signal.aborted) finish(run, "cancelled");
       else {
         run.output = output;
-        finish(run, "completed", { output, usage: { input_tokens: input.length / 4, output_tokens: output.length / 4 } });
+        finish(run, "completed", {
+          output,
+          usage: { input_tokens: input.length / 4, output_tokens: output.length / 4 },
+        });
       }
     } catch (err) {
       if (signal.aborted) finish(run, "cancelled");
@@ -209,11 +241,11 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
   const server = createServer((req, res) => {
     void (async () => {
       if (req.headers.authorization !== `Bearer ${opts.apiKey}`)
-        return send(res, 401, { error: "unauthorized" });
+        { send(res, 401, { error: "unauthorized" }); return; }
       const url = new URL(req.url ?? "/", "http://fake");
       const parts = url.pathname.split("/").filter(Boolean); // v1 runs <id> <action>
       if (url.pathname === "/v1/capabilities")
-        return send(res, 200, {
+        { send(res, 200, {
           object: "hermes.api_server.capabilities",
           platform: "hermes-agent",
           model: "fake-hermes",
@@ -226,15 +258,15 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
             session_key_header: "X-Hermes-Session-Key",
             tool_progress_events: true,
           },
-        });
-      if (parts[0] !== "v1" || parts[1] !== "runs") return send(res, 404, {});
+        }); return; }
+      if (parts[0] !== "v1" || parts[1] !== "runs") { send(res, 404, {}); return; }
       if (req.method === "POST" && parts.length === 2) {
         const body = await readBody(req);
-        const key = String(req.headers["idempotency-key"] ?? "");
+        const key = text(req.headers["idempotency-key"] ?? "");
         const existing = key ? byKey.get(key) : undefined;
         if (existing) {
           res.setHeader("Idempotency-Replayed", "true");
-          return send(res, 202, { run_id: existing, status: runs.get(existing)?.status });
+          send(res, 202, { run_id: existing, status: runs.get(existing)?.status }); return;
         }
         const run: FakeRun = {
           id: `run_fake_${++seq}`,
@@ -246,35 +278,36 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         };
         runs.set(run.id, run);
         if (key) byKey.set(key, run.id);
-        void script(run, String(body.input ?? ""), String(body.instructions ?? ""));
-        return send(res, 200, { run_id: run.id, status: "started" });
+        void script(run, text(body.input ?? ""), text(body.instructions ?? ""));
+        send(res, 200, { run_id: run.id, status: "started" }); return;
       }
       const run = runs.get(parts[2] ?? "");
-      if (!run) return send(res, 404, { error: "not_found" });
+      if (!run) { send(res, 404, { error: "not_found" }); return; }
       const action = parts[3];
       if (req.method === "GET" && !action)
-        return send(res, 200, {
+        { send(res, 200, {
           object: "hermes.run",
           run_id: run.id,
           status: run.status,
           output: run.output,
           error: run.error,
-        });
+        }); return; }
       if (req.method === "POST" && action === "stop") {
         run.abort.abort();
         run.approval?.resolve("deny");
         if (!TERMINAL.has(run.status)) run.status = "stopping";
-        setTimeout(() => finish(run, "cancelled"), 50);
-        return send(res, 200, { status: "stopping" });
+        setTimeout(() => { finish(run, "cancelled"); }, 50);
+        send(res, 200, { status: "stopping" }); return;
       }
       if (req.method === "POST" && action === "approval") {
         const body = await readBody(req);
-        const decision = String(body.decision);
-        if (!["once", "deny"].includes(decision)) return send(res, 400, { error: "Dopl only sends once or deny" });
-        if (!run.approval) return send(res, 409, { error: "no pending approval" });
+        const decision = text(body.decision);
+        if (!["once", "deny"].includes(decision))
+          { send(res, 400, { error: "Dopl only sends once or deny" }); return; }
+        if (!run.approval) { send(res, 409, { error: "no pending approval" }); return; }
         run.approval.resolve(decision);
         run.approval = undefined;
-        return send(res, 200, { status: decision === "deny" ? "denied" : "approved" });
+        send(res, 200, { status: decision === "deny" ? "denied" : "approved" }); return;
       }
       if (req.method === "GET" && action === "events") {
         res.writeHead(200, {
@@ -285,7 +318,8 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         let sent = 0;
         const flush = () => {
           while (sent < run.events.length) {
-            const e = run.events[sent++]!;
+            const e = run.events[sent++];
+            if (!e) break;
             res.write(`event: ${e.event}\ndata: ${e.data}\n\n`);
           }
           if (TERMINAL.has(run.status) && sent >= run.events.length) cleanup();
@@ -301,10 +335,10 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         flush();
         return;
       }
-      return send(res, 404, {});
+      send(res, 404, {});
     })().catch((err: unknown) => {
       if (!res.headersSent) send(res, 500, { error: (err as Error).message });
     });
   });
-  return new Promise((resolve) => server.listen(opts.port, "127.0.0.1", () => resolve(server)));
+  return new Promise((resolve) => server.listen(opts.port, "127.0.0.1", () => { resolve(server); }));
 }

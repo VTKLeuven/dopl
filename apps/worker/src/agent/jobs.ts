@@ -103,7 +103,10 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     );
   });
 
-function runtimeFor(deps: AgentDeps, profile: { baseUrl: string; apiKeyEnv: string }): AgentRuntime {
+function runtimeFor(
+  deps: AgentDeps,
+  profile: { baseUrl: string; apiKeyEnv: string },
+): AgentRuntime {
   if (deps.runtimeFor) return deps.runtimeFor(profile);
   const key = process.env[profile.apiKeyEnv] || deps.fallbackApiKey;
   if (!key) throw new Error(`The worker has no ${profile.apiKeyEnv} (worker.env).`);
@@ -202,10 +205,11 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
   const ref: RunRef = run;
 
   if (run.status === "QUEUED") {
-    if (!profile || profile.status !== "ACTIVE" || run.workspace.agentPausedAt) {
+    const queued = run;
+    if (!profile || profile.status !== "ACTIVE" || queued.workspace.agentPausedAt) {
       await db.$transaction((tx) =>
-        cancelRun(tx, emitter(tx, run!.workspaceId), ref, {
-          reason: run!.workspace.agentPausedAt ? "agent_paused" : "agent_unavailable",
+        cancelRun(tx, emitter(tx, queued.workspaceId), ref, {
+          reason: queued.workspace.agentPausedAt ? "agent_paused" : "agent_unavailable",
         }),
       );
       return;
@@ -214,16 +218,19 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
     const waitedSince = Date.now();
     for (;;) {
       const claimed = await db.$transaction(async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`agent:${run!.agentUserId}`}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`agent:${queued.agentUserId}`}))`;
         const busy = await tx.agentRun.count({
-          where: { agentUserId: run!.agentUserId, status: { in: [...ACTIVE] }, id: { not: runId } },
+          where: { agentUserId: queued.agentUserId, status: { in: [...ACTIVE] }, id: { not: runId } },
         });
         if (busy >= profile.maxConcurrentRuns) return "busy" as const;
         const n = await tx.agentRun.updateMany({
           where: { id: runId, status: "QUEUED" },
           data: { status: "RUNNING", startedAt: new Date() },
         });
-        if (n.count) await emitAgentEvent(emitter(tx, run!.workspaceId), ref, "agentRun.updated", { status: "RUNNING" });
+        if (n.count)
+          await emitAgentEvent(emitter(tx, queued.workspaceId), ref, "agentRun.updated", {
+            status: "RUNNING",
+          });
         return n.count ? ("claimed" as const) : ("gone" as const);
       });
       if (claimed === "claimed") break;
@@ -234,7 +241,9 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
       }
       await sleep(t.busyRetryMs, jobSignal);
     }
-    run = (await loadRun(db, runId))!;
+    const reloaded = await loadRun(db, runId);
+    if (!reloaded) return;
+    run = reloaded;
   } else if (run.status === "RUNNING" || run.status === "WAITING_FOR_APPROVAL") {
     // Re-attach only when the current follower (if any) stopped beating.
     const deadline = Date.now() + t.leaseMs * 3;
@@ -248,12 +257,17 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
         data: { updatedAt: new Date() },
       });
       if (n.count) break;
-      const current = await db.agentRun.findUnique({ where: { id: runId }, select: { status: true } });
+      const current = await db.agentRun.findUnique({
+        where: { id: runId },
+        select: { status: true },
+      });
       if (!current || !ACTIVE.includes(current.status as (typeof ACTIVE)[number])) return;
       if (Date.now() > deadline || jobSignal?.aborted) return; // the reconciler tries again
       await sleep(t.leaseMs / 3, jobSignal);
     }
-    run = (await loadRun(db, runId))!;
+    const reloaded = await loadRun(db, runId);
+    if (!reloaded) return;
+    run = reloaded;
     logger.info({ runId }, "agent.run re-attached");
   } else return;
 
@@ -267,11 +281,12 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
   }
 
   // Start (idempotent: a retried job sends the same Idempotency-Key and payload).
-  if (!run.runtimeRunId) {
+  let runtimeRunId = run.runtimeRunId;
+  if (!runtimeRunId) {
     const token = deriveRunToken(deps.encryptionKey, run.id);
     const sessionId = runSessionId(run);
     try {
-      const { runtimeRunId } = await runtime.startRun({
+      const started = await runtime.startRun({
         runId: run.id,
         sessionId,
         sessionKey: `dopl:${run.agentUserId}:${sessionId.split(":").slice(1, 2).join("") || "run"}`,
@@ -285,11 +300,11 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
         input: run.prompt,
         model: profile.model,
       });
+      runtimeRunId = started.runtimeRunId;
       await db.agentRun.update({
         where: { id: run.id },
         data: { runtimeRunId, runtimeSessionId: sessionId },
       });
-      run = { ...run, runtimeRunId };
     } catch (err) {
       if (err instanceof RuntimeBusyError) throw err; // pg-boss retries later
       logger.warn({ err, runId }, "agent.run start failed");
@@ -299,21 +314,22 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
       return;
     }
   }
-  await follow(deps, runtime, run, t, jobSignal);
+  await follow(deps, runtime, run, runtimeRunId, profile.runTimeoutSec, t, jobSignal);
 }
 
 async function follow(
   deps: AgentDeps,
   runtime: AgentRuntime,
   run: LoadedRun,
+  runtimeRunId: string,
+  runTimeoutSec: number,
   t: typeof TIMING,
   jobSignal?: AbortSignal,
 ) {
   const { db, logger } = deps;
-  const runtimeRunId = run.runtimeRunId!;
-  const profile = run.agentUser.agentProfile!;
   const ac = new AbortController();
-  jobSignal?.addEventListener("abort", () => ac.abort(), { once: true });
+  const stopped = () => ac.signal.aborted;
+  jobSignal?.addEventListener("abort", () => { ac.abort(); }, { once: true });
   let ended = false;
   let lastBeat = Date.now();
 
@@ -334,11 +350,11 @@ async function follow(
         stop = true;
       }
       const started = current.startedAt?.getTime() ?? Date.now();
-      if (!stop && Date.now() - started > profile.runTimeoutSec * 1000) {
+      if (!stop && Date.now() - started > runTimeoutSec * 1000) {
         await db.$transaction((tx) =>
           cancelRun(tx, emitter(tx, run.workspaceId), run, {
             status: "FAILED",
-            reason: `Timed out after ${Math.round(profile.runTimeoutSec / 60)} minutes.`,
+            reason: `Timed out after ${Math.round(runTimeoutSec / 60)} minutes.`,
           }),
         );
         stop = true;
@@ -346,7 +362,9 @@ async function follow(
       if (stop) {
         ended = true;
         ac.abort();
-        await runtime.stop(runtimeRunId).catch((err: unknown) => logger.warn({ err }, "runtime stop failed"));
+        await runtime
+          .stop(runtimeRunId)
+          .catch((err: unknown) => { logger.warn({ err }, "runtime stop failed"); });
         return;
       }
       if (Date.now() - lastBeat > t.heartbeatMs) {
@@ -356,10 +374,15 @@ async function follow(
           data: { updatedAt: new Date() },
         });
       }
-    })().catch((err: unknown) => logger.warn({ err, runId: run.id }, "agent watchdog"));
+    })().catch((err: unknown) => { logger.warn({ err, runId: run.id }, "agent watchdog"); });
   }, t.watchdogMs);
 
-  const text = { stepId: null as string | null, value: "", dirty: false, timer: null as NodeJS.Timeout | null };
+  const text = {
+    stepId: null as string | null,
+    value: "",
+    dirty: false,
+    timer: null as NodeJS.Timeout | null,
+  };
   const flush = async (close: boolean) => {
     if (text.timer) {
       clearTimeout(text.timer);
@@ -375,9 +398,16 @@ async function follow(
     if (!text.dirty && !close) return;
     text.dirty = false;
     await db.$transaction(async (tx) => {
-      if (close) await finishStep(tx, emitter(tx, run.workspaceId), run, stepId, { status: "SUCCEEDED", output: value });
+      if (close)
+        await finishStep(tx, emitter(tx, run.workspaceId), run, stepId, {
+          status: "SUCCEEDED",
+          output: value,
+        });
       else {
-        await tx.agentRunStep.update({ where: { id: stepId }, data: { output: value.slice(0, 64 * 1024) } });
+        await tx.agentRunStep.update({
+          where: { id: stepId },
+          data: { output: value.slice(0, 64 * 1024) },
+        });
         await emitAgentEvent(emitter(tx, run.workspaceId), run, "agentStep.updated", { stepId });
       }
     });
@@ -456,7 +486,9 @@ async function follow(
             data: { status: "CANCELLED", decidedAt: new Date(), decisionNote: ev.reason || null },
           });
           if (a.stepId)
-            await finishStep(tx, emitter(tx, run.workspaceId), run, a.stepId, { status: "CANCELLED" });
+            await finishStep(tx, emitter(tx, run.workspaceId), run, a.stepId, {
+              status: "CANCELLED",
+            });
           await emitAgentEvent(emitter(tx, run.workspaceId), run, "agentApproval.decided", {
             approvalId: a.id,
             status: "CANCELLED",
@@ -489,23 +521,38 @@ async function follow(
       try {
         for await (const ev of runtime.events(runtimeRunId, ac.signal)) {
           if (await handle(ev)) return;
-          if (ac.signal.aborted) return;
+          if (stopped()) return;
         }
       } catch (err) {
-        if (ac.signal.aborted) return;
+        if (stopped()) return;
         logger.warn({ err, runId: run.id, attempt }, "agent events stream broke");
       }
       // The stream ended without a final event: ask for the status.
-      const status = await runtime.status(runtimeRunId).catch(() => ({ status: "unknown" as const }));
+      const status = await runtime
+        .status(runtimeRunId)
+        .catch(() => ({ status: "unknown" as const }));
       if (status.status === "completed") {
         await flush(true);
-        await finalize(deps, run, { status: "COMPLETED", output: status.output, usage: status.usage });
+        await finalize(deps, run, {
+          status: "COMPLETED",
+          output: status.output,
+          usage: status.usage,
+        });
         return;
       }
-      if (status.status === "failed" || status.status === "interrupted" || status.status === "cancelled") {
+      if (
+        status.status === "failed" ||
+        status.status === "interrupted" ||
+        status.status === "cancelled"
+      ) {
         await flush(true);
         await finalize(deps, run, {
-          status: status.status === "failed" ? "FAILED" : status.status === "cancelled" ? "CANCELLED" : "INTERRUPTED",
+          status:
+            status.status === "failed"
+              ? "FAILED"
+              : status.status === "cancelled"
+                ? "CANCELLED"
+                : "INTERRUPTED",
           error: status.error ?? "The agent stopped.",
         });
         return;
@@ -608,7 +655,7 @@ async function finalize(
         status: result.status,
         result: output ?? null,
         error: result.error ?? null,
-        usage: (result.usage ?? undefined) as Prisma.InputJsonValue | undefined,
+        usage: (result.usage ?? undefined),
         finishedAt: new Date(),
       },
     });
@@ -619,7 +666,10 @@ async function finalize(
     });
     await tx.agentRunStep.updateMany({
       where: { runId: run.id, status: "RUNNING", kind: { not: "COMMAND" } },
-      data: { status: result.status === "COMPLETED" ? "SUCCEEDED" : "CANCELLED", finishedAt: new Date() },
+      data: {
+        status: result.status === "COMPLETED" ? "SUCCEEDED" : "CANCELLED",
+        finishedAt: new Date(),
+      },
     });
     if (result.status === "COMPLETED")
       await postAgentReply(tx, run, output?.trim() || "Done. (I had nothing to add.)");
@@ -667,7 +717,12 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
         },
       },
       approval: {
-        select: { id: true, status: true, decidedById: true, decidedBy: { select: { name: true } } },
+        select: {
+          id: true,
+          status: true,
+          decidedById: true,
+          decidedBy: { select: { name: true } },
+        },
       },
       run: {
         select: {
@@ -691,7 +746,12 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
         action: "agent.command.refused",
         targetType: "agent_run_step",
         targetId: step.id,
-        metadata: { runId: run.id, host: step.host?.name ?? null, command: step.command, reason: message },
+        metadata: {
+          runId: run.id,
+          host: step.host?.name ?? null,
+          command: step.command,
+          reason: message,
+        },
       });
     });
   };
@@ -722,7 +782,8 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
     return refuse("Not run: it needs approval now (the rules or the run changed).");
   }
 
-  const host = step.host!;
+  const host = step.host;
+  if (!host) return refuse("Not run: the host is gone.");
   const ac = new AbortController();
   let output = "";
   let dirty = false;
@@ -733,9 +794,14 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
     await db.$transaction(async (tx) => {
       await tx.agentRunStep.update({
         where: { id: step.id },
-        data: { output: redactSecrets(output.slice(0, head)), outputTruncated: output.length > head },
+        data: {
+          output: redactSecrets(output.slice(0, head)),
+          outputTruncated: output.length > head,
+        },
       });
-      await emitAgentEvent(emitter(tx, run.workspaceId), run, "agentStep.updated", { stepId: step.id });
+      await emitAgentEvent(emitter(tx, run.workspaceId), run, "agentStep.updated", {
+        stepId: step.id,
+      });
     });
   };
   const flusher = setInterval(() => void flush().catch(() => undefined), 500);
@@ -765,7 +831,9 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
         command: step.command,
         approvalId: step.approval?.id ?? null,
         approvedBy: step.approval?.decidedBy?.name ?? null,
-        allowRule: step.approval ? null : ((step.input as { ruleId?: string } | null)?.ruleId ?? null),
+        allowRule: step.approval
+          ? null
+          : ((step.input as { ruleId?: string } | null)?.ruleId ?? null),
       },
     }),
   );
@@ -817,7 +885,10 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
         ? "\n[stopped]"
         : "";
   await db.$transaction(async (tx) => {
-    await tx.agentRunStep.update({ where: { id: step.id }, data: { outputStorageKey: storageKey } });
+    await tx.agentRunStep.update({
+      where: { id: step.id },
+      data: { outputStorageKey: storageKey },
+    });
     await finishStep(tx, emitter(tx, run.workspaceId), run, step.id, {
       status,
       output: (redacted.slice(0, head - note.length) + note).trimStart(),
@@ -861,7 +932,8 @@ export async function handleRuntimeApproval(deps: AgentDeps, approvalId: string)
     },
   });
   const profile = a?.run.agentUser.agentProfile;
-  if (!a || a.kind !== "RUNTIME_TOOL" || !a.runtimeRequestId || !a.run.runtimeRunId || !profile) return;
+  if (!a || a.kind !== "RUNTIME_TOOL" || !a.runtimeRequestId || !a.run.runtimeRunId || !profile)
+    return;
   if (a.status === "PENDING") return;
   const choice = a.status === "APPROVED" ? "once" : "deny";
   await runtimeFor(deps, profile).resolveApproval(a.run.runtimeRunId, a.runtimeRequestId, choice);
@@ -898,7 +970,13 @@ export async function handleAgentCheck(deps: AgentDeps, profileId: string, reque
       error: null,
     };
   } catch (err) {
-    check = { ok: false, model: null, missing: [], approvals: false, error: (err as Error).message };
+    check = {
+      ok: false,
+      model: null,
+      missing: [],
+      approvals: false,
+      error: (err as Error).message,
+    };
   }
   await deps.db.$transaction(async (tx) => {
     await tx.agentProfile.update({
@@ -948,9 +1026,13 @@ export async function reconcileAgents(deps: AgentDeps) {
           where: { id: a.stepId, status: "RUNNING" },
           data: { status: "FAILED", output: "Nobody approved this in time.", finishedAt: now },
         });
-      await emitAgentEvent(emit, a.run, "agentApproval.decided", { approvalId: a.id, status: "EXPIRED" });
+      await emitAgentEvent(emit, a.run, "agentApproval.decided", {
+        approvalId: a.id,
+        status: "EXPIRED",
+      });
       await syncWaitingStatus(tx, emit, a.run);
-      if (a.kind === "RUNTIME_TOOL") await enqueue(tx, "agent.runtime-approval", { approvalId: a.id });
+      if (a.kind === "RUNTIME_TOOL")
+        await enqueue(tx, "agent.runtime-approval", { approvalId: a.id });
       await agentAudit(tx, {
         workspaceId: a.run.workspaceId,
         actorId: null,
@@ -979,7 +1061,10 @@ export async function reconcileAgents(deps: AgentDeps) {
   const paused = new Set(
     (
       await db.workspace.findMany({
-        where: { id: { in: [...new Set(active.map((r) => r.workspaceId))] }, agentPausedAt: { not: null } },
+        where: {
+          id: { in: [...new Set(active.map((r) => r.workspaceId))] },
+          agentPausedAt: { not: null },
+        },
         select: { id: true },
       })
     ).map((w) => w.id),
@@ -1024,7 +1109,8 @@ export async function reconcileAgents(deps: AgentDeps) {
     await db.$transaction((tx) =>
       finishStep(tx, emitter(tx, s.run.workspaceId), s.run, s.id, {
         status: "FAILED",
-        output: "The worker lost this command (restart?). It may or may not have run; check the host.",
+        output:
+          "The worker lost this command (restart?). It may or may not have run; check the host.",
       }),
     );
 }

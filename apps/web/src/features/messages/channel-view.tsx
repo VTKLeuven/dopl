@@ -40,6 +40,7 @@ import {
 } from "@/server/actions/messages";
 import { chatKeys, unwrap, useChannel, useMarkRead, useMessages, usePeople } from "./data";
 import { Composer } from "./composer";
+import { ActiveRuns } from "@/features/agent/active-runs";
 import { CreateItemFromMessageDialog, EditChannelDialog, MembersDialog } from "./dialogs";
 import { MessageList, MessagesSkeleton } from "./message-list";
 import { ThreadPanel } from "./thread-panel";
@@ -278,6 +279,7 @@ function Conversation({ ws, channel }: { ws: string; channel: ChannelDetail }) {
           onCreateItem={channel.can.post ? setCreating : undefined}
         />
         <div className="shrink-0 px-4 pb-4 md:px-5">
+          <ActiveRuns ws={ws} channelId={channel.id} enabled={withAgent || channel.kind !== "DM"} />
           <TypingLine ws={ws} channelId={channel.id} threadRootId={null} me={channel.me} />
           {channel.can.post ? (
             <>

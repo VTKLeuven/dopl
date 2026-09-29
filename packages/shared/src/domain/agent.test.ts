@@ -63,7 +63,12 @@ describe("ruleMatches", () => {
     }
   });
   it("lets a rule that names the operator match it", () => {
-    expect(ruleMatches(rule("ALLOW_READONLY", "journalctl -u \\w+ \\| tail"), "journalctl -u nginx | tail")).toBe(true);
+    expect(
+      ruleMatches(
+        rule("ALLOW_READONLY", "journalctl -u \\w+ \\| tail"),
+        "journalctl -u nginx | tail",
+      ),
+    ).toBe(true);
   });
   it("treats an invalid regex as no match", () => {
     expect(ruleMatches(rule("ALLOW_READONLY", "docker ("), "docker (")).toBe(false);

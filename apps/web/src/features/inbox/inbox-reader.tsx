@@ -19,13 +19,16 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ItemDetail } from "@/features/work-items/item-detail";
 import { ThreadPreview } from "@/features/messages/thread-preview";
+import { AgentRunPane } from "@/features/agent/run-pane";
 import type { InboxAction, InboxRow } from "./data";
 import { useNotificationText } from "./notification-text";
 import { SnoozeMenu } from "./snooze-menu";
 
-type Kind = "message" | "request" | "item" | "other";
+type Kind = "message" | "request" | "item" | "approval" | "other";
 
 function kindOf(row: InboxRow): Kind {
+  if (row.type === "AGENT_APPROVAL_REQUESTED" && typeof row.data.runId === "string")
+    return "approval";
   if (row.messageId && typeof row.data.channelId === "string") return "message";
   // A submitter's own request: guests may not open the item itself.
   if (row.type === "INTAKE_UPDATED" || (row.type === "COMMENT" && row.entityType === "INTAKE_ITEM"))
@@ -76,13 +79,15 @@ export function InboxReader({
   const openLabel =
     kind === "message"
       ? t("openMessages")
-      : kind === "request"
-        ? t("openRequest")
-        : row.type === "INTAKE_SUBMITTED" || row.type === "SNOOZE_ENDED"
-          ? t("openIntake")
-          : kind === "item"
-            ? t("openItem")
-            : t("open");
+      : kind === "approval"
+        ? t("openRun")
+        : kind === "request"
+          ? t("openRequest")
+          : row.type === "INTAKE_SUBMITTED" || row.type === "SNOOZE_ENDED"
+            ? t("openIntake")
+            : kind === "item"
+              ? t("openItem")
+              : t("open");
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="inbox-reader">
@@ -157,7 +162,9 @@ export function InboxReader({
         ) : null}
       </div>
       <div className="min-h-0 flex-1">
-        {kind === "item" && row.itemRef ? (
+        {kind === "approval" ? (
+          <AgentRunPane key={row.id} ws={ws} runId={String(row.data.runId)} />
+        ) : kind === "item" && row.itemRef ? (
           <ItemDetail key={row.itemRef} ws={ws} itemRef={row.itemRef} mode="peek" />
         ) : kind === "message" ? (
           <ThreadPreview

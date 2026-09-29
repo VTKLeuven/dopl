@@ -104,7 +104,11 @@ export async function resolveRun(principal: McpPrincipal, runToken: string) {
     where: { runTokenHash: runTokenHash(runToken) },
     select: runSelect,
   });
-  if (!run || run.agentUserId !== principal.agent.userId || run.workspaceId !== principal.workspace.id)
+  if (
+    !run ||
+    run.agentUserId !== principal.agent.userId ||
+    run.workspaceId !== principal.workspace.id
+  )
     throw new McpError("invalid_run_token");
   if (run.status !== "RUNNING" && run.status !== "WAITING_FOR_APPROVAL")
     throw new McpError("run_not_active", `This run is ${run.status.toLowerCase()}.`);

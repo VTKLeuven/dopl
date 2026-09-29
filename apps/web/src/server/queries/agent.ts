@@ -65,7 +65,8 @@ export interface AgentApprovalView {
 export interface AgentStepView {
   id: string;
   seq: number;
-  kind: "ASSISTANT_MESSAGE" | "TOOL_CALL" | "COMMAND" | "APPROVAL" | "STATUS" | "ERROR" | "SUBAGENT";
+  kind:
+    "ASSISTANT_MESSAGE" | "TOOL_CALL" | "COMMAND" | "APPROVAL" | "STATUS" | "ERROR" | "SUBAGENT";
   status: "RUNNING" | "SUCCEEDED" | "FAILED" | "DENIED" | "CANCELLED";
   title: string | null;
   toolName: string | null;
@@ -145,7 +146,10 @@ function toSummary(r: SummaryRow): AgentRunSummary {
     channel: r.channel
       ? {
           id: r.channel.id,
-          name: r.channel.kind === "PROJECT" ? (r.channel.project?.name ?? r.channel.name) : r.channel.name,
+          name:
+            r.channel.kind === "PROJECT"
+              ? (r.channel.project?.name ?? r.channel.name)
+              : r.channel.name,
           kind: r.channel.kind,
         }
       : null,
@@ -168,7 +172,9 @@ const approvalSelect = {
   decidedBy: { select: { name: true } },
 } satisfies Prisma.AgentApprovalSelect;
 
-function toApproval(a: Prisma.AgentApprovalGetPayload<{ select: typeof approvalSelect }>): AgentApprovalView {
+function toApproval(
+  a: Prisma.AgentApprovalGetPayload<{ select: typeof approvalSelect }>,
+): AgentApprovalView {
   return {
     id: a.id,
     kind: a.kind,
@@ -194,7 +200,12 @@ function toApproval(a: Prisma.AgentApprovalGetPayload<{ select: typeof approvalS
  */
 async function assertRunVisible(
   ctx: WorkspaceCtx,
-  run: { workItemId: string | null; channelId: string | null; triggeredById: string | null; workItem: { projectId: string } | null },
+  run: {
+    workItemId: string | null;
+    channelId: string | null;
+    triggeredById: string | null;
+    workItem: { projectId: string } | null;
+  },
 ) {
   if (ctx.role === "GUEST" || ctx.actor.kind !== "HUMAN") throw new NotFoundError();
   if (run.workItem) {
@@ -215,7 +226,10 @@ async function assertRunVisible(
 /* ───────────────────────── reads ───────────────────────── */
 
 /** Runs about one work item, oldest first, for its timeline. */
-export async function listRunsForItem(ctx: WorkspaceCtx, workItemId: string): Promise<AgentRunSummary[]> {
+export async function listRunsForItem(
+  ctx: WorkspaceCtx,
+  workItemId: string,
+): Promise<AgentRunSummary[]> {
   if (ctx.role === "GUEST") return [];
   const rows = await db.agentRun.findMany({
     where: { workspaceId: ctx.workspace.id, workItemId },
@@ -227,7 +241,10 @@ export async function listRunsForItem(ctx: WorkspaceCtx, workItemId: string): Pr
 }
 
 /** Runs asked for in one chat channel (DMs with the agent, mentions). */
-export async function listRunsForChannel(ctx: WorkspaceCtx, channelId: string): Promise<AgentRunSummary[]> {
+export async function listRunsForChannel(
+  ctx: WorkspaceCtx,
+  channelId: string,
+): Promise<AgentRunSummary[]> {
   if (ctx.role === "GUEST") return [];
   await channelAccessById(ctx, channelId);
   const rows = await db.agentRun.findMany({
@@ -313,7 +330,9 @@ export async function listAgentActivity(ctx: WorkspaceCtx) {
       { channel: { members: { some: { userId: ctx.actor.userId } } } },
       { channel: { kind: "CUSTOM", isPrivate: false } },
       { channel: { kind: "PROJECT", project: accessibleProjectsWhere(ctx) } },
-      ...(canWorkspace(ctx.policyActor, "agent.manage") ? [{ workItemId: null, channelId: null }] : []),
+      ...(canWorkspace(ctx.policyActor, "agent.manage")
+        ? [{ workItemId: null, channelId: null }]
+        : []),
       { triggeredById: ctx.actor.userId },
     ],
   };
@@ -404,7 +423,14 @@ export async function getAgentSettings(ctx: WorkspaceCtx) {
     db.agentCommandRule.findMany({
       where: { workspaceId: ctx.workspace.id },
       orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
-      select: { id: true, kind: true, pattern: true, description: true, hostId: true, enabled: true },
+      select: {
+        id: true,
+        kind: true,
+        pattern: true,
+        description: true,
+        hostId: true,
+        enabled: true,
+      },
     }),
     db.apiToken.findMany({
       where: { workspaceId: ctx.workspace.id, kind: "MCP" },
@@ -429,7 +455,10 @@ export async function getAgentSettings(ctx: WorkspaceCtx) {
   ]);
   const agent = member?.user ?? null;
   const p = agent?.agentProfile ?? null;
-  const settings = (p?.settings ?? {}) as { contextBudgetChars?: number; lastCheck?: ConnectionCheck };
+  const settings = (p?.settings ?? {}) as {
+    contextBudgetChars?: number;
+    lastCheck?: ConnectionCheck;
+  };
   return {
     agent: agent ? { id: agent.id, name: agent.name } : null,
     profile: p

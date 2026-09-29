@@ -122,7 +122,8 @@
     "requests": "Requests",
     "intake": "Intake",
     "contacts": "Contacts",
-    "mail": "Mail"
+    "mail": "Mail",
+    "agent": "Dopl"
   },
   "palette": {
     "placeholder": "Search items, projects, people, or type a command…",
@@ -507,7 +508,9 @@
       "workspace": "Workspace",
       "you": "You",
       "integrations": "Integrations",
-      "mailboxes": "Mailboxes"
+      "mailboxes": "Mailboxes",
+      "agent": "AI teammate",
+      "audit": "Audit log"
     },
     "account": {
       "profile": "Profile",
@@ -785,7 +788,8 @@
       "triaged_snoozed": "snoozed this request",
       "triaged_unsnoozed": "woke this request up",
       "triaged_reopened": "reopened this request",
-      "duplicated": "was requested again (request #{number})"
+      "duplicated": "was requested again (request #{number})",
+      "reviewed": "marked the outside content as reviewed"
     },
     "selected": "{count} selected",
     "errors": {
@@ -1135,7 +1139,8 @@
       "INTAKE_UPDATED": "Request update",
       "THREAD_REPLY": "Thread reply",
       "INTEGRATION_FAILED": "Integration"
-    }
+    },
+    "openRun": "Open run"
   },
   "messages": {
     "nav": "Messages",
@@ -1188,8 +1193,8 @@
     "unarchiveChannel": "Unarchive channel",
     "closeDm": "Close conversation",
     "archivedBanner": "This channel is archived. You can read it, but not post.",
-    "agentDmTitle": "Messages to Dopl are saved",
-    "agentDm": "The AI teammate will answer here once it's connected.",
+    "agentDmTitle": "You're talking to Dopl",
+    "agentDm": "Dopl answers here. It can read work items and, with approval, run commands on the team's servers.",
     "notMember": "You're reading #{name}. Posting or joining adds it to your sidebar.",
     "readOnly": "You can read this conversation, but not post in it.",
     "messageChannel": "Message #{name}",
@@ -1267,7 +1272,8 @@
       "thread": "Couldn't load this thread.",
       "createChannel": "Couldn't create the channel. Try another name.",
       "createItem": "Couldn't create the work item."
-    }
+    },
+    "agentRunLink": "How Dopl did this"
   },
   "notificationSettings": {
     "nav": "Notifications",
@@ -2281,5 +2287,330 @@
       "invalidInput": "Check the address and the number of days.",
       "generic": "Something went wrong. Try again."
     }
+  },
+  "agent": {
+    "title": "Dopl",
+    "heading": "Dopl, your AI teammate",
+    "statusIdle": "Idle. Mention @Dopl, send it a DM or assign it a work item.",
+    "statusWorking": "Working on something right now.",
+    "statusPaused": "Paused. It takes no new work and runs no commands.",
+    "askedBy": "asked by {name}",
+    "viewRun": "View run",
+    "pendingTitle": "Waiting for approval",
+    "pendingEmptyTitle": "Nothing waiting",
+    "pendingEmptyBody": "When Dopl wants to run a command that isn't on the read-only list, it shows up here and in your Inbox.",
+    "recentTitle": "Recent runs",
+    "runsEmptyTitle": "No runs yet",
+    "runsEmptyBody": "Mention @Dopl in a comment or message, DM it, or assign it a work item.",
+    "pausedBadge": "Paused",
+    "pendingBadge": "{count, plural, one {# approval waiting} other {# approvals waiting}}",
+    "pause": {
+      "label": "Pause",
+      "pausedToast": "Dopl is paused. {count, plural, =0 {Nothing was running.} one {# run was stopped.} other {# runs were stopped.}}",
+      "resumedToast": "Dopl is back to work.",
+      "bannerTitle": "Dopl is paused",
+      "bannerBody": "{name} paused it. It takes no new requests and runs no commands until someone turns this off."
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again."
+    },
+    "env": {
+      "LAB": "Lab",
+      "STAGING": "Staging",
+      "PRODUCTION": "Production"
+    },
+    "approval": {
+      "titleCommand": "Dopl wants to run a command",
+      "titleWrite": "Dopl wants to change something in Dopl",
+      "titleRuntime": "Dopl asks to use {tool}",
+      "viaWarpgate": "via Warpgate target {target}",
+      "reasonLabel": "Dopl's reason (stated by the agent, unverified)",
+      "notePlaceholder": "Why not? (optional, Dopl sees this)",
+      "noteLabel": "Note for Dopl",
+      "deny": "Deny",
+      "cancel": "Cancel",
+      "approve": "Approve",
+      "expires": "Expires {when}",
+      "waitingForApprover": "Waiting for someone who may approve agent actions.",
+      "approvedBy": "Approved by {name} {when}",
+      "deniedBy": "Denied by {name} {when}",
+      "expired": "Expired: nobody decided in time.",
+      "cancelled": "Cancelled: the run ended first.",
+      "prodConfirmTitle": "Run this on {host} (production)?",
+      "prodConfirmBody": "This host serves real users. Check the command once more; it runs exactly as shown.",
+      "approveOnProduction": "Approve and run",
+      "approvedToast": "Approved. Dopl runs it now.",
+      "deniedToast": "Denied. Dopl was told why.",
+      "alreadyDecided": "Someone already decided this one."
+    },
+    "risk": {
+      "untrusted_input": "Untrusted input",
+      "production_host": "Production host",
+      "destructive_pattern": "Looks destructive",
+      "compound_command": "Chained command",
+      "privilege_escalation": "Uses sudo",
+      "runtime_tool": "Hermes tool"
+    },
+    "status": {
+      "QUEUED": "Queued",
+      "RUNNING": "Working",
+      "WAITING_FOR_APPROVAL": "Needs approval",
+      "COMPLETED": "Done",
+      "FAILED": "Failed",
+      "CANCELLED": "Stopped",
+      "INTERRUPTED": "Interrupted"
+    },
+    "tool": {
+      "search": "Searched work items {query}",
+      "read": "Read {identifier}",
+      "create": "Created a work item: {title}",
+      "update": "Updated {identifier}",
+      "comment": "Commented on {identifier}",
+      "threads": "Listed its email threads",
+      "email": "Read an email thread",
+      "hosts": "Listed the hosts it may use",
+      "other": "Used {tool}"
+    },
+    "run": {
+      "truncated": "[output truncated; the full log is kept with the run]",
+      "taintedStep": "Read content from outside the team. Every action in this run now needs approval.",
+      "exit": "exit {code}",
+      "denied": "Denied",
+      "cancelledStep": "Stopped",
+      "failed": "Failed",
+      "stop": "Stop",
+      "openRun": "Open run",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "someone": "someone",
+      "untrustedTitle": "Untrusted input",
+      "untrustedBody": "This run saw content written outside the team, so every command and change needs approval.",
+      "loadError": "Couldn't load this run.",
+      "prompt": "What Dopl was told",
+      "queued": "Waiting for its turn…",
+      "thinking": "Thinking…",
+      "failedRun": "The run failed.",
+      "cancelledPaused": "Not run: Dopl is paused.",
+      "cancelledUnavailable": "Not run: Dopl is turned off in Settings.",
+      "cancelled": "Stopped.",
+      "result": "Answer",
+      "stoppedToast": "Stopped.",
+      "crumb": "Run",
+      "directMessage": "Direct message"
+    },
+    "trigger": {
+      "COMMENT_MENTION": "mentioned by {name}",
+      "MESSAGE_MENTION": "mentioned by {name}",
+      "DIRECT_MESSAGE": "messaged by {name}",
+      "ASSIGNMENT": "assigned by {name}",
+      "MANUAL": "asked by {name}"
+    },
+    "untrustedAssign": {
+      "title": "Assign Dopl to outside content?",
+      "body": "This item came from a form or an email. Dopl will read it, and every command or change it wants to make will need approval. Anything the content asks for is treated as data, not as instructions.",
+      "cancel": "Cancel",
+      "confirm": "Assign Dopl"
+    },
+    "untrustedItem": {
+      "title": "Written outside the team",
+      "bodyEmail": "This item came from an email. If Dopl reads it, every action in that run needs approval.",
+      "bodyForm": "This item came from a form. If Dopl reads it, every action in that run needs approval.",
+      "markReviewed": "Mark as reviewed",
+      "reviewed": "Marked as reviewed. Dopl can now read it without extra approvals.",
+      "error": "Couldn't mark it as reviewed."
+    }
+  },
+  "agentSettings": {
+    "title": "AI teammate",
+    "intro": "Dopl runs on Hermes Agent with your own model. It can read and update work items and, with approval, run commands on the hosts below.",
+    "emptyTitle": "No AI teammate yet",
+    "emptyBody": "Add Dopl as a workspace member. It stays off until you connect it to Hermes.",
+    "add": "Add Dopl",
+    "errors": {
+      "generic": "Something went wrong. Try again."
+    },
+    "saved": "Saved",
+    "statusActive": "On: takes mentions, DMs and assignments",
+    "statusDisabled": "Off: requests are recorded but not run",
+    "enabled": "Turn the AI teammate on or off",
+    "name": "Name",
+    "model": "Model",
+    "modelHint": "Sent to Hermes with each run; empty uses Hermes' default.",
+    "baseUrl": "Hermes API server",
+    "baseUrlHint": "Reachable from the worker, e.g. http://hermes:8642",
+    "apiKeyEnv": "API key variable",
+    "apiKeyEnvHint": "The worker.env variable holding Hermes' API_SERVER_KEY.",
+    "instructions": "Extra instructions",
+    "instructionsHint": "Added to every run's system prompt, after Dopl's own rules.",
+    "runTimeout": "Run timeout (minutes)",
+    "approvalTimeout": "Approvals expire after (minutes)",
+    "contextBudget": "Context budget (characters)",
+    "contextBudgetHint": "Trusted context sent with a request.",
+    "save": "Save",
+    "checkConnection": "Check connection",
+    "check": {
+      "ok": "Connected: {model}",
+      "failed": "Can't use Hermes",
+      "workerTimeout": "The worker didn't answer. Is it running?",
+      "missing": "Missing features: {features}",
+      "approvalsOk": "Runs, events, stop and approvals are supported.",
+      "approvalsMissing": "Hermes can't bridge its own approvals; keep its terminal tools disabled."
+    },
+    "fieldError": {
+      "invalid": "Not a valid pattern.",
+      "too_broad": "Too broad: this would allow almost anything.",
+      "taken": "Another host already has this name.",
+      "generic": "Check this field."
+    },
+    "pause": {
+      "title": "Kill switch",
+      "hint": "Pausing stops every running run within seconds, cancels pending approvals and refuses new work.",
+      "on": "Paused",
+      "off": "Running normally",
+      "since": "Paused by {name} {when}",
+      "offHint": "Turn this on to stop Dopl everywhere.",
+      "error": "Couldn't change it. Try again."
+    },
+    "tokens": {
+      "title": "MCP tokens",
+      "hint": "Hermes calls Dopl's tools with one of these. Only a hash is stored; you see a token once.",
+      "empty": "No tokens yet. Hermes can't reach Dopl without one.",
+      "allScopes": "all tools",
+      "projects": "{count, plural, one {# project} other {# projects}}",
+      "allProjects": "all projects",
+      "lastUsed": "used {when}",
+      "neverUsed": "never used",
+      "expires": "expires {when}",
+      "revoke": "Revoke",
+      "revoked": "Token revoked",
+      "create": "New token",
+      "hermesConfig": "Hermes configuration (config.yaml)",
+      "createdTitle": "Copy the token now",
+      "createdBody": "This is the only time it's shown. Put it in Hermes' config as the Authorization header.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done",
+      "createHint": "Scopes limit which tools work; projects limit where.",
+      "name": "Name",
+      "scopes": "Scopes",
+      "projectLimit": "Projects",
+      "projectLimitHint": "None selected means every project Dopl can see.",
+      "expiry": "Expires",
+      "never": "Never",
+      "days": "In {count} days",
+      "cancel": "Cancel",
+      "createButton": "Create token",
+      "error": "Couldn't create the token."
+    },
+    "scope": {
+      "work_items_read": "Read work items",
+      "work_items_write": "Create and update work items",
+      "comments_write": "Comment",
+      "email_threads_read_assigned": "Read email threads assigned or linked to it",
+      "infra_exec": "Run commands (with approvals)"
+    },
+    "hosts": {
+      "title": "Hosts",
+      "hint": "The only servers Dopl can reach, through Warpgate with its own low-privilege user. Anything not listed is refused without connecting.",
+      "emptyTitle": "No hosts yet",
+      "emptyBody": "Add a host to let Dopl run commands on it.",
+      "alwaysApprove": "always asks",
+      "target": "target {target}",
+      "enabled": "Allow this host",
+      "error": "Couldn't save the host.",
+      "actions": "Host actions",
+      "edit": "Edit",
+      "delete": "Delete",
+      "add": "Add host",
+      "editTitle": "Edit host",
+      "dialogHint": "Dopl connects to Warpgate as dopl-agent:<target>; Warpgate records the session.",
+      "name": "Name",
+      "nameHint": "What Dopl calls it, e.g. app-01",
+      "environment": "Environment",
+      "hostname": "Hostname",
+      "warpgateTarget": "Warpgate target",
+      "warpgateTargetHint": "The target's name in Warpgate",
+      "description": "Description",
+      "alwaysApproveLabel": "Always ask for approval",
+      "alwaysApproveHint": "Ignore the read-only list on this host. On by default for production.",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "rules": {
+      "allHosts": "All hosts",
+      "title": "Command rules",
+      "hint": "Read-only commands matching a pattern run without approval, unless the run read untrusted content. DENY rules block a command even after approval.",
+      "denyTitle": "Never run (DENY)",
+      "allowTitle": "Read-only, no approval needed",
+      "add": "Add rule",
+      "denyHint": "Also matched against each part of a chained command.",
+      "allowHint": "Matched against the whole command. Chained commands (;, &&, |, $( ), >) never match unless the pattern spells the operator out.",
+      "empty": "No rules.",
+      "enabled": "Rule on",
+      "actions": "Rule actions",
+      "edit": "Edit",
+      "delete": "Delete",
+      "denyDialogTitle": "DENY rule",
+      "allowDialogTitle": "Read-only rule",
+      "patternHelp": "A regular expression matched against the whole command line, with extra spaces collapsed.",
+      "pattern": "Pattern",
+      "patternHint": "Anchored automatically: \"docker ps\" matches only docker ps.",
+      "description": "Description",
+      "host": "Applies to",
+      "cancel": "Cancel",
+      "save": "Save",
+      "error": "Couldn't save the rule."
+    },
+    "tester": {
+      "title": "Try a command",
+      "host": "Host",
+      "unknownHost": "A host that isn't listed",
+      "command": "Command",
+      "test": "Test",
+      "tainted": "The run read untrusted content",
+      "runs": "Runs at once",
+      "matched": "Read-only rule: {pattern}",
+      "refused": "Refused",
+      "reason": {
+        "agent_paused": "Dopl is paused.",
+        "run_not_active": "The run isn't active.",
+        "host_not_allowed": "The host isn't on the list.",
+        "host_disabled": "The host is turned off.",
+        "denied_by_rule": "A DENY rule blocks it.",
+        "invalid_command": "Not a single, non-empty command line."
+      },
+      "approval": "Needs approval",
+      "noFlags": "No risk flags."
+    }
+  },
+  "audit": {
+    "title": "Audit log",
+    "hint": "Sign-ins, roles, settings, mailboxes and everything the AI teammate asked for, ran or was refused. Entries can't be changed or deleted.",
+    "filter": {
+      "action": "Action",
+      "allActions": "All actions",
+      "actor": "Who",
+      "allActors": "Everyone",
+      "from": "From",
+      "to": "To"
+    },
+    "exportCsv": "Export CSV",
+    "exportJson": "Export JSON",
+    "loading": "Loading…",
+    "emptyTitle": "Nothing logged",
+    "emptyBody": "Nothing matches these filters.",
+    "col": {
+      "when": "When",
+      "actor": "Who",
+      "action": "Action",
+      "target": "Target"
+    },
+    "actorType": {
+      "USER": "Someone",
+      "AGENT": "Dopl",
+      "CONTACT": "A contact",
+      "SYSTEM": "Dopl (system)"
+    },
+    "loadMore": "Load more"
   }
 }

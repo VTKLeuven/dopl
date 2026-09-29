@@ -102,7 +102,8 @@ export async function registerAgentHandlers(ctx: {
     await reconcileAgents(deps);
   });
   // Right away too: re-attach to runs a restart interrupted (red team 8).
-  void reconcileAgents(deps).catch((err: unknown) => logger.warn({ err }, "agent reconcile at start"));
+  void reconcileAgents(deps).catch((err: unknown) => { logger.warn({ err }, "agent reconcile at start"); },
+  );
 
   return () => {
     fake?.close();

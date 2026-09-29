@@ -213,6 +213,8 @@ export interface WorkItemDetail extends WorkItemRow {
   /** Written outside the team (intake, email): taints agent runs until reviewed (D-033). */
   untrusted: boolean;
   origin: string;
+  /** Admins may clear `untrusted` after reading the content. */
+  canMarkReviewed: boolean;
   /** The AI teammate's runs about this item (Phase 8). */
   agentRuns: AgentRunSummary[];
 }

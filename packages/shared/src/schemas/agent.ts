@@ -17,8 +17,16 @@ export const AgentProfileSchema = z.object({
     .regex(/^[A-Z][A-Z0-9_]{1,63}$/),
   model: z.string().trim().max(120).optional().nullable(),
   instructions: z.string().max(8000).optional().nullable(),
-  runTimeoutSec: z.number().int().min(60).max(4 * 3600),
-  approvalTimeoutSec: z.number().int().min(60).max(24 * 3600),
+  runTimeoutSec: z
+    .number()
+    .int()
+    .min(60)
+    .max(4 * 3600),
+  approvalTimeoutSec: z
+    .number()
+    .int()
+    .min(60)
+    .max(24 * 3600),
   /** Characters of trusted context sent with a request (D-121). */
   contextBudgetChars: z.number().int().min(2000).max(400_000),
 });
@@ -106,7 +114,11 @@ export type AuditFilter = z.infer<typeof AuditFilterSchema>;
 
 /* ───────────────────────── MCP tool arguments ───────────────────────── */
 
-export const runToken = z.string().min(20).max(200).describe("The run_token from your instructions");
+export const runToken = z
+  .string()
+  .min(20)
+  .max(200)
+  .describe("The run_token from your instructions");
 
 export const McpTools = {
   search_work_items: {

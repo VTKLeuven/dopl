@@ -92,6 +92,9 @@ import { ReferenceEntry } from "@/features/messages/reference-entry";
 import { ItemNotes } from "@/features/notes/item-notes";
 import { NoteReferenceEntry } from "@/features/notes/note-reference-entry";
 import { EmailMessageEntry, EmailReferenceEntry } from "@/features/mail/timeline";
+import { RunCard } from "@/features/agent/run-card";
+import { UntrustedBanner } from "@/features/agent/untrusted-banner";
+import type { AgentRunSummary } from "@/server/queries/agent";
 import type {
   ActivityView,
   CommentView,
@@ -355,6 +358,7 @@ function DetailBody({
             )}
           >
             {item.archivedAt ? <Banner tone="info" title={t("archived")} /> : null}
+            {item.untrusted ? <UntrustedBanner ws={ws} item={item} onReviewed={refresh} /> : null}
             {item.parent ? (
               <Link
                 href={`/${ws}/i/${item.parent.identifier}` as never}
@@ -1023,6 +1027,7 @@ function Timeline({
       | { kind: "comment"; at: string; c: CommentView }
       | { kind: "activity"; at: string; a: ActivityView }
       | { kind: "reference"; at: string; r: Detail["references"][number] }
+      | { kind: "run"; at: string; run: AgentRunSummary }
       | {
           kind: "email";
           at: string;
@@ -1038,12 +1043,13 @@ function Timeline({
           : [],
       ),
       ...item.comments.map((c) => ({ kind: "comment" as const, at: c.createdAt, c })),
+      ...(item.agentRuns ?? []).map((run) => ({ kind: "run" as const, at: run.createdAt, run })),
       ...item.activities
         .filter((a) => a.verb !== "commented")
         .map((a) => ({ kind: "activity" as const, at: a.createdAt, a })),
     ];
     return all.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
-  }, [item.comments, item.activities, item.references]);
+  }, [item.comments, item.activities, item.references, item.agentRuns]);
 
   return (
     <section className="flex flex-col gap-3">
@@ -1059,6 +1065,8 @@ function Timeline({
               onChanged={onChanged}
               hasSubmitter={Boolean(item.request?.submitter)}
             />
+          ) : e.kind === "run" ? (
+            <RunCard key={e.run.id} ws={ws} run={e.run} />
           ) : e.kind === "email" ? (
             <EmailMessageEntry key={`${e.r.id}:${e.m.id}`} ws={ws} r={e.r} m={e.m} />
           ) : e.kind === "reference" ? (

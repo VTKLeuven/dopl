@@ -225,8 +225,7 @@ const REDACTIONS: Array<[RegExp, string | ((...m: string[]) => string)]> = [
  */
 export function redactSecrets(text: string): string {
   let out = text;
-  for (const [re, replacement] of REDACTIONS)
-    out = out.replace(re, replacement as string);
+  for (const [re, replacement] of REDACTIONS) out = out.replace(re, replacement as string);
   return out;
 }
 

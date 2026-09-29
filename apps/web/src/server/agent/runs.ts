@@ -132,7 +132,11 @@ async function workItemContext(
     },
   });
   if (!item) return null;
-  const identifier = formatIdentifier(item.project.identifier, item.sequence, item.intakeItem?.number);
+  const identifier = formatIdentifier(
+    item.project.identifier,
+    item.sequence,
+    item.intakeItem?.number,
+  );
   const header = [
     `Work item ${identifier}: ${item.title}`,
     `Project: ${item.project.name} (${item.project.identifier}) · State: ${item.state.name} · Priority: ${item.priority}`,
@@ -182,7 +186,11 @@ async function workItemContext(
         select: {
           name: true,
           kind: true,
-          memberships: { where: { status: "ACTIVE", workspaceId }, select: { role: true }, take: 1 },
+          memberships: {
+            where: { status: "ACTIVE", workspaceId },
+            select: { role: true },
+            take: 1,
+          },
         },
       },
     },
@@ -197,7 +205,12 @@ async function workItemContext(
     lines.push(`- ${author.name} (${c.createdAt.toISOString().slice(0, 16)}): ${c.bodyText}`);
     b.parts.push({ kind: "comment", id: c.id, trusted: true });
   }
-  if (lines.length) b.add(`Recent comments:\n${lines.join("\n")}`, { kind: "comments", id: item.id, trusted: true });
+  if (lines.length)
+    b.add(`Recent comments:\n${lines.join("\n")}`, {
+      kind: "comments",
+      id: item.id,
+      trusted: true,
+    });
   return { identifier, untrusted: item.untrusted };
 }
 
@@ -213,9 +226,7 @@ async function chatContext(
     where: {
       channelId,
       deletedAt: null,
-      ...(threadRootId
-        ? { OR: [{ id: threadRootId }, { threadRootId }] }
-        : { threadRootId: null }),
+      ...(threadRootId ? { OR: [{ id: threadRootId }, { threadRootId }] } : { threadRootId: null }),
       ...(excludeMessageId ? { id: { not: excludeMessageId } } : {}),
     },
     orderBy: { createdAt: "desc" },
@@ -227,7 +238,11 @@ async function chatContext(
       author: {
         select: {
           name: true,
-          memberships: { where: { status: "ACTIVE", workspaceId }, select: { role: true }, take: 1 },
+          memberships: {
+            where: { status: "ACTIVE", workspaceId },
+            select: { role: true },
+            take: 1,
+          },
         },
       },
     },
@@ -238,7 +253,9 @@ async function chatContext(
       b.skipped++;
       continue;
     }
-    lines.push(`- ${msg.author.name} (${msg.createdAt.toISOString().slice(0, 16)}): ${msg.bodyText}`);
+    lines.push(
+      `- ${msg.author.name} (${msg.createdAt.toISOString().slice(0, 16)}): ${msg.bodyText}`,
+    );
     b.parts.push({ kind: "message", id: msg.id, trusted: true });
   }
   if (lines.length)
@@ -287,7 +304,14 @@ export async function queueAgentRun(m: Mutation, input: QueueRunInput) {
     subject = w?.identifier ?? null;
   }
   if (input.channelId)
-    await chatContext(tx, ctx.workspace.id, b, input.channelId, input.threadRootId ?? null, input.triggerMessageId ?? null);
+    await chatContext(
+      tx,
+      ctx.workspace.id,
+      b,
+      input.channelId,
+      input.threadRootId ?? null,
+      input.triggerMessageId ?? null,
+    );
 
   const who = `${ctx.actor.name} <${ctx.actor.email}>`;
   const prompt = [
@@ -300,8 +324,11 @@ export async function queueAgentRun(m: Mutation, input: QueueRunInput) {
     .join("\n");
 
   const id = uuidv7();
-  const blocked =
-    workspace.agentPausedAt ? "agent_paused" : input.agent.status !== "ACTIVE" ? "agent_unavailable" : null;
+  const blocked = workspace.agentPausedAt
+    ? "agent_paused"
+    : input.agent.status !== "ACTIVE"
+      ? "agent_unavailable"
+      : null;
   const run = await tx.agentRun.create({
     data: {
       id,
@@ -326,7 +353,11 @@ export async function queueAgentRun(m: Mutation, input: QueueRunInput) {
     select: { id: true, status: true },
   });
   if (!blocked) await enqueue(tx, "agent.run", { runId: run.id }, { singletonKey: run.id });
-  emitRun(m, { id: run.id, workItemId: input.workItemId, channelId: input.channelId }, "agentRun.created");
+  emitRun(
+    m,
+    { id: run.id, workItemId: input.workItemId, channelId: input.channelId },
+    "agentRun.created",
+  );
   return run;
 }
 

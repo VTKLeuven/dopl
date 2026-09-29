@@ -24,6 +24,8 @@ const SECRET_VARS = [
   "GMAIL_PUBSUB_TOPIC",
   "GMAIL_PUBSUB_SUBSCRIPTION",
   "AGENT_SSH_KEY_FILE",
+  "HERMES_API_KEY",
+  "WARPGATE_HOST_KEY",
 ];
 
 describe("web never holds worker secrets (D-027)", () => {

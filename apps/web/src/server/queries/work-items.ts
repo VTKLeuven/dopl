@@ -1,4 +1,5 @@
 import "server-only";
+import { canWorkspace } from "@dopl/shared/policy";
 import { listRunsForItem } from "./agent";
 import type { Prisma } from "@dopl/db";
 import {
@@ -588,6 +589,7 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
     subscribed: item.subscribers.length > 0 && !item.subscribers[0]?.muted,
     untrusted: item.untrusted,
     origin: item.origin,
+    canMarkReviewed: item.untrusted && canWorkspace(ctx.policyActor, "agent.manage"),
     agentRuns: await listRunsForItem(ctx, item.id),
   };
 }
