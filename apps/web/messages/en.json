@@ -1796,7 +1796,14 @@
     "cancel": "Cancel",
     "errors": {
       "generic": "That didn't work. Try again."
-    }
+    },
+    "threadsTitle": "Email conversations",
+    "threadStatus": {
+      "OPEN": "Open",
+      "SOLVED": "Solved",
+      "IGNORED": "Ignored"
+    },
+    "messages": "{count, plural, one {# message} other {# messages}}"
   },
   "integrations": {
     "discord": "Discord",

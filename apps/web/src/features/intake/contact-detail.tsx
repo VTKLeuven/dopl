@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Ban, Combine, Users } from "lucide-react";
+import { Ban, Combine, Mail, Users } from "lucide-react";
 import type { ContactDetail, ContactRow } from "@/server/queries/contacts";
 import {
   mergeContactsAction,
@@ -164,6 +164,31 @@ export function ContactDetailView({
               {t("save")}
             </Button>
           </section>
+          {c.threads.length ? (
+            <section className="flex flex-col gap-3" aria-label={t("threadsTitle")}>
+              <h2 className="text-body font-semibold">{t("threadsTitle")}</h2>
+              <ul
+                className="overflow-hidden rounded-card border border-border"
+                data-testid="contact-threads"
+              >
+                {c.threads.map((th) => (
+                  <li key={th.id} className="border-b border-border last:border-b-0">
+                    <Link
+                      href={`/${ws}/mail?view=all&thread=${th.id}` as never}
+                      className="flex h-12 items-center gap-3 px-4 focus-ring transition-colors hover:bg-surface-hover"
+                    >
+                      <Mail className="size-4 shrink-0 text-icon" />
+                      <span className="min-w-0 flex-1 truncate text-body">{th.subject}</span>
+                      <span className="shrink-0 text-small text-fg-muted">
+                        {t(`threadStatus.${th.status}`)} ·{" "}
+                        {t("messages", { count: th.messageCount })}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           <section className="flex flex-col gap-3" aria-label={t("requestsTitle")}>
             <h2 className="text-body font-semibold">{t("requestsTitle")}</h2>
             {c.requests.length === 0 ? (

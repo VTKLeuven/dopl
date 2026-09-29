@@ -3,6 +3,9 @@ import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 
 loadEnv({ path: path.resolve(import.meta.dirname, "../../../.env"), quiet: true });
+// Worker-only secrets (Google service account, agent SSH key; D-027) live in
+// worker.env, which the web process never loads.
+loadEnv({ path: path.resolve(import.meta.dirname, "../../../worker.env"), quiet: true });
 
 const schema = z
   .object({

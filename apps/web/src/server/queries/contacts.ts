@@ -6,6 +6,7 @@ import { z } from "zod";
 import { NotFoundError } from "../action-result";
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
+import { readableMailboxIds } from "./mail";
 import { accessibleProjectsWhere } from "./projects";
 
 function assertView(ctx: WorkspaceCtx) {
@@ -81,6 +82,14 @@ export interface ContactDetail {
     identifier: string | null;
     createdAt: string;
   }>;
+  /** Email conversations with this contact, in mailboxes the viewer can read (Phase 7). */
+  threads: Array<{
+    id: string;
+    subject: string;
+    status: "OPEN" | "SOLVED" | "IGNORED";
+    lastMessageAt: string;
+    messageCount: number;
+  }>;
 }
 
 /** A contact and the requests they sent, limited to projects the viewer can see. */
@@ -115,7 +124,17 @@ export async function getContact(ctx: WorkspaceCtx, id: string): Promise<Contact
     },
   });
   if (!c) throw new NotFoundError();
+  const mailboxes = await readableMailboxIds(ctx);
+  const threads = mailboxes.length
+    ? await db.emailThread.findMany({
+        where: { contactId: c.id, mailboxId: { in: mailboxes } },
+        orderBy: { lastMessageAt: "desc" },
+        take: 100,
+        select: { id: true, subject: true, status: true, lastMessageAt: true, messageCount: true },
+      })
+    : [];
   return {
+    threads: threads.map((t) => ({ ...t, lastMessageAt: t.lastMessageAt.toISOString() })),
     id: c.id,
     name: c.name,
     email: c.email,

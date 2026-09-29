@@ -27,6 +27,16 @@ const schema = z.object({
     .string()
     .optional()
     .transform((v) => v || undefined),
+  // Worker-only secrets (D-027): the internet-facing web process must never
+  // see them. They belong in worker.env, which only the worker loads.
+  GOOGLE_SERVICE_ACCOUNT_KEY_FILE: z
+    .string()
+    .optional()
+    .refine((v) => !v, "GOOGLE_SERVICE_ACCOUNT_KEY_FILE belongs in worker.env, not the web's env"),
+  AGENT_SSH_KEY_FILE: z
+    .string()
+    .optional()
+    .refine((v) => !v, "AGENT_SSH_KEY_FILE belongs in worker.env, not the web's env"),
 });
 
 export const env = schema.parse(process.env);
