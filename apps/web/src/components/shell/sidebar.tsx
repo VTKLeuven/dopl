@@ -13,6 +13,7 @@ import {
   Search,
   Send,
   Settings,
+  StickyNote,
   UserRound,
   Users,
 } from "lucide-react";
@@ -154,6 +155,7 @@ export function Sidebar({
   const t = useTranslations("shell");
   const tInbox = useTranslations("inbox");
   const tMessages = useTranslations("messages");
+  const tNotes = useTranslations("notes");
   const pathname = usePathname();
   const router = useRouter();
   const base = `/${workspace.slug}`;
@@ -205,6 +207,13 @@ export function Sidebar({
             trailing={<MessagesNavDot ws={workspace.slug} />}
           />
         ) : null}
+        <NavItem
+          href={`${base}/notes`}
+          icon={<StickyNote />}
+          label={tNotes("title")}
+          active={isActive(`${base}/notes`)}
+          onNavigate={onNavigate}
+        />
         <NavItem
           href={`${base}/projects`}
           icon={<FolderKanban />}

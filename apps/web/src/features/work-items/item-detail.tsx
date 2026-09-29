@@ -89,6 +89,7 @@ import {
 import { useEditorSources } from "./editor-sources";
 import { Attachments } from "./attachments";
 import { ReferenceEntry } from "@/features/messages/reference-entry";
+import { ItemNotes } from "@/features/notes/item-notes";
 import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
 
 export type DetailMode = "peek" | "page" | "triage";
@@ -382,6 +383,7 @@ function DetailBody({
               </>
             )}
             <Attachments ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+            <ItemNotes ws={ws} itemId={item.id} />
             <Timeline ws={ws} item={item} meta={meta} onChanged={refresh} />
           </div>
         </div>
