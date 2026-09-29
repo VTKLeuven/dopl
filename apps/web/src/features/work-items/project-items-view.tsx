@@ -8,6 +8,7 @@ import {
   ArrowUpDown,
   CalendarDays,
   Columns3,
+  GanttChart,
   Eye,
   EyeOff,
   LayoutList,
@@ -52,17 +53,20 @@ import { PageHeader } from "@/components/shell/page-header";
 import { ProjectBadge } from "@/components/shell/project-badge";
 import {
   filterKey,
+  useBlockingRelations,
   useBulkUpdate,
   useDeleteItems,
   useMoveItem,
   useProjectItems,
   useProjectMeta,
   useUpdateItem,
+  type BlockingRelation,
   type ItemsData,
 } from "./data";
 import { defaultsForGroup, groupRows, sortRows, type ItemGroup } from "./grouping";
 import { TableView } from "./table-view";
 import { CalendarView } from "./calendar-view";
+import { TimelineView } from "./timeline-view";
 import { ListView, type PickerKind } from "./list-view";
 import { BoardView } from "./board-view";
 import { CreateItemDialog, type CreateDefaults } from "./create-item-dialog";
@@ -95,6 +99,7 @@ const PROPERTY_KEYS: PropertyKey[] = [
   "createdAt",
   "updatedAt",
 ];
+const NO_RELATIONS: BlockingRelation[] = [];
 /** Keys the table handles itself (grid navigation and cell editing). */
 const TABLE_KEYS = new Set(["j", "k", "ArrowDown", "ArrowUp", "Enter", "s", "p", "a", "l", "d"]);
 
@@ -137,6 +142,7 @@ export function ProjectItemsView({
       : undefined,
   );
   const { mutate: updateItem } = useUpdateItem(ws, projectId);
+  const { data: relations } = useBlockingRelations(ws, projectId, options.layout === "TIMELINE");
   const bulk = useBulkUpdate(ws, projectId);
   const move = useMoveItem(ws, projectId);
   const del = useDeleteItems(ws, projectId);
@@ -279,8 +285,7 @@ export function ProjectItemsView({
         return;
       }
       if (mod || e.altKey) return;
-      if ((options.layout === "TABLE" || options.layout === "CALENDAR") && TABLE_KEYS.has(e.key))
-        return;
+      if (options.layout !== "LIST" && options.layout !== "BOARD" && TABLE_KEYS.has(e.key)) return;
       switch (e.key) {
         case "j":
         case "ArrowDown":
@@ -390,6 +395,11 @@ export function ProjectItemsView({
               <Tooltip content={t("layout.CALENDAR")}>
                 <SegmentedControlItem value="CALENDAR" aria-label={t("layout.CALENDAR")}>
                   <CalendarDays />
+                </SegmentedControlItem>
+              </Tooltip>
+              <Tooltip content={t("layout.TIMELINE")}>
+                <SegmentedControlItem value="TIMELINE" aria-label={t("layout.TIMELINE")}>
+                  <GanttChart />
                 </SegmentedControlItem>
               </Tooltip>
             </SegmentedControl>
@@ -506,6 +516,18 @@ export function ProjectItemsView({
               <Button onClick={() => setFilters(EMPTY_FILTER)}>{tf("clearAll")}</Button>
             ) : null
           }
+        />
+      ) : options.layout === "TIMELINE" ? (
+        <TimelineView
+          rows={tableRows}
+          meta={meta}
+          options={options}
+          setOptions={setOptions}
+          relations={relations ?? NO_RELATIONS}
+          focusedId={focusedId}
+          onFocus={setFocusedId}
+          onOpen={onOpen}
+          onUpdate={onUpdate}
         />
       ) : options.layout === "CALENDAR" ? (
         <CalendarView

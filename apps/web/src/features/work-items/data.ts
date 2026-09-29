@@ -29,6 +29,7 @@ export const keys = {
   itemsQuery: (projectId: string, mode: CompletedMode, filterKey: string) =>
     ["items", projectId, mode, filterKey] as const,
   meta: (projectId: string) => ["meta", projectId] as const,
+  relations: (projectId: string) => ["relations", projectId] as const,
   detail: (ref: string) => ["item", ref.toUpperCase()] as const,
   search: (q: string, projectId?: string) => ["search-items", q, projectId ?? null] as const,
 };
@@ -73,6 +74,20 @@ export function useProjectMeta(ws: string, projectId: string, initial?: ProjectM
     enabled: Boolean(projectId),
     initialData: initial,
     staleTime: 5 * 60_000,
+  });
+}
+
+export interface BlockingRelation {
+  id: string;
+  sourceId: string;
+  targetId: string;
+}
+export function useBlockingRelations(ws: string, projectId: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.relations(projectId),
+    queryFn: () => getJson<BlockingRelation[]>(`/api/v1/${ws}/projects/${projectId}/relations`),
+    enabled,
+    staleTime: 30_000,
   });
 }
 

@@ -182,6 +182,21 @@ export function listProjectItems(ctx: WorkspaceCtx, access: ProjectAccess, query
   return listItems(ctx, [access.project], query);
 }
 
+export interface BlockingRelation {
+  id: string;
+  sourceId: string;
+  targetId: string;
+}
+
+/** "A blocks B" pairs where both items live in the project and aren't deleted. */
+export async function listBlockingRelations(access: ProjectAccess): Promise<BlockingRelation[]> {
+  const live = { projectId: access.project.id, deletedAt: null, archivedAt: null };
+  return db.workItemRelation.findMany({
+    where: { type: "BLOCKS", source: live, target: live },
+    select: { id: true, sourceId: true, targetId: true },
+  });
+}
+
 export async function getProjectMeta(
   ctx: WorkspaceCtx,
   access: ProjectAccess,

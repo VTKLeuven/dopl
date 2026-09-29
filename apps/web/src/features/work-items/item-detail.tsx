@@ -163,7 +163,10 @@ function DetailBody({
   const del = useDeleteItems(ws, item.projectId);
   const canEdit = meta.can.edit && !item.archivedAt;
   const set = (patch: Record<string, unknown>) => update.mutate({ id: item.id, ...patch });
-  const refresh = () => qc.invalidateQueries({ queryKey: keys.detail(item.identifier) });
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: keys.relations(item.projectId) });
+    return qc.invalidateQueries({ queryKey: keys.detail(item.identifier) });
+  };
   const url = () => `${window.location.origin}/${ws}/i/${item.identifier}`;
 
   const copy = async (text: string) => {

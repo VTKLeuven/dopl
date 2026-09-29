@@ -636,5 +636,15 @@
     "allScheduled": "Everything here has a date.",
     "more": "+{count} more",
     "moveHint": "Shift+arrows move the item by a day or a week"
+  },
+  "timeline": {
+    "today": "Today",
+    "zoom": "Zoom",
+    "week": "Week",
+    "month": "Month",
+    "quarter": "Quarter",
+    "item": "Item",
+    "scheduled": "{count} of {total} scheduled",
+    "clickToSchedule": "Click to schedule on this day"
   }
 }
