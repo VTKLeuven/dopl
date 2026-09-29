@@ -45,8 +45,11 @@ function sanitizeNode(node: unknown, depth: number): PMNode[] {
 
   if (n.type === "text") {
     if (typeof n.text !== "string" || n.text.length === 0) return [];
-    const marks = (Array.isArray(n.marks) ? n.marks : [])
-      .filter((m) => m && MARKS.has(m.type))
+    const rawMarks: unknown[] = Array.isArray(n.marks) ? n.marks : [];
+    const marks = rawMarks
+      .filter((m): m is { type: string; attrs?: Record<string, unknown> } =>
+        typeof m === "object" && m !== null && typeof (m as { type?: unknown }).type === "string" && MARKS.has((m as { type: string }).type),
+      )
       .map((m) => {
         if (m.type !== "link") return { type: m.type };
         const href = safeHref(m.attrs?.href);
@@ -82,6 +85,8 @@ export function sanitizeDoc(doc: unknown): PMNode {
   return root;
 }
 
+const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
+
 const BLOCK_BREAK = new Set(["paragraph", "heading", "listItem", "taskItem", "blockquote", "codeBlock"]);
 
 export function docToPlainText(doc: PMNode | null | undefined, max = 20_000): string {
@@ -89,8 +94,8 @@ export function docToPlainText(doc: PMNode | null | undefined, max = 20_000): st
   const parts: string[] = [];
   const walk = (n: PMNode) => {
     if (n.type === "text" && n.text) parts.push(n.text);
-    else if (n.type === "mention") parts.push(`@${String(n.attrs?.label ?? "")}`);
-    else if (n.type === "workItemRef") parts.push(String(n.attrs?.identifier ?? n.attrs?.label ?? ""));
+    else if (n.type === "mention") parts.push(`@${str(n.attrs?.label)}`);
+    else if (n.type === "workItemRef") parts.push(str(n.attrs?.identifier) || str(n.attrs?.label));
     else if (n.type === "hardBreak") parts.push("\n");
     n.content?.forEach(walk);
     if (BLOCK_BREAK.has(n.type)) parts.push("\n");

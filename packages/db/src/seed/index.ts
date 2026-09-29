@@ -1,7 +1,8 @@
 /**
  * Deterministic dev/demo seed (DATA_MODEL §9). Refuses to run in production.
  *
- *   pnpm db:seed
+ *   pnpm db:seed              (skips if the workspace already has projects)
+ *   pnpm db:seed -- --reset   (rebuilds the seeded projects; keeps users)
  *
  * Creates (or tops up) workspace "vtk" with the people in ./data.ts — all with
  * the password `dopl-dev-password` — five projects and ~300 work items with
@@ -58,8 +59,17 @@ async function main() {
     (await db.workspace.findUnique({ where: { slug: "vtk" } })) ??
     (await db.workspace.create({ data: { slug: "vtk", name: "VTK IT" } }));
 
+  if (process.argv.includes("--reset")) {
+    // Dev only (guarded above): rebuild the seeded projects from scratch.
+    // Users, passwords and 2FA settings are kept.
+    const seeded = projects.map((p) => p.identifier).concat(["E2E"]);
+    const removed = await db.project.deleteMany({ where: { workspaceId: workspace.id, identifier: { in: seeded } } });
+    await db.viewPreference.deleteMany({ where: { workspaceId: workspace.id } });
+    console.log(`Reset: removed ${removed.count} seeded project(s).`);
+  }
+
   const existingProjects = await db.project.count({ where: { workspaceId: workspace.id, deletedAt: null } });
-  if (existingProjects > 0 && process.argv[2] !== "--force-add") {
+  if (existingProjects > 0 && !process.argv.includes("--force-add")) {
     console.log(`Workspace "${workspace.slug}" already has ${existingProjects} project(s); seed skipped (pass --force-add to add anyway).`);
     return;
   }

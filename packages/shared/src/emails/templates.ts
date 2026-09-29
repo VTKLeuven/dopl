@@ -64,7 +64,7 @@ export function renderEmail<K extends EmailTemplateKey>(
       };
     }
     case "auth.magic_link": {
-      const d = data as EmailTemplateData<"auth.magic_link">;
+      const d = data;
       return {
         subject: "Your Dopl sign-in link",
         html: layout({
@@ -78,7 +78,7 @@ export function renderEmail<K extends EmailTemplateKey>(
       };
     }
     case "auth.reset_password": {
-      const d = data as EmailTemplateData<"auth.reset_password">;
+      const d = data;
       return {
         subject: "Reset your Dopl password",
         html: layout({

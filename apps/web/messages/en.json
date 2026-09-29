@@ -318,8 +318,8 @@
     "compact": "Compact",
     "completedMode": {
       "hide": "Hide",
-      "recent": "Last 14 days",
-      "show": "Show all"
+      "recent": "Recent",
+      "show": "All"
     },
     "group": {
       "state": "State",

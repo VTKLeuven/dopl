@@ -16,7 +16,7 @@ export const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-
  * Rich text is ProseMirror/Tiptap JSON. We validate the envelope here and the
  * node/mark allowlist in the server sanitizer (D-019).
  */
-export const RichTextSchema = z.object({ type: z.literal("doc"), content: z.array(z.unknown()).optional() }).passthrough();
+export const RichTextSchema = z.looseObject({ type: z.literal("doc"), content: z.array(z.unknown()).optional() });
 export type RichText = z.infer<typeof RichTextSchema>;
 
 export const TitleSchema = z.string().trim().min(1, "Give it a title.").max(300);

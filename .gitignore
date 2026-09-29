@@ -41,4 +41,4 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-e2e/.auth/
+**/e2e/.auth/

@@ -19,4 +19,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
+  {
+    // Dev tooling: seeds and tests may assert non-null for brevity.
+    files: ["**/seed/**", "**/*.test.ts", "**/testing/**"],
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-meaningless-void-operator": "off",
+    },
+  },
 );
