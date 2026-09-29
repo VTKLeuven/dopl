@@ -20,7 +20,8 @@ import {
 import { docToPlainText, extractMentions, sanitizeDoc, type PMNode } from "@dopl/shared/rich-text";
 import { keyBefore, keyBetween, keysBetween } from "@dopl/shared/sort-keys";
 import { ConflictError, NotFoundError } from "../action-result";
-import { withMutation, type Mutation } from "../mutation";
+import { withMutation, type BaseMutation, type Mutation } from "../mutation";
+import { notify as notifyInbox } from "../notifications/notify";
 import { projectAccessById, type ProjectAccess } from "../queries/projects";
 import type { WorkspaceCtx } from "../session";
 
@@ -37,7 +38,7 @@ export function fromDateOnly(value: Date | null): string | null {
 
 const isDone = (g: StateGroup) => DONE_GROUPS.includes(g);
 
-async function nextSequence(tx: TransactionClient, projectId: string): Promise<number> {
+export async function nextSequence(tx: TransactionClient, projectId: string): Promise<number> {
   const rows = await tx.$queryRaw<{ seq: number }[]>`
     UPDATE projects SET "nextSequence" = "nextSequence" + 1
     WHERE id = ${projectId}::uuid
@@ -47,7 +48,7 @@ async function nextSequence(tx: TransactionClient, projectId: string): Promise<n
   return Number(seq);
 }
 
-async function resolveState(
+export async function resolveState(
   tx: TransactionClient,
   projectId: string,
   stateId: string | null | undefined,
@@ -74,7 +75,7 @@ async function resolveState(
   return fallback;
 }
 
-async function validAssignees(tx: TransactionClient, ctx: WorkspaceCtx, ids: string[]) {
+export async function validAssignees(tx: TransactionClient, ctx: WorkspaceCtx, ids: string[]) {
   if (ids.length === 0) return [];
   const members = await tx.workspaceMember.findMany({
     where: {
@@ -89,7 +90,7 @@ async function validAssignees(tx: TransactionClient, ctx: WorkspaceCtx, ids: str
   return members.map((m) => ({ id: m.userId, name: m.user.name }));
 }
 
-async function validLabels(
+export async function validLabels(
   tx: TransactionClient,
   ctx: WorkspaceCtx,
   projectId: string,
@@ -137,7 +138,7 @@ async function validType(
   });
 }
 
-async function subscribe(
+export async function subscribe(
   tx: TransactionClient,
   ctx: WorkspaceCtx,
   workItemId: string,
@@ -152,31 +153,24 @@ async function subscribe(
 }
 
 async function notify(
-  tx: TransactionClient,
-  ctx: WorkspaceCtx,
+  m: BaseMutation,
   args: {
     recipientIds: string[];
     type: "MENTION" | "ASSIGNED" | "COMMENT" | "WORK_ITEM_UPDATED";
     workItemId: string;
     projectId: string;
-    data: Prisma.InputJsonValue;
+    data: Prisma.InputJsonObject;
   },
 ) {
-  const recipients = args.recipientIds.filter((id) => id !== ctx.actor.userId);
-  if (recipients.length === 0) return;
-  await tx.notification.createMany({
-    data: recipients.map((recipientId) => ({
-      workspaceId: ctx.workspace.id,
-      recipientId,
-      actorId: ctx.actor.userId,
-      type: args.type,
-      entityType: "WORK_ITEM",
-      entityId: args.workItemId,
-      workItemId: args.workItemId,
-      projectId: args.projectId,
-      groupKey: `workItem:${args.workItemId}:${args.type}`,
-      data: args.data,
-    })),
+  await notifyInbox(m, {
+    recipientIds: args.recipientIds,
+    type: args.type,
+    entityType: "WORK_ITEM",
+    entityId: args.workItemId,
+    workItemId: args.workItemId,
+    projectId: args.projectId,
+    groupKey: `workItem:${args.workItemId}:${args.type}`,
+    data: args.data,
   });
 }
 
@@ -216,7 +210,7 @@ async function createOne(
   const type = await validType(tx, ctx, projectId, input.typeId);
   if (input.parentId) {
     const parent = await tx.workItem.findFirst({
-      where: { id: input.parentId, projectId, deletedAt: null },
+      where: { id: input.parentId, projectId, deletedAt: null, stateGroup: { not: "TRIAGE" } },
       select: { id: true },
     });
     if (!parent) throw new ConflictError("invalid_parent");
@@ -285,14 +279,14 @@ async function createOne(
   for (const u of mentioned) await subscribe(tx, ctx, item.id, u, "MENTIONED");
 
   const identifier = `${access.project.identifier}-${sequence}`;
-  await notify(tx, ctx, {
+  await notify(m, {
     recipientIds: assignees.map((a) => a.id),
     type: "ASSIGNED",
     workItemId: item.id,
     projectId,
     data: { identifier, title: item.title },
   });
-  await notify(tx, ctx, {
+  await notify(m, {
     recipientIds: mentioned,
     type: "MENTION",
     workItemId: item.id,
@@ -309,6 +303,7 @@ async function createOne(
     meta: { identifier, title: item.title },
   });
   emitItem(m, projectId, "workItem.created", { id: item.id });
+  m.webhook({ event: "work_item.created", entityType: "WORK_ITEM", entityId: item.id, projectId });
   return { ...item, identifier };
 }
 
@@ -357,6 +352,13 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
   const { tx, ctx } = m;
   const { item, access } = await loadItemForWrite(tx, ctx, input.id);
   const projectId = item.projectId;
+  // Requests leave triage only through the intake queue (accept assigns the number).
+  if (
+    item.stateGroup === "TRIAGE" &&
+    ((input.stateId !== undefined && input.stateId !== item.stateId) ||
+      (input.parentId !== undefined && input.parentId !== item.parentId))
+  )
+    throw new ConflictError("in_triage");
   const data: Prisma.WorkItemUncheckedUpdateInput = {};
   const changed: string[] = [];
   const act = (
@@ -391,7 +393,7 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     const before = new Set(extractMentions(item.description as PMNode | null));
     const newMentions = extractMentions(doc).filter((u) => !before.has(u));
     for (const u of newMentions) await subscribe(tx, ctx, item.id, u, "MENTIONED");
-    await notify(tx, ctx, {
+    await notify(m, {
       recipientIds: newMentions,
       type: "MENTION",
       workItemId: item.id,
@@ -420,6 +422,20 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
       fromGroup: item.state.group,
       toGroup: next.group,
     });
+    m.webhook({
+      event: "work_item.state_changed",
+      entityType: "WORK_ITEM",
+      entityId: item.id,
+      projectId,
+      detail: { from: item.state.name, to: next.name },
+    });
+    if (next.group === "COMPLETED" && item.state.group !== "COMPLETED")
+      m.webhook({
+        event: "work_item.completed",
+        entityType: "WORK_ITEM",
+        entityId: item.id,
+        projectId,
+      });
     if (item.parentId && isDone(item.stateGroup) !== isDone(next.group)) {
       await tx.workItem.update({
         where: { id: item.parentId },
@@ -501,7 +517,14 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
           })),
         });
         for (const u of addedUsers) await subscribe(tx, ctx, item.id, u.id, "ASSIGNEE");
-        await notify(tx, ctx, {
+        m.webhook({
+          event: "work_item.assigned",
+          entityType: "WORK_ITEM",
+          entityId: item.id,
+          projectId,
+          detail: { added: addedUsers.map((u) => u.name) },
+        });
+        await notify(m, {
           recipientIds: addedUsers.map((u) => u.id),
           type: "ASSIGNED",
           workItemId: item.id,
@@ -603,6 +626,7 @@ export async function moveToProject(ctx: WorkspaceCtx, raw: unknown) {
     for (const id of ids) {
       const { item, access } = await loadItemForWrite(tx, ctx, id);
       if (item.projectId === projectId) continue;
+      if (item.stateGroup === "TRIAGE") throw new ConflictError("in_triage");
       const state = stateFor(item.state.group);
       if (!state) throw new ConflictError("no_matching_state");
       const sequence = item.sequence === null ? null : await nextSequence(tx, projectId);

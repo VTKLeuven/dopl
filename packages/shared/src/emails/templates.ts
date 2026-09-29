@@ -14,6 +14,33 @@ export const emailTemplates = {
   }),
   "auth.magic_link": z.object({ url: z.url() }),
   "auth.reset_password": z.object({ url: z.url() }),
+  // Intake (Phase 3): sent to the submitter. `statusUrl` is a fresh status-page link.
+  "intake.confirmation": z.object({
+    workspaceName: z.string(),
+    formTitle: z.string(),
+    intakeNumber: z.number().int(),
+    title: z.string(),
+    statusUrl: z.url(),
+  }),
+  "intake.accepted": z.object({ workspaceName: z.string(), title: z.string(), statusUrl: z.url() }),
+  "intake.declined": z.object({
+    workspaceName: z.string(),
+    title: z.string(),
+    reason: z.string(),
+    statusUrl: z.url(),
+  }),
+  "intake.duplicate": z.object({
+    workspaceName: z.string(),
+    title: z.string(),
+    statusUrl: z.url(),
+  }),
+  "intake.reply": z.object({
+    workspaceName: z.string(),
+    title: z.string(),
+    authorName: z.string(),
+    excerpt: z.string(),
+    statusUrl: z.url(),
+  }),
 } as const;
 
 export type EmailTemplateKey = keyof typeof emailTemplates;
@@ -71,7 +98,7 @@ export function renderEmail<K extends EmailTemplateKey>(
       };
     }
     case "auth.magic_link": {
-      const d = data;
+      const d = data as EmailTemplateData<"auth.magic_link">;
       return {
         subject: "Your Dopl sign-in link",
         html: layout({
@@ -85,7 +112,7 @@ export function renderEmail<K extends EmailTemplateKey>(
       };
     }
     case "auth.reset_password": {
-      const d = data;
+      const d = data as EmailTemplateData<"auth.reset_password">;
       return {
         subject: "Reset your Dopl password",
         html: layout({
@@ -96,6 +123,74 @@ export function renderEmail<K extends EmailTemplateKey>(
           footnote: "If you didn't request this, your password stays unchanged.",
         }),
         text: `Reset your Dopl password: ${d.url}\n\nThe link expires in 1 hour.`,
+      };
+    }
+    case "intake.confirmation": {
+      const d = data as EmailTemplateData<"intake.confirmation">;
+      return {
+        subject: `We received your request: ${d.title}`,
+        html: layout({
+          appUrl,
+          heading: "Thanks, we've got it",
+          body: `Your request <strong>${esc(d.title)}</strong> reached ${esc(d.workspaceName)} as <strong>request #${d.intakeNumber}</strong> via ${esc(d.formTitle)}. Follow its status and reply to the team from the status page.`,
+          cta: { label: "View status", url: d.statusUrl },
+          footnote:
+            "Keep this email: the link is personal and lets you follow this request without an account.",
+        }),
+        text: `We received your request "${d.title}" (request #${d.intakeNumber}) at ${d.workspaceName}.\n\nFollow its status: ${d.statusUrl}\n\nKeep this email: the link is personal.`,
+      };
+    }
+    case "intake.accepted": {
+      const d = data as EmailTemplateData<"intake.accepted">;
+      return {
+        subject: `We're on it: ${d.title}`,
+        html: layout({
+          appUrl,
+          heading: "Your request was accepted",
+          body: `${esc(d.workspaceName)} accepted <strong>${esc(d.title)}</strong> and will follow up on the status page.`,
+          cta: { label: "View status", url: d.statusUrl },
+        }),
+        text: `${d.workspaceName} accepted your request "${d.title}".\n\nStatus: ${d.statusUrl}`,
+      };
+    }
+    case "intake.declined": {
+      const d = data as EmailTemplateData<"intake.declined">;
+      const reason = d.reason.trim();
+      return {
+        subject: `Update on your request: ${d.title}`,
+        html: layout({
+          appUrl,
+          heading: "We can't take this request on",
+          body: `${esc(d.workspaceName)} closed <strong>${esc(d.title)}</strong> without action.${reason ? `<br><br>${esc(reason).replace(/\n/g, "<br>")}` : ""}`,
+          cta: { label: "View status", url: d.statusUrl },
+        }),
+        text: `${d.workspaceName} closed your request "${d.title}" without action.${reason ? `\n\n${reason}` : ""}\n\nStatus: ${d.statusUrl}`,
+      };
+    }
+    case "intake.duplicate": {
+      const d = data as EmailTemplateData<"intake.duplicate">;
+      return {
+        subject: `Update on your request: ${d.title}`,
+        html: layout({
+          appUrl,
+          heading: "This was already reported",
+          body: `${esc(d.workspaceName)} is already working on the same issue as <strong>${esc(d.title)}</strong>, so we merged your request with it.`,
+          cta: { label: "View status", url: d.statusUrl },
+        }),
+        text: `${d.workspaceName} is already working on the same issue as "${d.title}".\n\nStatus: ${d.statusUrl}`,
+      };
+    }
+    case "intake.reply": {
+      const d = data as EmailTemplateData<"intake.reply">;
+      return {
+        subject: `New reply on your request: ${d.title}`,
+        html: layout({
+          appUrl,
+          heading: `${d.authorName} replied`,
+          body: `<em>${esc(d.title)}</em><br><br>${esc(d.excerpt).replace(/\n/g, "<br>")}`,
+          cta: { label: "Read and reply", url: d.statusUrl },
+        }),
+        text: `${d.authorName} replied on "${d.title}":\n\n${d.excerpt}\n\nRead and reply: ${d.statusUrl}`,
       };
     }
     default:

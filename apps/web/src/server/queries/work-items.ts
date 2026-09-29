@@ -19,7 +19,9 @@ import { db } from "../db";
 import { fromDateOnly } from "../services/work-items";
 import type { WorkspaceCtx } from "../session";
 import { EMPTY_FILTER, parseFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
+import { z } from "zod";
 import { compileFilter, type CompileContext } from "./filters";
+import { requestSelect, toRequestInfo } from "./intake";
 import { projectAccessById, type ProjectAccess } from "./projects";
 
 export const rowSelect = {
@@ -351,11 +353,27 @@ export async function getProjectMeta(
   };
 }
 
-/** Resolve "INFRA-42" (current or previous identifier) → work item id + access. */
+/**
+ * Resolve "INFRA-42" (current or previous identifier) → work item id + access.
+ * A work item id also works; that's how requests still in triage (no number
+ * yet) are opened, and only by people who triage.
+ */
 export async function resolveItemRef(
   ctx: WorkspaceCtx,
   ref: string,
 ): Promise<{ id: string; access: ProjectAccess }> {
+  if (z.uuid().safeParse(ref).success) {
+    const item = await db.workItem.findFirst({
+      where: { id: ref, workspaceId: ctx.workspace.id, deletedAt: null },
+      select: { id: true, projectId: true, stateGroup: true },
+    });
+    if (!item) throw new NotFoundError();
+    const access = await projectAccessById(ctx, item.projectId);
+    const allowed =
+      item.stateGroup === "TRIAGE" ? access.can("intake.triage") : access.can("project.view");
+    if (!allowed) throw new NotFoundError();
+    return { id: item.id, access };
+  }
   const parsed = parseIdentifier(ref);
   if (!parsed) throw new NotFoundError();
   const project = await db.project.findFirst({
@@ -464,8 +482,14 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
         },
       },
       subscribers: { where: { userId: ctx.actor.userId }, select: { muted: true } },
+      intakeItem: { select: requestSelect },
     },
   });
+  // Guests never see the triage record (other people's emails, form answers).
+  const request =
+    item.intakeItem && access.role !== "GUEST"
+      ? toRequestInfo(item.intakeItem, item.stateGroup)
+      : null;
   const relations: RelationView[] = [
     ...item.relationsOut.map((r) => ({
       id: r.id,
@@ -521,8 +545,11 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
     meta: (a.meta ?? {}) as Record<string, unknown>,
     createdAt: a.createdAt.toISOString(),
   }));
+  const row = toRow(item, ident);
   return {
-    ...toRow(item, ident),
+    ...row,
+    identifier: formatIdentifier(ident, item.sequence, item.intakeItem?.number),
+    request,
     projectId: item.projectId,
     projectIdentifier: ident,
     description: item.description,

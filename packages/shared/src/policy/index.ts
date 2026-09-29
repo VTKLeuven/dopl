@@ -32,6 +32,9 @@ export type WorkspaceAction =
   | "workspace.auth.manage"
   | "project.create"
   | "view.workspace.create"
+  | "contact.view"
+  | "contact.edit"
+  | "contact.merge"
   | "agent.pause";
 
 const isAdmin = (r: WorkspaceRole) => r === "OWNER" || r === "ADMIN";
@@ -45,8 +48,12 @@ export function canWorkspace(actor: PolicyActor, action: WorkspaceAction): boole
     case "workspace.audit.view":
     case "workspace.integrations.manage":
     case "workspace.auth.manage":
+    case "contact.merge":
     case "agent.pause":
       return actor.kind === "HUMAN" && isAdmin(actor.workspaceRole);
+    // Contacts are people outside the team: never visible to guests.
+    case "contact.view":
+    case "contact.edit":
     case "project.create":
     case "view.workspace.create":
       return actor.kind === "HUMAN" && actor.workspaceRole !== "GUEST";
@@ -147,6 +154,21 @@ export function canView(actor: PolicyActor, view: PolicyView, action: ViewAction
     case "view.lock":
       return owner || admin;
   }
+}
+
+/**
+ * A request someone submitted from inside Dopl (guest or member). Its
+ * submitter may always follow it and reply publicly, even as a guest who
+ * can't browse the project; everyone else needs triage rights.
+ */
+export function canSeeRequest(
+  actor: PolicyActor,
+  project: PolicyProject,
+  request: { submitterUserId: string | null },
+): boolean {
+  if (request.submitterUserId && request.submitterUserId === actor.userId)
+    return effectiveProjectRole(actor, project) !== null;
+  return canProject(actor, project, "intake.triage");
 }
 
 export function canApproveAgentAction(actor: PolicyActor): boolean {

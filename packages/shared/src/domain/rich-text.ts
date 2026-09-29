@@ -151,15 +151,25 @@ export const extractMentions = (doc: PMNode | null | undefined) => collect(doc, 
 export const extractItemRefs = (doc: PMNode | null | undefined) =>
   collect(doc, "workItemRef", "id");
 
+/** Plain text → paragraphs; single line breaks become hard breaks (form text, emails). */
 export function textToDoc(text: string): PMNode {
   const paragraphs = text
+    .replace(/\r\n?/g, "\n")
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean);
   return {
     type: "doc",
     content: paragraphs.length
-      ? paragraphs.map((p) => ({ type: "paragraph", content: [{ type: "text", text: p }] }))
+      ? paragraphs.map((p) => ({
+          type: "paragraph",
+          content: p
+            .split("\n")
+            .flatMap((line, i): PMNode[] => [
+              ...(i > 0 ? [{ type: "hardBreak" }] : []),
+              ...(line ? [{ type: "text", text: line }] : []),
+            ]),
+        }))
       : [{ type: "paragraph" }],
   };
 }

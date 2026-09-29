@@ -1,5 +1,6 @@
 /** Serializable shapes shared by server queries and client views. */
 import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
+import type { PublicStatus } from "@dopl/shared/schemas/intake";
 
 export interface WorkItemRow {
   id: string;
@@ -106,7 +107,30 @@ export interface RelationView {
   item: { id: string; identifier: string; title: string; stateGroup: StateGroup };
 }
 
+/** The triage record behind an item that came in as a request (Phase 3). */
+export interface RequestInfo {
+  id: string;
+  number: number;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "DUPLICATE";
+  source: "IN_APP" | "FORM" | "EMAIL" | "API";
+  snoozedUntil: string | null;
+  declineReason: string | null;
+  triagedAt: string | null;
+  triagedByName: string | null;
+  duplicateOf: { identifier: string; title: string } | null;
+  submitter: { kind: "contact" | "user"; id: string; name: string; email: string } | null;
+  form: { id: string; title: string } | null;
+  answers: Array<{
+    key: string;
+    label: string;
+    type: string;
+    value: string | string[] | boolean | null;
+  }>;
+  publicStatus: PublicStatus;
+}
+
 export interface WorkItemDetail extends WorkItemRow {
+  request: RequestInfo | null;
   projectIdentifier: string;
   description: unknown;
   createdById: string | null;

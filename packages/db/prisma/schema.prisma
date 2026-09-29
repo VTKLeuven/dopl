@@ -204,6 +204,12 @@ enum NotificationType {
   EMAIL_REPLY
   DUE_SOON
   SNOOZE_ENDED
+  /// Your own request was accepted, declined or marked as a duplicate.
+  INTAKE_UPDATED
+  /// A reply in a chat thread you follow.
+  THREAD_REPLY
+  /// An integration (Discord webhook) was disabled after repeated failures.
+  INTEGRATION_FAILED
 }
 
 enum OutboundStatus {

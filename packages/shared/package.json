@@ -20,7 +20,11 @@
     "./schemas/members": "./src/schemas/members.ts",
     "./schemas/work-item": "./src/schemas/work-item.ts",
     "./schemas/view": "./src/schemas/view.ts",
-    "./rich-text": "./src/domain/rich-text.ts"
+    "./rich-text": "./src/domain/rich-text.ts",
+    "./schemas/intake": "./src/schemas/intake.ts",
+    "./schemas/webhooks": "./src/schemas/webhooks.ts",
+    "./discord": "./src/domain/discord.ts",
+    "./secretbox": "./src/crypto/secretbox.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
