@@ -8,8 +8,10 @@ const REPLAY_LIMIT = 500;
 
 /**
  * Server-sent events for one workspace (ARCHITECTURE §4). EventSource sends
- * Last-Event-ID on reconnect; missed events are replayed, or `resync` is sent
- * when too much was missed and the client should refetch everything.
+ * Last-Event-ID on reconnect (a new leader tab passes `?since=`); missed
+ * events are replayed, or `resync` is sent when too much was missed and the
+ * client should refetch everything. Ephemeral events (typing) have no id.
+ * Behind Caddy the route needs `flush_interval -1` so events aren't buffered.
  */
 export async function GET(req: Request, { params }: RouteContext<"/api/v1/[ws]/realtime">) {
   const { ws } = await params;
@@ -35,43 +37,61 @@ export async function GET(req: Request, { params }: RouteContext<"/api/v1/[ws]/r
           closed = true;
         }
       };
+      // Stored events carry their id (Last-Event-ID); ephemeral ones don't.
       const send = (msg: RealtimeMessage) =>
         write(
-          `id: ${msg.id}\nevent: message\ndata: ${JSON.stringify({ topic: msg.topic, type: msg.type, payload: msg.payload })}\n\n`,
+          `${msg.id ? `id: ${msg.id}\n` : ""}event: message\ndata: ${JSON.stringify({ topic: msg.topic, type: msg.type, payload: msg.payload })}\n\n`,
         );
       // Deliver in order even though the permission check can be async.
       let chain = Promise.resolve();
-      const deliver = (msg: RealtimeMessage) => {
+      const enqueue = (msg: RealtimeMessage) => {
         chain = chain.then(async () => {
           if (TopicAccess.affectsAccess(msg)) await access.refresh();
           if (await access.allows(msg)) send(msg);
         });
       };
+      // Live events that arrive while missed ones are still being read are
+      // held back, then delivered after the replay, without duplicates.
+      const replayFrom = lastId && /^\d+$/.test(lastId) ? BigInt(lastId) : null;
+      let replaying = replayFrom !== null;
+      const held: RealtimeMessage[] = [];
+      const deliver = (msg: RealtimeMessage) => {
+        if (replaying) held.push(msg);
+        else enqueue(msg);
+      };
 
       write(`retry: 3000\n\n`);
       const unsubscribe = realtimeHub.subscribe(ctx.workspace.id, deliver);
 
-      if (lastId && /^\d+$/.test(lastId)) {
+      if (replayFrom !== null) {
         const missed = await db.realtimeEvent.findMany({
-          where: { workspaceId: ctx.workspace.id, id: { gt: BigInt(lastId) } },
+          where: { workspaceId: ctx.workspace.id, id: { gt: replayFrom } },
           orderBy: { id: "asc" },
           take: REPLAY_LIMIT + 1,
         });
+        let upTo = replayFrom;
         if (missed.length > REPLAY_LIMIT) {
           write(`event: resync\ndata: {}\n\n`);
+          upTo = missed.at(-1)?.id ?? replayFrom;
         } else {
-          for (const row of missed)
-            deliver({
+          for (const row of missed) {
+            enqueue({
               id: row.id.toString(),
               workspaceId: row.workspaceId,
               topic: row.topic,
               type: row.type,
               payload: row.payload,
             });
+            upTo = row.id;
+          }
         }
+        replaying = false;
+        for (const msg of held.splice(0)) if (!msg.id || BigInt(msg.id) > upTo) enqueue(msg);
       }
 
-      const ping = setInterval(() => write(`: ping\n\n`), KEEPALIVE_MS);
+      // A named event rather than a comment, so the client can tell a quiet
+      // stream from a dead one (its watchdog reconnects after missed pings).
+      const ping = setInterval(() => write(`event: ping\ndata: {}\n\n`), KEEPALIVE_MS);
       const close = () => {
         if (closed) return;
         closed = true;

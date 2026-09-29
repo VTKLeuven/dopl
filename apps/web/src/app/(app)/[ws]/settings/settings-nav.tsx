@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Building2, KeyRound, ShieldCheck, Users, Webhook } from "lucide-react";
+import { Bell, Building2, KeyRound, ShieldCheck, Users, Webhook } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
   const t = useTranslations("settings.nav");
+  const tn = useTranslations("notificationSettings");
   const pathname = usePathname();
   const items = [
     ...(isAdmin
@@ -29,6 +30,7 @@ export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
       : []),
     { section: t("you") },
     { href: `/${ws}/settings/account`, label: t("account"), icon: <ShieldCheck /> },
+    { href: `/${ws}/settings/notifications`, label: tn("nav"), icon: <Bell /> },
   ];
   return (
     <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-4 py-2 md:w-56 md:flex-col md:border-r md:border-b-0 md:px-3 md:py-4">

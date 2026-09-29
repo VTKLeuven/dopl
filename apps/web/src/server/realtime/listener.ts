@@ -1,15 +1,27 @@
 import "server-only";
 import { Client } from "pg";
+import { z } from "zod";
 import { db } from "../db";
 
+export const EPHEMERAL_CHANNEL = "dopl_ephemeral";
+const EphemeralSchema = z.object({
+  workspaceId: z.uuid(),
+  topic: z.string().max(200),
+  type: z.string().max(100),
+  payload: z.unknown(),
+});
+
 /**
- * One LISTEN connection per web process (ARCHITECTURE §4). A NOTIFY carries
- * only the realtime_events id; the row is read once here and handed to every
- * subscriber of its workspace. Reconnects with backoff and never throws into
- * request handlers.
+ * One LISTEN connection per web process (ARCHITECTURE §4). A NOTIFY on
+ * `dopl_realtime` carries only the realtime_events id; the row is read once
+ * here and handed to every subscriber of its workspace. `dopl_ephemeral`
+ * carries small JSON events that are never stored (typing indicators): they
+ * have no id, so they are never replayed. Reconnects with backoff and never
+ * throws into request handlers.
  */
 export interface RealtimeMessage {
-  id: string;
+  /** realtime_events id; null for ephemeral events. */
+  id: string | null;
   workspaceId: string;
   topic: string;
   type: string;
@@ -60,13 +72,17 @@ class RealtimeHub {
     };
     try {
       await client.connect();
-      client.on("notification", (n) => void this.dispatch(n.payload));
+      client.on("notification", (n) => {
+        if (n.channel === EPHEMERAL_CHANNEL) this.dispatchEphemeral(n.payload);
+        else void this.dispatch(n.payload);
+      });
       client.on("error", (err) => {
         console.error("[realtime] listener error", err.message);
         retry();
       });
       client.on("end", retry);
       await client.query("LISTEN dopl_realtime");
+      await client.query(`LISTEN ${EPHEMERAL_CHANNEL}`);
       this.client = client;
       this.backoff = 500;
     } catch (err) {
@@ -75,21 +91,37 @@ class RealtimeHub {
     }
   }
 
+  private dispatchEphemeral(payload: string | undefined) {
+    if (!payload) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    const msg = EphemeralSchema.safeParse(parsed);
+    if (!msg.success) return;
+    this.fanOut({ id: null, ...msg.data });
+  }
+
   private async dispatch(payload: string | undefined) {
     if (!payload || !/^\d+$/.test(payload)) return;
     const row = await db.realtimeEvent
       .findUnique({ where: { id: BigInt(payload) } })
       .catch(() => null);
     if (!row) return;
-    const set = this.subscribers.get(row.workspaceId);
-    if (!set) return;
-    const msg: RealtimeMessage = {
+    this.fanOut({
       id: row.id.toString(),
       workspaceId: row.workspaceId,
       topic: row.topic,
       type: row.type,
       payload: row.payload,
-    };
+    });
+  }
+
+  private fanOut(msg: RealtimeMessage) {
+    const set = this.subscribers.get(msg.workspaceId);
+    if (!set) return;
     for (const fn of set) {
       try {
         fn(msg);

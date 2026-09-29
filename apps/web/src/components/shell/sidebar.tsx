@@ -30,6 +30,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Inbox as InboxIcon, MessagesSquare } from "lucide-react";
+import { InboxNavBadge } from "@/features/inbox/nav-badge";
+import { MessagesNavDot } from "@/features/messages/nav-dot";
 import { ProjectBadge } from "./project-badge";
 import { openCommandPalette } from "./command-palette-events";
 
@@ -49,6 +52,8 @@ export interface SidebarProps {
   /** Guests (and anyone who asked for something) get "Requests". */
   showRequests?: boolean;
   showContacts?: boolean;
+  /** Team chat is for members; guests don't get Messages (Phase 4). */
+  canChat?: boolean;
   onNavigate?: () => void;
 }
 
@@ -143,9 +148,12 @@ export function Sidebar({
   intakePending = {},
   showRequests = false,
   showContacts = false,
+  canChat = false,
   onNavigate,
 }: SidebarProps) {
   const t = useTranslations("shell");
+  const tInbox = useTranslations("inbox");
+  const tMessages = useTranslations("messages");
   const pathname = usePathname();
   const router = useRouter();
   const base = `/${workspace.slug}`;
@@ -179,6 +187,24 @@ export function Sidebar({
           active={isActive(`${base}/home`)}
           onNavigate={onNavigate}
         />
+        <NavItem
+          href={`${base}/inbox`}
+          icon={<InboxIcon />}
+          label={tInbox("nav")}
+          active={isActive(`${base}/inbox`)}
+          onNavigate={onNavigate}
+          trailing={<InboxNavBadge ws={workspace.slug} />}
+        />
+        {canChat ? (
+          <NavItem
+            href={`${base}/messages`}
+            icon={<MessagesSquare />}
+            label={tMessages("nav")}
+            active={isActive(`${base}/messages`)}
+            onNavigate={onNavigate}
+            trailing={<MessagesNavDot ws={workspace.slug} />}
+          />
+        ) : null}
         <NavItem
           href={`${base}/projects`}
           icon={<FolderKanban />}

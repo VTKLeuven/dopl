@@ -30,6 +30,7 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     intakePending,
     showRequests: ctx.role === "GUEST",
     showContacts: canWorkspace(ctx.policyActor, "contact.view"),
+    canChat: ctx.role !== "GUEST",
   };
   return (
     <>

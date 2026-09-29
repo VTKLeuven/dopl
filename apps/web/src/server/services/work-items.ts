@@ -8,6 +8,7 @@ import {
   CreateManyWorkItemsSchema,
   CreateWorkItemSchema,
   DONE_GROUPS,
+  formatIdentifier,
   IdsSchema,
   MoveToProjectSchema,
   MoveWorkItemSchema,
@@ -174,6 +175,38 @@ async function notify(
   });
 }
 
+/**
+ * Subscribers hear about state changes (grouped per item, so a burst of moves
+ * is one Inbox row). Guests only follow their own requests through the
+ * request notifications, never internal workflow states.
+ */
+async function notifyStateChange(
+  m: BaseMutation,
+  args: { workItemId: string; projectId: string; data: Prisma.InputJsonObject },
+) {
+  const subscribers = await m.tx.workItemSubscriber.findMany({
+    where: { workItemId: args.workItemId, muted: false },
+    select: { userId: true },
+  });
+  if (subscribers.length === 0) return;
+  const guests = await m.tx.workspaceMember.findMany({
+    where: {
+      workspaceId: m.workspaceId,
+      role: "GUEST",
+      userId: { in: subscribers.map((s) => s.userId) },
+    },
+    select: { userId: true },
+  });
+  const excluded = new Set(guests.map((g) => g.userId));
+  await notify(m, {
+    recipientIds: subscribers.map((s) => s.userId).filter((u) => !excluded.has(u)),
+    type: "WORK_ITEM_UPDATED",
+    workItemId: args.workItemId,
+    projectId: args.projectId,
+    data: args.data,
+  });
+}
+
 function emitItem(m: Mutation, projectId: string, type: string, payload: Prisma.InputJsonValue) {
   m.emit({ topic: `project:${projectId}`, type, payload });
 }
@@ -195,7 +228,8 @@ async function loadItemForWrite(tx: TransactionClient, ctx: WorkspaceCtx, id: st
 
 /* ───────────────────────── create ───────────────────────── */
 
-async function createOne(
+/** Creates one item inside the caller's mutation (also used by "create from message"). */
+export async function createOne(
   m: Mutation,
   access: ProjectAccess,
   input: ReturnType<typeof CreateWorkItemSchema.parse>,
@@ -352,6 +386,7 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
   const { tx, ctx } = m;
   const { item, access } = await loadItemForWrite(tx, ctx, input.id);
   const projectId = item.projectId;
+  const identifier = formatIdentifier(access.project.identifier, item.sequence);
   // Requests leave triage only through the intake queue (accept assigns the number).
   if (
     item.stateGroup === "TRIAGE" &&
@@ -398,7 +433,7 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
       type: "MENTION",
       workItemId: item.id,
       projectId,
-      data: { title: item.title },
+      data: { identifier, title: item.title },
     });
     // One activity per editing session is noise; record only that it changed.
     m.activity({
@@ -421,6 +456,18 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
       toName: next.name,
       fromGroup: item.state.group,
       toGroup: next.group,
+    });
+    await notifyStateChange(m, {
+      workItemId: item.id,
+      projectId,
+      data: {
+        identifier,
+        title: input.title ?? item.title,
+        field: "state",
+        from: item.state.name,
+        to: next.name,
+        toGroup: next.group,
+      },
     });
     m.webhook({
       event: "work_item.state_changed",
@@ -529,7 +576,7 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
           type: "ASSIGNED",
           workItemId: item.id,
           projectId,
-          data: { title: item.title },
+          data: { identifier, title: item.title },
         });
       }
       act("assignees", [...before], [...after], { added, removed });

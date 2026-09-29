@@ -10,6 +10,8 @@ export interface NotifyInput {
   projectId?: string | null;
   workItemId?: string | null;
   messageId?: string | null;
+  emailThreadId?: string | null;
+  agentApprovalId?: string | null;
   /** Unread rows with the same key collapse into one (latest actor and data win). */
   groupKey?: string | null;
   /** Render payload: titles, identifiers, excerpt. Keep it small. */
@@ -76,6 +78,8 @@ export async function notify(m: BaseMutation, input: NotifyInput): Promise<void>
           entityType: input.entityType,
           entityId: input.entityId,
           data: { ...input.data, count: (prevData.count ?? 1) + 1 },
+          // Point at the latest message of a collapsed thread.
+          ...(input.messageId ? { messageId: input.messageId } : {}),
           createdAt: now,
           snoozedUntil: null,
           emailedAt: null,
@@ -95,6 +99,8 @@ export async function notify(m: BaseMutation, input: NotifyInput): Promise<void>
           projectId: input.projectId ?? null,
           workItemId: input.workItemId ?? null,
           messageId: input.messageId ?? null,
+          emailThreadId: input.emailThreadId ?? null,
+          agentApprovalId: input.agentApprovalId ?? null,
           groupKey: input.groupKey ?? null,
           data: input.data,
         },
