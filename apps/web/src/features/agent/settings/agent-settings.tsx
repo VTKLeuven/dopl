@@ -188,7 +188,11 @@ function ProfileSection({ ws, settings }: { ws: string; settings: AgentSettings 
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="agent-name" label={t("name")} error={errors.name}>
-            <Input id="agent-name" value={form.name} onChange={(e) => set("name", e.target.value)} />
+            <Input
+              id="agent-name"
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
           </Field>
           <Field id="agent-model" label={t("model")} hint={t("modelHint")} error={errors.model}>
             <Input
@@ -206,7 +210,12 @@ function ProfileSection({ ws, settings }: { ws: string; settings: AgentSettings 
               className="font-mono"
             />
           </Field>
-          <Field id="agent-key" label={t("apiKeyEnv")} hint={t("apiKeyEnvHint")} error={errors.apiKeyEnv}>
+          <Field
+            id="agent-key"
+            label={t("apiKeyEnv")}
+            hint={t("apiKeyEnvHint")}
+            error={errors.apiKeyEnv}
+          >
             <Input
               id="agent-key"
               value={form.apiKeyEnv}
@@ -239,7 +248,11 @@ function ProfileSection({ ws, settings }: { ws: string; settings: AgentSettings 
               onChange={(e) => set("runTimeoutMin", Number(e.target.value))}
             />
           </Field>
-          <Field id="agent-approval-timeout" label={t("approvalTimeout")} error={errors.approvalTimeoutSec}>
+          <Field
+            id="agent-approval-timeout"
+            label={t("approvalTimeout")}
+            error={errors.approvalTimeoutSec}
+          >
             <Input
               id="agent-approval-timeout"
               type="number"
@@ -335,7 +348,9 @@ function PauseSection({ ws, paused }: { ws: string; paused: AgentSettings["pause
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="font-medium text-fg">{paused ? t("on") : t("off")}</span>
           <span className="text-small text-fg-muted" suppressHydrationWarning>
-            {paused ? t("since", { name: paused.by ?? "?", when: relative(paused.at) }) : t("offHint")}
+            {paused
+              ? t("since", { name: paused.by ?? "?", when: relative(paused.at) })
+              : t("offHint")}
           </span>
         </span>
         <Switch
@@ -378,7 +393,11 @@ function TokensSection({
       ) : (
         <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
           {live.map((tok) => (
-            <li key={tok.id} className="flex items-center gap-3 px-3 py-2.5" data-testid="mcp-token">
+            <li
+              key={tok.id}
+              className="flex items-center gap-3 px-3 py-2.5"
+              data-testid="mcp-token"
+            >
               <KeyRound className="size-4 shrink-0 text-icon" aria-hidden />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium text-fg">{tok.name}</span>
@@ -387,9 +406,13 @@ function TokensSection({
                   {" · "}
                   {tok.scopes.length === MCP_SCOPES.length ? t("allScopes") : tok.scopes.join(", ")}
                   {" · "}
-                  {tok.projectIds.length ? t("projects", { count: tok.projectIds.length }) : t("allProjects")}
+                  {tok.projectIds.length
+                    ? t("projects", { count: tok.projectIds.length })
+                    : t("allProjects")}
                   {" · "}
-                  {tok.lastUsedAt ? t("lastUsed", { when: relative(tok.lastUsedAt) }) : t("neverUsed")}
+                  {tok.lastUsedAt
+                    ? t("lastUsed", { when: relative(tok.lastUsedAt) })
+                    : t("neverUsed")}
                   {tok.expiresAt ? ` · ${t("expires", { when: relative(tok.expiresAt) })}` : ""}
                 </span>
               </div>
@@ -410,12 +433,19 @@ function TokensSection({
           ))}
         </ul>
       )}
-      <Button variant="secondary" className="self-start" onClick={() => setCreating(true)} data-testid="add-token">
+      <Button
+        variant="secondary"
+        className="self-start"
+        onClick={() => setCreating(true)}
+        data-testid="add-token"
+      >
         <Plus />
         {t("create")}
       </Button>
       <details className="rounded-control border border-border bg-surface-muted px-3 py-2">
-        <summary className="cursor-pointer text-small font-medium text-fg-secondary">{t("hermesConfig")}</summary>
+        <summary className="cursor-pointer text-small font-medium text-fg-secondary">
+          {t("hermesConfig")}
+        </summary>
         <pre className="mt-2 overflow-x-auto font-mono text-caption text-fg-secondary">{`mcp_servers:
   dopl:
     url: "${mcpUrl}"
@@ -491,7 +521,8 @@ function TokenDialog({
   const [projectIds, setProjectIds] = useState<string[]>([]);
   const [expires, setExpires] = useState<string>("");
   const [pending, start] = useTransition();
-  const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const toggle = <T,>(list: T[], v: T) =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
   return (
     <Dialog open onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
@@ -507,7 +538,10 @@ function TokenDialog({
             <legend className="mb-1 text-small font-medium text-fg">{t("scopes")}</legend>
             {MCP_SCOPES.map((s) => (
               <label key={s} className="flex items-center gap-2 text-body">
-                <Checkbox checked={scopes.includes(s)} onCheckedChange={() => setScopes((x) => toggle(x, s))} />
+                <Checkbox
+                  checked={scopes.includes(s)}
+                  onCheckedChange={() => setScopes((x) => toggle(x, s))}
+                />
                 <span>{ts(s.replace(/[:]/g, "_") as "work_items_read")}</span>
                 <span className="font-mono text-caption text-fg-muted">{s}</span>
               </label>

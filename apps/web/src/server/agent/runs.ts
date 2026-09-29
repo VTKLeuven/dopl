@@ -137,8 +137,15 @@ async function workItemContext(
     item.sequence,
     item.intakeItem?.number,
   );
+  // An untrusted item's title is outside text too (D-033).
+  const title = !item.untrusted
+    ? item.title
+    : opts.includeUntrusted
+      ? untrustedBlock(item.origin.toLowerCase(), item.title)
+      : "(title written outside the team, not shown)";
+  if (item.untrusted && opts.includeUntrusted) b.taint(`work_item:${identifier}`);
   const header = [
-    `Work item ${identifier}: ${item.title}`,
+    `Work item ${identifier}: ${title}`,
     `Project: ${item.project.name} (${item.project.identifier}) · State: ${item.state.name} · Priority: ${item.priority}`,
     item.assignees.length
       ? `Assignees: ${item.assignees.map((a) => a.user.name).join(", ")}`

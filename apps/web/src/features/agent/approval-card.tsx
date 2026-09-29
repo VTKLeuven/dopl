@@ -103,7 +103,9 @@ export function ApprovalCard({
             <p className="flex flex-wrap items-center gap-1.5 text-small text-fg-secondary">
               <span className="font-medium text-fg">{a.host.name}</span>
               <EnvBadge environment={a.host.environment} />
-              <span className="text-fg-muted">{t("viaWarpgate", { target: a.host.warpgateTarget })}</span>
+              <span className="text-fg-muted">
+                {t("viaWarpgate", { target: a.host.warpgateTarget })}
+              </span>
             </p>
           ) : null}
         </div>
@@ -165,7 +167,9 @@ export function ApprovalCard({
                     variant="danger"
                     size="sm"
                     disabled={decide.isPending}
-                    onClick={() => decide.mutate({ id: a.id, decision: "DENY", note: note || undefined })}
+                    onClick={() =>
+                      decide.mutate({ id: a.id, decision: "DENY", note: note || undefined })
+                    }
                     data-testid="deny-confirm"
                   >
                     <X />
@@ -214,9 +218,15 @@ export function ApprovalCard({
       ) : (
         <p className="text-small text-fg-secondary" suppressHydrationWarning>
           {a.status === "APPROVED"
-            ? t("approvedBy", { name: a.decidedBy ?? "?", when: relative(a.decidedAt ?? a.requestedAt) })
+            ? t("approvedBy", {
+                name: a.decidedBy ?? "?",
+                when: relative(a.decidedAt ?? a.requestedAt),
+              })
             : a.status === "DENIED"
-              ? t("deniedBy", { name: a.decidedBy ?? "?", when: relative(a.decidedAt ?? a.requestedAt) })
+              ? t("deniedBy", {
+                  name: a.decidedBy ?? "?",
+                  when: relative(a.decidedAt ?? a.requestedAt),
+                })
               : a.status === "EXPIRED"
                 ? t("expired")
                 : t("cancelled")}

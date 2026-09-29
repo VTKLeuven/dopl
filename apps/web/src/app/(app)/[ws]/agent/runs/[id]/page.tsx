@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { NotFoundError } from "@/server/action-result";
 import { getAgentRun } from "@/server/queries/agent";
 import { requireWorkspaceCtx } from "@/server/session";
-import { agentKeys } from "@/features/agent/data";
+import { agentKeys } from "@/features/agent/keys";
 import { AgentSkeleton } from "@/features/agent/agent-view";
 import { RunPage } from "@/features/agent/run-page";
 

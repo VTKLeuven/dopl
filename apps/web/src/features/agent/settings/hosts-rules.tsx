@@ -53,7 +53,12 @@ export function HostsSection({ ws, hosts }: { ws: string; hosts: Host[] }) {
   return (
     <SettingsSection title={t("title")} description={t("hint")}>
       {hosts.length === 0 ? (
-        <EmptyState compact icon={<Server />} title={t("emptyTitle")} description={t("emptyBody")} />
+        <EmptyState
+          compact
+          icon={<Server />}
+          title={t("emptyTitle")}
+          description={t("emptyBody")}
+        />
       ) : (
         <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
           {hosts.map((h) => (
@@ -106,7 +111,12 @@ export function HostsSection({ ws, hosts }: { ws: string; hosts: Host[] }) {
           ))}
         </ul>
       )}
-      <Button variant="secondary" className="self-start" onClick={() => setEditing("new")} data-testid="add-host">
+      <Button
+        variant="secondary"
+        className="self-start"
+        onClick={() => setEditing("new")}
+        data-testid="add-host"
+      >
         <Plus />
         {t("add")}
       </Button>
@@ -137,7 +147,8 @@ function HostDialog({ ws, host, onClose }: { ws: string; host: Host | null; onCl
   });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [pending, start] = useTransition();
-  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
   return (
     <Dialog open onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
@@ -148,7 +159,11 @@ function HostDialog({ ws, host, onClose }: { ws: string; host: Host | null; onCl
         <DialogBody className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="host-name" label={t("name")} hint={t("nameHint")} error={errors.name}>
-              <Input id="host-name" value={form.name} onChange={(e) => set("name", e.target.value)} />
+              <Input
+                id="host-name"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+              />
             </Field>
             <Field id="host-env" label={t("environment")}>
               <select
@@ -180,7 +195,12 @@ function HostDialog({ ws, host, onClose }: { ws: string; host: Host | null; onCl
                 className="font-mono"
               />
             </Field>
-            <Field id="host-target" label={t("warpgateTarget")} hint={t("warpgateTargetHint")} error={errors.warpgateTarget}>
+            <Field
+              id="host-target"
+              label={t("warpgateTarget")}
+              hint={t("warpgateTargetHint")}
+              error={errors.warpgateTarget}
+            >
               <Input
                 id="host-target"
                 value={form.warpgateTarget}
@@ -245,7 +265,8 @@ function HostDialog({ ws, host, onClose }: { ws: string; host: Host | null; onCl
 export function RulesSection({ ws, rules, hosts }: { ws: string; rules: Rule[]; hosts: Host[] }) {
   const t = useTranslations("agentSettings.rules");
   const [editing, setEditing] = useState<Rule | { kind: Rule["kind"] } | null>(null);
-  const hostName = (id: string | null) => (id ? (hosts.find((h) => h.id === id)?.name ?? "?") : t("allHosts"));
+  const hostName = (id: string | null) =>
+    id ? (hosts.find((h) => h.id === id)?.name ?? "?") : t("allHosts");
   return (
     <SettingsSection title={t("title")} description={t("hint")}>
       {(["ALLOW_READONLY", "DENY"] as const).map((kind) => {
@@ -256,12 +277,19 @@ export function RulesSection({ ws, rules, hosts }: { ws: string; rules: Rule[]; 
               <h3 className="text-small font-semibold text-fg">
                 {kind === "DENY" ? t("denyTitle") : t("allowTitle")}
               </h3>
-              <Button variant="ghost" size="xs" onClick={() => setEditing({ kind })} data-testid={`add-rule-${kind}`}>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => setEditing({ kind })}
+                data-testid={`add-rule-${kind}`}
+              >
                 <Plus />
                 {t("add")}
               </Button>
             </div>
-            <p className="text-small text-fg-muted">{kind === "DENY" ? t("denyHint") : t("allowHint")}</p>
+            <p className="text-small text-fg-muted">
+              {kind === "DENY" ? t("denyHint") : t("allowHint")}
+            </p>
             {list.length === 0 ? (
               <p className="rounded-control border border-dashed border-border px-3 py-2 text-small text-fg-muted">
                 {t("empty")}
@@ -269,7 +297,13 @@ export function RulesSection({ ws, rules, hosts }: { ws: string; rules: Rule[]; 
             ) : (
               <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
                 {list.map((r) => (
-                  <RuleRow key={r.id} ws={ws} rule={r} hostName={hostName(r.hostId)} onEdit={() => setEditing(r)} />
+                  <RuleRow
+                    key={r.id}
+                    ws={ws}
+                    rule={r}
+                    hostName={hostName(r.hostId)}
+                    onEdit={() => setEditing(r)}
+                  />
                 ))}
               </ul>
             )}
@@ -291,11 +325,24 @@ export function RulesSection({ ws, rules, hosts }: { ws: string; rules: Rule[]; 
   );
 }
 
-function RuleRow({ ws, rule: r, hostName, onEdit }: { ws: string; rule: Rule; hostName: string; onEdit: () => void }) {
+function RuleRow({
+  ws,
+  rule: r,
+  hostName,
+  onEdit,
+}: {
+  ws: string;
+  rule: Rule;
+  hostName: string;
+  onEdit: () => void;
+}) {
   const t = useTranslations("agentSettings.rules");
   const router = useRouter();
   return (
-    <li className={cn("flex items-center gap-3 px-3 py-2", !r.enabled && "opacity-60")} data-testid="agent-rule">
+    <li
+      className={cn("flex items-center gap-3 px-3 py-2", !r.enabled && "opacity-60")}
+      data-testid="agent-rule"
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <code className="truncate font-mono text-small text-fg">{r.pattern}</code>
         <span className="truncate text-caption text-fg-muted">
@@ -364,11 +411,18 @@ function RuleDialog({
     <Dialog open onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{form.kind === "DENY" ? t("denyDialogTitle") : t("allowDialogTitle")}</DialogTitle>
+          <DialogTitle>
+            {form.kind === "DENY" ? t("denyDialogTitle") : t("allowDialogTitle")}
+          </DialogTitle>
           <DialogDescription>{t("patternHelp")}</DialogDescription>
         </DialogHeader>
         <DialogBody className="flex flex-col gap-4">
-          <Field id="rule-pattern" label={t("pattern")} hint={t("patternHint")} error={errors.pattern}>
+          <Field
+            id="rule-pattern"
+            label={t("pattern")}
+            hint={t("patternHint")}
+            error={errors.pattern}
+          >
             <Input
               id="rule-pattern"
               value={form.pattern}
@@ -438,7 +492,10 @@ function RuleTester({ ws, hosts, rules }: { ws: string; hosts: Host[]; rules: Ru
   const [hostId, setHostId] = useState<string | null>(hosts[0]?.id ?? null);
   const [command, setCommand] = useState("");
   const [tainted, setTainted] = useState(false);
-  const [result, setResult] = useState<{ decision: InfraDecision; matchingRuleIds: string[] } | null>(null);
+  const [result, setResult] = useState<{
+    decision: InfraDecision;
+    matchingRuleIds: string[];
+  } | null>(null);
   const [pending, start] = useTransition();
   const ruleText = (id?: string) => rules.find((r) => r.id === id)?.pattern ?? "";
   const test = () =>
@@ -448,7 +505,10 @@ function RuleTester({ ws, hosts, rules }: { ws: string; hosts: Host[]; rules: Ru
     });
   const d = result?.decision;
   return (
-    <div className="flex flex-col gap-2 rounded-card border border-border bg-surface-muted p-3" data-testid="rule-tester">
+    <div
+      className="flex flex-col gap-2 rounded-card border border-border bg-surface-muted p-3"
+      data-testid="rule-tester"
+    >
       <h3 className="flex items-center gap-1.5 text-small font-semibold text-fg">
         <FlaskConical className="size-4 text-icon" aria-hidden />
         {t("title")}
@@ -476,7 +536,13 @@ function RuleTester({ ws, hosts, rules }: { ws: string; hosts: Host[]; rules: Ru
           className="flex-1 font-mono"
           data-testid="tester-command"
         />
-        <Button variant="secondary" loading={pending} disabled={!command} onClick={test} data-testid="tester-run">
+        <Button
+          variant="secondary"
+          loading={pending}
+          disabled={!command}
+          onClick={test}
+          data-testid="tester-run"
+        >
           {t("test")}
         </Button>
       </div>

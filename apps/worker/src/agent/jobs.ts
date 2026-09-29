@@ -220,7 +220,11 @@ export async function handleAgentRun(deps: AgentDeps, runId: string, jobSignal?:
       const claimed = await db.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`agent:${queued.agentUserId}`}))`;
         const busy = await tx.agentRun.count({
-          where: { agentUserId: queued.agentUserId, status: { in: [...ACTIVE] }, id: { not: runId } },
+          where: {
+            agentUserId: queued.agentUserId,
+            status: { in: [...ACTIVE] },
+            id: { not: runId },
+          },
         });
         if (busy >= profile.maxConcurrentRuns) return "busy" as const;
         const n = await tx.agentRun.updateMany({
@@ -329,7 +333,13 @@ async function follow(
   const { db, logger } = deps;
   const ac = new AbortController();
   const stopped = () => ac.signal.aborted;
-  jobSignal?.addEventListener("abort", () => { ac.abort(); }, { once: true });
+  jobSignal?.addEventListener(
+    "abort",
+    () => {
+      ac.abort();
+    },
+    { once: true },
+  );
   let ended = false;
   let lastBeat = Date.now();
 
@@ -362,9 +372,9 @@ async function follow(
       if (stop) {
         ended = true;
         ac.abort();
-        await runtime
-          .stop(runtimeRunId)
-          .catch((err: unknown) => { logger.warn({ err }, "runtime stop failed"); });
+        await runtime.stop(runtimeRunId).catch((err: unknown) => {
+          logger.warn({ err }, "runtime stop failed");
+        });
         return;
       }
       if (Date.now() - lastBeat > t.heartbeatMs) {
@@ -374,7 +384,9 @@ async function follow(
           data: { updatedAt: new Date() },
         });
       }
-    })().catch((err: unknown) => { logger.warn({ err, runId: run.id }, "agent watchdog"); });
+    })().catch((err: unknown) => {
+      logger.warn({ err, runId: run.id }, "agent watchdog");
+    });
   }, t.watchdogMs);
 
   const text = {
@@ -655,7 +667,7 @@ async function finalize(
         status: result.status,
         result: output ?? null,
         error: result.error ?? null,
-        usage: (result.usage ?? undefined),
+        usage: result.usage ?? undefined,
         finishedAt: new Date(),
       },
     });

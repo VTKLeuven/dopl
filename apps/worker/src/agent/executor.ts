@@ -75,15 +75,25 @@ export class WarpgateExecutor implements Executor {
       conn
         .on("ready", () => {
           conn.exec(opts.command, (err, stream) => {
-            if (err) { done(err); return; }
+            if (err) {
+              done(err);
+              return;
+            }
             stream
-              .on("close", (code: number | null, signal: string | null) => { done({ exitCode: code ?? null, signal: signal ?? null, timedOut, killed }); },
-              )
-              .on("data", (d: Buffer) => { opts.onData(d.toString("utf8")); })
-              .stderr.on("data", (d: Buffer) => { opts.onData(d.toString("utf8")); });
+              .on("close", (code: number | null, signal: string | null) => {
+                done({ exitCode: code ?? null, signal: signal ?? null, timedOut, killed });
+              })
+              .on("data", (d: Buffer) => {
+                opts.onData(d.toString("utf8"));
+              })
+              .stderr.on("data", (d: Buffer) => {
+                opts.onData(d.toString("utf8"));
+              });
           });
         })
-        .on("error", (err) => { done(err); })
+        .on("error", (err) => {
+          done(err);
+        })
         .connect({
           host: this.cfg.host,
           port: this.cfg.port,
@@ -126,8 +136,12 @@ export class FakeExecutor implements Executor {
     if (sleep) {
       const ms = Number(sleep[1]) * 1000;
       const outcome = await new Promise<"done" | "timeout" | "killed">((resolve) => {
-        const t = setTimeout(() => { resolve("done"); }, ms);
-        const to = setTimeout(() => { resolve("timeout"); }, opts.timeoutMs);
+        const t = setTimeout(() => {
+          resolve("done");
+        }, ms);
+        const to = setTimeout(() => {
+          resolve("timeout");
+        }, opts.timeoutMs);
         opts.signal.addEventListener(
           "abort",
           () => {

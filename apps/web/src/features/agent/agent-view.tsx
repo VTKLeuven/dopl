@@ -116,11 +116,7 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
             <div className="flex flex-col">
               <h1 className="text-title font-semibold text-fg">{t("heading")}</h1>
               <p className="text-small text-fg-muted">
-                {data.paused
-                  ? t("statusPaused")
-                  : working
-                    ? t("statusWorking")
-                    : t("statusIdle")}
+                {data.paused ? t("statusPaused") : working ? t("statusWorking") : t("statusIdle")}
               </p>
             </div>
           </div>

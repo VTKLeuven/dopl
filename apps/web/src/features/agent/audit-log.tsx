@@ -9,7 +9,6 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { SettingsSection } from "@/components/settings/section";
 import { selectClass } from "./settings/agent-settings";
 
 interface Page {
@@ -51,7 +50,9 @@ export function AuditLogView({
   const query = useInfiniteQuery({
     queryKey: ["audit", ws, filter],
     queryFn: async ({ pageParam }) => {
-      const res = await fetch(`/api/v1/${ws}/audit?${qs(filter, pageParam ? { cursor: pageParam } : {})}`);
+      const res = await fetch(
+        `/api/v1/${ws}/audit?${qs(filter, pageParam ? { cursor: pageParam } : {})}`,
+      );
       if (!res.ok) throw new Error(String(res.status));
       return (await res.json()) as Page;
     },
@@ -63,7 +64,11 @@ export function AuditLogView({
   const set = (k: keyof Filter, v: string) => setFilter((f) => ({ ...f, [k]: v }));
 
   return (
-    <SettingsSection title={t("title")} description={t("hint")} className="md:grid-cols-1">
+    <section className="flex flex-col gap-4 px-5 py-6 md:px-8">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-body font-semibold text-fg">{t("title")}</h2>
+        <p className="text-small text-fg-muted">{t("hint")}</p>
+      </div>
       <div className="flex flex-wrap items-end gap-2">
         <select
           aria-label={t("filter.action")}
@@ -108,7 +113,10 @@ export function AuditLogView({
         />
         <div className="ml-auto flex gap-2">
           <Button variant="secondary" size="sm" asChild>
-            <a href={`/api/v1/${ws}/audit/export?${qs(filter, { format: "csv" })}`} data-testid="audit-export-csv">
+            <a
+              href={`/api/v1/${ws}/audit/export?${qs(filter, { format: "csv" })}`}
+              data-testid="audit-export-csv"
+            >
               <Download />
               {t("exportCsv")}
             </a>
@@ -125,7 +133,12 @@ export function AuditLogView({
       {query.isPending ? (
         <p className="text-small text-fg-muted">{t("loading")}</p>
       ) : rows.length === 0 ? (
-        <EmptyState compact icon={<ScrollText />} title={t("emptyTitle")} description={t("emptyBody")} />
+        <EmptyState
+          compact
+          icon={<ScrollText />}
+          title={t("emptyTitle")}
+          description={t("emptyBody")}
+        />
       ) : (
         <div className="overflow-x-auto rounded-card border border-border">
           <table className="w-full text-small" data-testid="audit-table">
@@ -161,7 +174,10 @@ export function AuditLogView({
                     </td>
                     <td className="px-2 py-2">
                       <ChevronDown
-                        className={cn("size-3.5 text-icon transition-transform", open === r.id && "rotate-180")}
+                        className={cn(
+                          "size-3.5 text-icon transition-transform",
+                          open === r.id && "rotate-180",
+                        )}
                         aria-hidden
                       />
                     </td>
@@ -195,6 +211,6 @@ export function AuditLogView({
           {t("loadMore")}
         </Button>
       ) : null}
-    </SettingsSection>
+    </section>
   );
 }

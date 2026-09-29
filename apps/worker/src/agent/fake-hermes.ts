@@ -69,13 +69,17 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
     const lines: string[] = [];
     const signal = run.abort.signal;
     const client = new Client({ name: "fake-hermes", version: "1.0.0" });
-    await client.connect(
-      new StreamableHTTPClientTransport(new URL(opts.mcpUrl), {
-        requestInit: { headers: { Authorization: `Bearer ${opts.mcpToken}` } },
-      }),
-    );
+    let connected: Promise<void> | null = null;
+    // Connect on the first tool call, like Hermes does per server.
+    const connect = () =>
+      (connected ??= client.connect(
+        new StreamableHTTPClientTransport(new URL(opts.mcpUrl), {
+          requestInit: { headers: { Authorization: `Bearer ${opts.mcpToken}` } },
+        }),
+      ));
     const call = async (name: string, args: Record<string, unknown>) => {
       if (signal.aborted) throw new Error("stopped");
+      await connect();
       push(run, "tool.started", {
         tool: `mcp_dopl_${name}`,
         preview: JSON.stringify(args).slice(0, 80),
@@ -117,7 +121,8 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         );
     };
     const followInjected = async (text: string) => {
-      for (const m of text.matchAll(CMD)) await exec(m[1] ?? "", m[2] ?? "", "The email asked for it.");
+      for (const m of text.matchAll(CMD))
+        await exec(m[1] ?? "", m[2] ?? "", "The email asked for it.");
     };
 
     try {
@@ -193,7 +198,8 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
           `Hermes asked about \`${hermesApproval[1]}\`: ${decision === "deny" ? "denied" : "approved once"}.`,
         );
       }
-      for (const m of request.matchAll(CMD)) await exec(m[1] ?? "", m[2] ?? "", "The person asked for it.");
+      for (const m of request.matchAll(CMD))
+        await exec(m[1] ?? "", m[2] ?? "", "The person asked for it.");
 
       if (lines.length === 0)
         lines.push(
@@ -240,12 +246,14 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
 
   const server = createServer((req, res) => {
     void (async () => {
-      if (req.headers.authorization !== `Bearer ${opts.apiKey}`)
-        { send(res, 401, { error: "unauthorized" }); return; }
+      if (req.headers.authorization !== `Bearer ${opts.apiKey}`) {
+        send(res, 401, { error: "unauthorized" });
+        return;
+      }
       const url = new URL(req.url ?? "/", "http://fake");
       const parts = url.pathname.split("/").filter(Boolean); // v1 runs <id> <action>
-      if (url.pathname === "/v1/capabilities")
-        { send(res, 200, {
+      if (url.pathname === "/v1/capabilities") {
+        send(res, 200, {
           object: "hermes.api_server.capabilities",
           platform: "hermes-agent",
           model: "fake-hermes",
@@ -258,15 +266,21 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
             session_key_header: "X-Hermes-Session-Key",
             tool_progress_events: true,
           },
-        }); return; }
-      if (parts[0] !== "v1" || parts[1] !== "runs") { send(res, 404, {}); return; }
+        });
+        return;
+      }
+      if (parts[0] !== "v1" || parts[1] !== "runs") {
+        send(res, 404, {});
+        return;
+      }
       if (req.method === "POST" && parts.length === 2) {
         const body = await readBody(req);
         const key = text(req.headers["idempotency-key"] ?? "");
         const existing = key ? byKey.get(key) : undefined;
         if (existing) {
           res.setHeader("Idempotency-Replayed", "true");
-          send(res, 202, { run_id: existing, status: runs.get(existing)?.status }); return;
+          send(res, 202, { run_id: existing, status: runs.get(existing)?.status });
+          return;
         }
         const run: FakeRun = {
           id: `run_fake_${++seq}`,
@@ -279,35 +293,50 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         runs.set(run.id, run);
         if (key) byKey.set(key, run.id);
         void script(run, text(body.input ?? ""), text(body.instructions ?? ""));
-        send(res, 200, { run_id: run.id, status: "started" }); return;
+        send(res, 200, { run_id: run.id, status: "started" });
+        return;
       }
       const run = runs.get(parts[2] ?? "");
-      if (!run) { send(res, 404, { error: "not_found" }); return; }
+      if (!run) {
+        send(res, 404, { error: "not_found" });
+        return;
+      }
       const action = parts[3];
-      if (req.method === "GET" && !action)
-        { send(res, 200, {
+      if (req.method === "GET" && !action) {
+        send(res, 200, {
           object: "hermes.run",
           run_id: run.id,
           status: run.status,
           output: run.output,
           error: run.error,
-        }); return; }
+        });
+        return;
+      }
       if (req.method === "POST" && action === "stop") {
         run.abort.abort();
         run.approval?.resolve("deny");
         if (!TERMINAL.has(run.status)) run.status = "stopping";
-        setTimeout(() => { finish(run, "cancelled"); }, 50);
-        send(res, 200, { status: "stopping" }); return;
+        setTimeout(() => {
+          finish(run, "cancelled");
+        }, 50);
+        send(res, 200, { status: "stopping" });
+        return;
       }
       if (req.method === "POST" && action === "approval") {
         const body = await readBody(req);
         const decision = text(body.decision);
-        if (!["once", "deny"].includes(decision))
-          { send(res, 400, { error: "Dopl only sends once or deny" }); return; }
-        if (!run.approval) { send(res, 409, { error: "no pending approval" }); return; }
+        if (!["once", "deny"].includes(decision)) {
+          send(res, 400, { error: "Dopl only sends once or deny" });
+          return;
+        }
+        if (!run.approval) {
+          send(res, 409, { error: "no pending approval" });
+          return;
+        }
         run.approval.resolve(decision);
         run.approval = undefined;
-        send(res, 200, { status: decision === "deny" ? "denied" : "approved" }); return;
+        send(res, 200, { status: decision === "deny" ? "denied" : "approved" });
+        return;
       }
       if (req.method === "GET" && action === "events") {
         res.writeHead(200, {
@@ -340,5 +369,9 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
       if (!res.headersSent) send(res, 500, { error: (err as Error).message });
     });
   });
-  return new Promise((resolve) => server.listen(opts.port, "127.0.0.1", () => { resolve(server); }));
+  return new Promise((resolve) =>
+    server.listen(opts.port, "127.0.0.1", () => {
+      resolve(server);
+    }),
+  );
 }

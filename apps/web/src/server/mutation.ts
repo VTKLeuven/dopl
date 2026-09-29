@@ -150,7 +150,8 @@ export async function audit(
       workspaceId: ctx.workspace.id,
       actorType: ctx.actor.kind === "AGENT" ? "AGENT" : "USER",
       actorId: ctx.actor.userId,
-      actorLabel: `${ctx.actor.name} <${ctx.actor.email}>`,
+      actorLabel:
+        ctx.actor.kind === "AGENT" ? "Dopl agent" : `${ctx.actor.name} <${ctx.actor.email}>`,
       action: entry.action,
       targetType: entry.targetType ?? null,
       targetId: entry.targetId ?? null,

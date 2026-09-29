@@ -21,7 +21,10 @@ export function ActiveRuns({
   const active = runs.filter((r) => isActiveRun(r.status));
   if (active.length === 0) return null;
   return (
-    <ul className="mb-2 flex max-h-[50dvh] flex-col gap-2 overflow-y-auto" data-testid="active-runs">
+    <ul
+      className="mb-2 flex max-h-[50dvh] flex-col gap-2 overflow-y-auto"
+      data-testid="active-runs"
+    >
       {active.map((r) => (
         <RunCard key={r.id} ws={ws} run={r} variant="compact" />
       ))}

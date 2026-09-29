@@ -115,7 +115,10 @@ function Step({
       ) : null;
     case "STATUS":
       return step.title === "untrusted" ? (
-        <p className="flex items-start gap-1.5 text-small text-warning-text" data-testid="step-tainted">
+        <p
+          className="flex items-start gap-1.5 text-small text-warning-text"
+          data-testid="step-tainted"
+        >
           <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           {t("taintedStep")}
         </p>
@@ -152,7 +155,12 @@ function Step({
             ) : null}
           </div>
           {step.approval ? (
-            <ApprovalCard ws={ws} approval={step.approval} canApprove={canApprove} untrusted={untrusted} />
+            <ApprovalCard
+              ws={ws}
+              approval={step.approval}
+              canApprove={canApprove}
+              untrusted={untrusted}
+            />
           ) : null}
           {step.output && !(step.approval && step.status === "DENIED") ? (
             <Output text={step.output} truncated={step.outputTruncated} />
@@ -164,7 +172,11 @@ function Step({
     default: {
       const hasOutput = Boolean(step.output);
       return (
-        <div className="flex flex-col gap-1.5" data-testid="step-tool" data-tool={step.toolName ?? ""}>
+        <div
+          className="flex flex-col gap-1.5"
+          data-testid="step-tool"
+          data-tool={step.toolName ?? ""}
+        >
           <button
             type="button"
             disabled={!hasOutput}
@@ -189,9 +201,16 @@ function Step({
             ) : null}
           </button>
           {step.approval ? (
-            <ApprovalCard ws={ws} approval={step.approval} canApprove={canApprove} untrusted={untrusted} />
+            <ApprovalCard
+              ws={ws}
+              approval={step.approval}
+              canApprove={canApprove}
+              untrusted={untrusted}
+            />
           ) : null}
-          {open && step.output ? <Output text={step.output} truncated={step.outputTruncated} /> : null}
+          {open && step.output ? (
+            <Output text={step.output} truncated={step.outputTruncated} />
+          ) : null}
         </div>
       );
     }
@@ -253,7 +272,9 @@ export function RunCard({
         )}
       >
         <div className="flex items-center gap-2 px-3.5 py-2.5">
-          {variant !== "timeline" ? <AgentAvatar size="sm" working={live} name={run.agentName} /> : null}
+          {variant !== "timeline" ? (
+            <AgentAvatar size="sm" working={live} name={run.agentName} />
+          ) : null}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -261,6 +282,11 @@ export function RunCard({
             className="flex min-w-0 flex-1 items-center gap-2 text-left text-small focus-ring"
           >
             <span className="font-medium text-fg">{run.agentName}</span>
+            {variant === "compact" && (run.workItem || run.channel) ? (
+              <span className="shrink-0 font-medium text-fg-secondary tabular">
+                {run.workItem?.identifier ?? `#${run.channel?.name ?? t("directMessage")}`}
+              </span>
+            ) : null}
             <span className="min-w-0 truncate text-fg-muted">
               {tTrigger(run.trigger as "MANUAL", { name: who ?? t("someone") })}
             </span>
@@ -312,7 +338,10 @@ export function RunCard({
         ) : null}
 
         {open ? (
-          <div className="flex flex-col gap-3 border-t border-border px-3.5 py-3" data-testid="run-steps">
+          <div
+            className="flex flex-col gap-3 border-t border-border px-3.5 py-3"
+            data-testid="run-steps"
+          >
             {detail.isPending ? (
               <div className="flex flex-col gap-2">
                 <Skeleton className="h-4 w-2/3" />
