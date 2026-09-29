@@ -282,6 +282,8 @@ The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later 
 - **ProseMirror attrs are null-prototype objects.** Send editor JSON to server actions only after a plain-JSON round trip; `RichTextEditor`'s `onChange` already does this (D-091).
 - **The realtime hub is a `globalThis` singleton** (`__doplRealtime`), so `next dev` hot reload keeps the old one. Restart the dev server after changing `server/realtime/`.
 - **Wait for the realtime stream before triggering events from another browser:** `await expect(page.locator("html[data-realtime=open]")).toBeAttached()`. A follower tab shows `relay`.
+- **`next dev` compiles a route on its first request**, which can take several seconds, and CI's e2e runs against a cold dev server. Tests that time a realtime update (an event, then a refetch) need that route compiled first. `e2e/global.setup.ts` warms the inbox and chat routes; add any new route that a timed check refetches.
+- **Don't `pkill -f "pnpm dev"`** from an agent shell: the pattern matches the shell's own command line and kills it. Kill by PID, or use `pgrep -f "[n]ext dev"`.
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---

@@ -46,6 +46,8 @@ test("filter with a quick filter and a rule; it lives in the URL", async ({ page
   await row.hover();
   await page.keyboard.press("p");
   await page.getByRole("option", { name: "Urgent" }).click();
+  // Let the priority write settle, or its refresh can close the filter popover.
+  await expect(page.locator("html:not([data-saving])")).toBeAttached();
 
   await page.getByTestId("filter-button").click();
   await page.getByRole("button", { name: "High priority" }).click();

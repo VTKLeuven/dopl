@@ -60,5 +60,18 @@ setup("sign in as a seeded member and ensure the sandbox project", async ({ page
     await expect(membersSection.getByText("Gert Gast")).toBeVisible();
   }
 
+  // `next dev` compiles a route on its first request, which can take longer
+  // than the realtime checks allow (a refetch after a live event). Compile
+  // the read routes those checks refetch; a made-up id is enough for that.
+  const none = "00000000-0000-7000-8000-000000000000";
+  for (const path of [
+    "inbox?view=all",
+    "inbox/counts",
+    "channels",
+    `channels/${none}/messages`,
+    `threads/${none}`,
+  ])
+    await page.request.get(`/api/v1/vtk/${path}`, { timeout: 60_000 });
+
   await page.context().storageState({ path: "e2e/.auth/member.json" });
 });
