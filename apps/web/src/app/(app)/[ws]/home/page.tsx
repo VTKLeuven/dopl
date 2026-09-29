@@ -151,24 +151,30 @@ async function Home({ params }: { params: PageProps<"/[ws]/home">["params"] }) {
             initialNotes={notes}
             summary={summary}
             inbox={inbox}
-            itemsSlot={
-              <section className="flex flex-col gap-2" data-testid="home-items">
-                <h2 className="text-body font-semibold">{t("assigned")}</h2>
-                {rows.length === 0 ? (
-                  <EmptyState
-                    compact
-                    icon={<CircleCheck />}
-                    title={t("emptyTitle")}
-                    description={t("emptyDescription")}
-                  />
-                ) : (
-                  <MyItems ws={ws} items={rows} />
-                )}
-              </section>
-            }
+            itemsSlot={<AssignedToMe ws={ws} rows={rows} />}
           />
         </div>
       </div>
     </>
+  );
+}
+
+/** "Assigned to me", grouped by due date; rendered on the server into Home's left column. */
+async function AssignedToMe({ ws, rows }: { ws: string; rows: MyItem[] }) {
+  const t = await getTranslations("home");
+  return (
+    <section className="flex flex-col gap-2" data-testid="home-items">
+      <h2 className="text-body font-semibold">{t("assigned")}</h2>
+      {rows.length === 0 ? (
+        <EmptyState
+          compact
+          icon={<CircleCheck />}
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
+        />
+      ) : (
+        <MyItems ws={ws} items={rows} />
+      )}
+    </section>
   );
 }

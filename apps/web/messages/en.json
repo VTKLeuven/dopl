@@ -302,8 +302,7 @@
       "pageDescription": "Something went wrong on our side. Your notes are safe."
     },
     "editor": {
-      "noMatches": "No matching tags or items",
-      "newTag": "New tag"
+      "noMatches": "No matching tags or items"
     },
     "color": {
       "label": "Colour",

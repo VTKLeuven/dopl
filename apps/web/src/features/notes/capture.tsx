@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Shortcut } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { newNoteId, useCreateNote } from "./data";
-import { NoteEditor } from "./note-editor";
+import { editorJson, NoteEditor } from "./note-editor";
 import { cardColorClass, ColorButton } from "./note-actions";
 
 export interface Me {
@@ -61,8 +61,8 @@ export function CaptureComposer({
   const save = () => {
     const editor = editorRef.current;
     if (!editor) return;
-    const content = editor.getJSON();
-    const doc = content as PMNode;
+    const content = editorJson(editor);
+    const doc = content;
     if (isEmptyDoc(doc) && extractTodos(doc).length === 0) return;
     create.mutate({ clientId: newNoteId(), content, color, pinned });
     reset();

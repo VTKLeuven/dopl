@@ -13,6 +13,7 @@ import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNodeType } from "@tiptap/pm/model";
 import { Hash } from "lucide-react";
+import type { PMNode } from "@dopl/shared/rich-text";
 import { findTagTokens, isUnderTag, newBlockId, normalizeTagPath } from "@dopl/shared/domain/notes";
 import { cn } from "@/lib/cn";
 import { proseClasses } from "@/components/editor/rich-text-editor";
@@ -28,6 +29,8 @@ export const noteProseClasses = cn(
   proseClasses,
   "[&_.note-tag]:rounded-[5px] [&_.note-tag]:bg-sky-50 [&_.note-tag]:px-0.5 [&_.note-tag]:font-medium [&_.note-tag]:text-sky-700",
   "[&_li[data-type=taskItem]>div]:min-w-0 [&_li[data-type=taskItem]>div]:flex-1",
+  // The editor's own checkbox (a native input) styled like <Checkbox>.
+  "[&_li[data-type=taskItem]>label]:flex [&_li[data-type=taskItem]>label>input]:size-4 [&_li[data-type=taskItem]>label>input]:cursor-pointer [&_li[data-type=taskItem]>label>input]:accent-sky-600",
 );
 
 /**
@@ -185,27 +188,22 @@ export function NoteEditor({
       };
     };
     const items = async (query: string): Promise<SuggestionItem[]> => {
-      const q = query.toLowerCase();
+      const q = normalizeTagPath(query) ?? query.toLowerCase();
       const tags = qc.getQueryData<TagRow[]>(noteKeys.tags(ws)) ?? [];
+      // A tag is plain text, so a new or exactly typed tag needs no completion:
+      // offering it would make Enter complete it instead of starting a new line.
       const matches = tags
-        .filter((tag) => !q || tag.path.includes(q) || isUnderTag(tag.path, q))
+        .filter((tag) => tag.path !== q && (!q || tag.path.includes(q) || isUnderTag(tag.path, q)))
         .slice(0, 6)
         .map((tag) => ({
           id: `tag:${tag.path}`,
           label: `#${tag.path}`,
           icon: <Hash className="size-3.5 text-icon" />,
         }));
-      const fresh = normalizeTagPath(query);
       const out: SuggestionItem[] = [];
-      if (fresh && !tags.some((tag) => tag.path === fresh))
-        out.push({
-          id: `tag:${fresh}`,
-          label: `#${fresh}`,
-          hint: t("editor.newTag"),
-          icon: <Hash className="size-3.5 text-icon" />,
-        });
       out.push(...matches);
-      if (query.length > 0) {
+      // Tags are lowercase; `#INFRA` or `#infra-4` means a work item.
+      if (/^[A-Z][A-Z0-9]*(-\d*)?$|^[a-z][a-z0-9]*-\d*$/.test(query)) {
         const res = await fetch(`/api/v1/${ws}/search/items?q=${encodeURIComponent(query)}`).catch(
           () => null,
         );
@@ -239,7 +237,9 @@ export function NoteEditor({
           "before:pointer-events-none before:float-left before:h-0 before:text-fg-placeholder before:content-[attr(data-placeholder)]",
       }),
       TaskList,
-      BlockTaskItem.configure({ nested: true }),
+      // The node view copies only these attributes onto the <li>, not the
+      // `data-type` its renderHTML adds, and the task styles key on it.
+      BlockTaskItem.configure({ nested: true, HTMLAttributes: { "data-type": "taskItem" } }),
       HashtagHighlight,
       Mention.extend({ name: "workItemRef" }).configure({
         HTMLAttributes: { class: "item-ref" },
@@ -303,7 +303,7 @@ export function NoteEditor({
         return false;
       },
     },
-    onUpdate: ({ editor: e }) => handlers.current.onChange?.(e.getJSON(), e),
+    onUpdate: ({ editor: e }) => handlers.current.onChange?.(editorJson(e), e),
     onCreate: ({ editor: e }) => onReady?.(e),
   });
 
@@ -320,6 +320,14 @@ export function NoteEditor({
       }}
     />
   );
+}
+
+/**
+ * The document as plain data. ProseMirror attrs are null-prototype objects,
+ * which server actions can't serialize (D-091), so round-trip through JSON.
+ */
+export function editorJson(editor: Editor): PMNode {
+  return JSON.parse(JSON.stringify(editor.getJSON())) as PMNode;
 }
 
 /** True while a `#` suggestion popup is open in any note editor (dialogs keep Esc for it). */
