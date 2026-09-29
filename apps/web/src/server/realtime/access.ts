@@ -15,6 +15,9 @@ export class TopicAccess {
   private itemProject = new Map<string, string | null>();
   /** channel id → may this member read it (same policy as the chat UI). */
   private channels = new Map<string, boolean>();
+  /** Mailboxes this member may read (members, and admins: canMailbox). */
+  private mailboxes = new Set<string>();
+  private threadMailbox = new Map<string, string | null>();
 
   constructor(private readonly ctx: WorkspaceCtx) {}
 
@@ -25,12 +28,26 @@ export class TopicAccess {
       select: { id: true },
     });
     this.projects = new Set(rows.map((r) => r.id));
+    const admin = this.ctx.role === "OWNER" || this.ctx.role === "ADMIN";
+    const mailboxes =
+      this.ctx.role === "GUEST"
+        ? []
+        : await db.mailbox.findMany({
+            where: {
+              workspaceId: this.ctx.workspace.id,
+              deletedAt: null,
+              ...(admin ? {} : { members: { some: { userId: this.ctx.actor.userId } } }),
+            },
+            select: { id: true },
+          });
+    this.mailboxes = new Set(mailboxes.map((m) => m.id));
   }
 
   /** Events that change who can see what. */
   static affectsAccess(msg: RealtimeMessage): boolean {
     return (
       /^(project|member|invite)\./.test(msg.type) ||
+      /^mailbox\.(created|members|deleted)$/.test(msg.type) ||
       /^channel\.(created|updated|archived|membersChanged)$/.test(msg.type)
     );
   }
@@ -65,6 +82,18 @@ export class TopicAccess {
           this.channels.set(id, visible);
         }
         return this.channels.get(id) === true;
+      }
+      case "mailbox":
+        return Boolean(id && this.mailboxes.has(id));
+      case "emailThread": {
+        if (!id) return false;
+        if (!this.threadMailbox.has(id)) {
+          if (this.threadMailbox.size > 5_000) this.threadMailbox.clear();
+          const t = await db.emailThread.findUnique({ where: { id }, select: { mailboxId: true } });
+          this.threadMailbox.set(id, t?.mailboxId ?? null);
+        }
+        const mailboxId = this.threadMailbox.get(id);
+        return Boolean(mailboxId && this.mailboxes.has(mailboxId));
       }
       default:
         return false;
