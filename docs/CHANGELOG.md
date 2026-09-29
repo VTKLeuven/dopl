@@ -1,5 +1,50 @@
 # Changelog
 
+## Phase 4: Inbox & messages (2026-09-29)
+
+**Realtime**
+
+- One stream per browser: tabs elect a leader with Web Locks, and it relays events to the other tabs over a `BroadcastChannel`. When the leader closes, the next tab takes over and resumes from the last event id any tab saw.
+- A watchdog reopens a dead stream (the keepalive is now a named `ping` event), and the stream reopens when the browser comes back online.
+- Typing indicators travel as ephemeral events on a second `LISTEN` (`dopl_ephemeral`): never stored or replayed, and permission-checked like the rest.
+- `channel:<id>` topics follow the chat policy. Live events that arrive during a `Last-Event-ID` replay are held back and sent after it, without duplicates.
+
+**Notifications**
+
+- Subscribers hear about state changes, grouped into one row per item with an "N updates" count, and update notifications carry the item's identifier.
+- Mentions and thread replies in chat reach the Inbox. Hooks are ready for email assignments and mentions (Phase 7) and agent approvals (Phase 8).
+- Settings → Notifications: per type, in the Inbox and/or by email.
+- The `email.digest` job runs every 10 minutes and sends each person one `inbox.digest` email with their unread notifications that haven't been emailed yet.
+
+**Inbox** (`/<ws>/inbox`)
+
+- A list next to a reader. The reader shows the work item (the same detail as the peek), the chat thread for message notifications, or a short card with a link.
+- All/Unread, a type filter, Snoozed and Archived. Opening a notification marks it read.
+- Archive, snooze presets and read/unread on a row, in the reader or on a selection; optimistic with rollback, and archive has an undo toast.
+- Keyboard: `J`/`K`, `X`, `E`, `U`, `Z`, `Esc`; `G I` goes to the Inbox and `G M` to Messages.
+- A realtime unread badge in the sidebar and a "(n)" prefix in the tab title.
+
+**Messages** (`/<ws>/messages`)
+
+- Project channels, public and private custom channels, DMs and group DMs.
+- Unread tracking (bold, dot or count) and @mention counts.
+- Threads in a side panel, with follow/unfollow.
+- The composer has @mentions, `#INFRA-42` chips (state icon and title), reactions, attachments (paste or drop), edit, and delete with undo.
+- Typing indicators disappear within about 4 s of stopping.
+- "Create work item from message" makes the item and a `CREATED_FROM` reference, shown as a chip under the message and on the item's timeline. `#item` mentions show on the timeline too.
+- DMs with the AI teammate are stored, with a notice that replies come in a later phase.
+
+**Fixes**
+
+- The rich-text editor now emits plain JSON. ProseMirror attrs are null-prototype objects and reached server actions as unreadable references, so any document with a mention or a heading failed to save, comments included.
+- Notification preference switches now survive an immediate reload (the write is tracked like every other mutation).
+
+**Tests**
+
+- Vitest: the chat policy, channels, messages, unread and read positions, notifications and the digest. 192 tests in total.
+- Playwright: a mention reaching the Inbox live and triaged by keyboard, unread counts across tabs, preferences, a new channel with a thread, reaction and work item, two people with live messages and typing, and 30 s offline with missed messages replayed without a reload. Specs wait on `<html data-realtime>` instead of sleeping.
+- Decisions D-080 to D-091.
+
 ## Phase 3: Intake (2026-09-29)
 
 **Triage queue** (`/<ws>/p/<IDENT>/intake`)

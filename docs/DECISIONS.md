@@ -923,3 +923,90 @@ These routes are **internal**: they have no stability promise. The public REST A
 - CI runs Mailpit as a service and the worker in the background during e2e, so the confirmation-email flow is tested for real.
 - `PW_CHROMIUM` points Playwright at a preinstalled Chromium when its own build isn't downloaded (cloud dev containers).
 - next-intl message keys can't contain dots, so webhook event labels use `work_item_created` style keys.
+
+### D-080: Team chat is for members; guests get none
+
+**Context:** guests are outsiders with access to single projects.
+**Decision:** `canChannel` denies guests everything, DMs included.
+
+- Project channels follow project access: a Member or Admin role in the project.
+- Public channels are open to every workspace member who isn't a guest.
+- Private channels and DMs are open to their members only.
+- Workspace admins manage public channels but get no backdoor into private ones.
+
+**Why:** chat is internal and informal. A guest's window into the team is their own requests. (Q-27 asks whether that's right.)
+
+### D-081: Project channels have lazy membership rows
+
+**Decision:** a `ChannelMember` row appears the first time someone reads or posts in a project channel, to hold `lastReadAt`. Without a row, unread counts start from when the person joined the workspace.
+**Why:** the project already defines who can see the channel. Copying that into rows would drift.
+
+### D-082: What counts as unread, and what reaches the Inbox
+
+- **Unread** is the number of top-level messages from others newer than `lastReadAt`. Posting marks the channel read up to your own message.
+- `lastReadAt` only moves forward (`GREATEST`), so a tab that reports an older position can't undo a newer one.
+- **The Inbox** gets @mentions and replies in threads you follow. Plain channel traffic and DMs only show in the Messages sidebar (Q-25).
+- Reading a channel marks its mention notifications read. Opening a thread marks its replies and mentions read.
+- Thread replies are grouped per thread (`groupKey thread:<rootId>`) and counted there, not in the channel's unread count.
+
+**Why:** the Slack/Linear split. The Inbox is about you; the sidebar is about conversations.
+
+### D-083: `dmKey` is `<workspaceId>:<sorted participant ids>`
+
+**Decision:** there is one DM or group DM per set of people. A closed DM reopens for everyone when someone writes in it.
+**Why:** the column is globally unique, and the same two people can share several workspaces.
+
+### D-084: Personal state writes no Activity
+
+**Decision:** read, archive, snooze, preferences, reactions and read positions still run in `withMutation` and emit `user:<id>` events, but write no Activity row. Channel and message lifecycle does: `CHANNEL` created, updated, joined, left and members changed; `MESSAGE` posted, edited and deleted.
+**Why:** Activity is the shared history of shared things. A read receipt in it is noise.
+
+### D-085: Typing goes through a route handler and an ephemeral NOTIFY
+
+- `POST /api/v1/[ws]/channels/[id]/typing`, with an origin check.
+- It isn't a server action because actions from one client run one at a time, so a typing ping could delay sending the message itself.
+- Events go over a second `LISTEN` channel, `dopl_ephemeral`. They are never stored or replayed, and they pass the same per-connection permission check as stored events.
+- Clients ping every 2.5 s while the composer has text. Receivers drop the indicator 4 s after the last ping. A `stop` ping, or that person's message arriving, clears it at once.
+
+### D-086: One stream per browser, with a leader tab chosen by Web Locks
+
+- `navigator.locks` elects a leader tab, which holds the EventSource. A `BroadcastChannel` relays its events to the other tabs.
+- When the leader closes, the next tab takes over and resumes from the last event id any tab saw (`?since=`).
+- Browsers without Web Locks or BroadcastChannel fall back to one stream per tab.
+- `SharedEventSource` has the EventSource shape, so the realtime provider barely changed.
+- The server now holds live events back during a `Last-Event-ID` replay and sends them after it, which removes the duplicates and reordering the Phase 2 code allowed.
+- The keepalive is a named `ping` event. A watchdog reopens the stream after two missed pings, and when the browser comes back online.
+
+**Deployment:** Caddy must not buffer the realtime route (`flush_interval -1`; see `docs/HANDOFF.md`).
+
+### D-087: Email digest rules
+
+- The `email.digest` job runs every 10 minutes and looks at notifications from the last 24 hours.
+- It skips anything younger than 2 minutes, in case the person is reading it in the app.
+- It includes only unread, un-emailed, un-snoozed notifications.
+- The email preference comes from the project row if there is one, then the workspace row. The default is off (Q-26).
+- Rows are claimed by setting `emailedAt` in the same transaction that inserts the outbound email and its `email.send` job, so overlapping runs can't send twice.
+- When a grouped notification gets new activity, `notify()` resets `emailedAt`, so it can appear in a later digest.
+
+### D-088: Notification links and digest lines are shared code
+
+**Decision:** `@dopl/shared/domain/notifications` computes each notification's path and its English digest line. The web Inbox renders its own translated text from the same data.
+**Why:** the Inbox and the email always point to the same place.
+
+### D-089: Mentions and references respect channel access
+
+- A mention in chat only notifies people who can read the channel.
+- `#INFRA-42` in a message creates a `MENTIONED` reference, and "Create work item from message" creates a `CREATED_FROM` reference.
+- An item's timeline shows a reference only to people who can open its channel, so a private channel never leaks through an item everyone can see.
+
+### D-090: Sidebar indicators use their own query keys and mount on the client only
+
+**Decision:** the badge and dot use `["inbox", ws, "counts", "badge"]` and `["chat", ws, "channels", "dot"]`. Invalidating the parent key by prefix refreshes both.
+**Why:** the sidebar and the page sit in different Suspense boundaries. A query created by one of them, even an empty pending one, made TanStack's `HydrationBoundary` defer the other's prefetched data to an effect, which caused hydration mismatches.
+
+### D-091: Operational notes from Phase 4
+
+- **Rich-text JSON:** ProseMirror attrs are null-prototype objects. Passed straight to a server action, they arrive as unreadable temporary references, so any document with a mention or heading failed to save (comments included). `RichTextEditor`'s `onChange` now emits plain JSON (a `JSON.parse(JSON.stringify())` round trip).
+- **Test hooks:** `<html data-realtime>` is `open` once the tab's own stream is connected and `relay` while another tab holds it. E2e specs wait on it before triggering events from another browser, instead of sleeping. Writes that must survive a reload go through `useMutation`, so `<html data-saving>` covers them.
+- **Notifications stay in the mutation (D-076).** The `notifications.fanout` job from the plan is still unused.
+- **Chat attachments:** `maintenance.prune` deletes chat uploads that were never sent (PENDING, no message, older than 2 days), and downloads of chat attachments check channel access.

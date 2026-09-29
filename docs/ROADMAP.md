@@ -266,7 +266,27 @@ Where it differs from the plan below:
 
 ---
 
-## Phase 4: Inbox & messages
+## Phase 4: Inbox & messages ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Everything below is built. The SSE endpoint, LISTEN, replay and fan-out came in Phase 2 (Q-9); this phase added the leader tab, ephemeral events, channel topics and the inbox/messages cache mapping. The CHANGELOG has the summary; decisions D-080 to D-091 record the choices. All five acceptance checks are covered by Playwright (`inbox.spec.ts`, `messages.spec.ts`).
+
+Where it differs from the plan below:
+
+- **Guests** get no team chat at all, not even DMs (D-080, Q-27).
+- **Thread replies** are counted per thread (followers + the Inbox), not in the channel's unread count (D-082).
+- **Notifications** are written in the mutation through `notify()`; the `notifications.fanout` job isn't used (D-076).
+- **Email** for notifications is a 10-minute digest, off by default per type (D-087, Q-26).
+
+**Not done yet, carried forward:**
+
+- [ ] Flashing changed fields on realtime updates (DESIGN_SYSTEM §7.2)
+- [ ] Per-channel mute and `notifyLevel`
+- [ ] Per-project notification preferences in the UI (the data model, `notify()` and the digest already honour project rows)
+- [ ] `DUE_SOON` notifications (no job produces them yet)
+- [ ] Chat search, image previews (attachments show as file chips) and a full emoji picker (six quick reactions for now)
+- [ ] `?msg=` only jumps to a message within the loaded pages
+- [ ] Chat seed data, `/dev/ui` sections for inbox and chat, and screenshots of the mobile layouts (built, not captured)
+- [ ] Agent replies in DMs (Phase 8)
 
 1. **Realtime** (unless Q-9 moves it earlier):
    - the `/api/realtime` SSE endpoint

@@ -2,7 +2,7 @@
 
 Dopl is a self-hosted project-management, personal-notes and IT-team tool: Plane-style work items and views, Blinko-style notes and to-dos, a shared Gmail mailbox, team chat, and an AI teammate (Hermes Agent on the team's own model) with human approval for every infrastructure action.
 
-**Status:** Phases 0–2 are built (plan, core, views) and waiting for review; **start with `docs/HANDOFF.md`**. Build phase by phase following `docs/ROADMAP.md`, and stop after each phase for review. Phase 3 (Intake) is next.
+**Status:** Phases 0–4 are built (plan, core, views, intake, inbox & chat); 0–2 are approved and 3–4 await review. **Start with `docs/HANDOFF.md`**. Build phase by phase following `docs/ROADMAP.md`, and stop after each phase for review. Phase 5 (Notes & My Work) is next, starting from the unfinished `wip/phase-5-notes` branch.
 
 **Deployment facts:** Dopl is public at `https://dopl.vtk.be` (D-051). All accounts are **invite-only**, across Google, email+password (+2FA), SSO and magic links (D-050). Outbound email goes through the Google Workspace SMTP relay. Discord webhooks post events (D-052). Done items are hidden by default in views (D-053).
 

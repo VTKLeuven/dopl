@@ -4,7 +4,7 @@ Where the project stands and how to pick it up. Updated 2026-09-29, after Phases
 
 **To start a new session**, open Claude Code in the repo and paste:
 
-> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 5 (ROADMAP §Phase 5) and stop for my review when it's done.
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 5 (ROADMAP §Phase 5), starting from the unfinished work on the `wip/phase-5-notes` branch (HANDOFF §1.2), and stop for my review when it's done.
 
 ---
 
@@ -26,21 +26,74 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 | 1 Core            | ✅ approved                   | Auth, shell, projects, work items, list/board, peek, comments, attachments, Home                 |
 | 2 Views           | ✅ approved                   | Filters, table/calendar/timeline, saved + workspace views, ⌘K, shortcuts, bulk, realtime, perf   |
 | 3 Intake          | ✅ built, **awaiting review** | Triage queue, public forms + embeds, status page, guest requests, contacts, Discord webhooks     |
-| 4 Inbox & chat    | see §1.1                      | Notifications, Inbox, preferences + digests, channels, DMs, threads, typing, leader-tab realtime |
-| 5 Notes & My Work | **next**                      | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work                   |
+| 4 Inbox & chat    | ✅ built, **awaiting review** | Notifications, Inbox, preferences + digests, channels, DMs, threads, typing, leader-tab realtime |
+| 5 Notes & My Work | **next**, WIP branch (§1.2)   | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work                   |
 | 6–8               | planned                       | Analytics · Shared mailbox · AI teammate                                                         |
 
 - **What each phase delivered:** `docs/CHANGELOG.md`.
-- **What's left over from each phase:** the unticked boxes under Phase 1 and Phase 2 in `docs/ROADMAP.md`.
-- **Screenshots:** `docs/screenshots/phase-1/` and `docs/screenshots/phase-2/`.
+- **What's left over from each phase:** the unticked boxes under each phase in `docs/ROADMAP.md`.
+- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-4/`.
 
-**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phase 3's screenshots are in `docs/screenshots/phase-3/`; its review is still pending, so show them at the start of the next session. A first attempt at Phase 5 was started in a separate worktree and **stopped and discarded** on purpose (budget); nothing of it is in the repo, so start Phase 5 from the roadmap.
+**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Both are built and merged; their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` and `docs/screenshots/phase-4/` at the start of the next session. Phase 5 was started in parallel and stopped halfway (budget); its work is on the `wip/phase-5-notes` branch, not on `main` (§1.2).
 
 Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
 
 ### 1.1 Phase 4 status
 
-_Filled in when the Phase 4 branch was merged; see the Phase 4 entries in `docs/CHANGELOG.md` and `docs/ROADMAP.md`._
+Phase 4 was built by a background agent in a worktree and merged into `main` together with Phase 3.
+
+- **What's in it:** the Inbox (`/vtk/inbox`), Settings → Notifications with a 10-minute email digest, Messages (`/vtk/messages`: project, public, private and DM channels, threads, reactions, attachments, typing) and one realtime stream per browser. Details are in `docs/CHANGELOG.md`; decisions are D-080 to D-091; carry-overs are unticked under Phase 4 in `docs/ROADMAP.md`.
+- **No migrations, no new env vars.** New worker queue: `email.digest` (every 10 minutes).
+- **Checks after the merge:** typecheck, lint, 192 Vitest tests and the drift check pass. The full Playwright suite (31 tests + setup) is green after two fixes the merge run turned up (see the Phase 4 CHANGELOG under "Fixes" and D-091).
+- **Deployment:** Caddy must not buffer the realtime route:
+
+  ```caddyfile
+  dopl.vtk.be {
+  	@realtime path_regexp realtime ^/api/v1/[^/]+/realtime$
+  	reverse_proxy @realtime web:3000 {
+  		flush_interval -1
+  	}
+  	reverse_proxy web:3000
+  }
+  ```
+
+  The route already sends `Cache-Control: no-cache, no-transform` and `X-Accel-Buffering: no`, and a `ping` event every 20 s keeps idle proxies from closing it.
+
+- **Open questions it raised:** Q-25 to Q-28 (DMs in the Inbox, email defaults, chat for guests, chat retention). The defaults are in use.
+- **The chat e2e tests** use Chloé (`chloe@dopl.test`) as the second person, because Ann is asked to enrol in 2FA. They write only in the "E2E sandbox" channel and in new `e2e-*` channels.
+
+### 1.2 Phase 5: unfinished work on `wip/phase-5-notes`
+
+A background agent started Phase 5 in parallel and was stopped halfway to save budget. Its two commits are pushed to **`wip/phase-5-notes`** (not merged). Build on them rather than starting over.
+
+- **Base:** `5c43e89` (the Phase 2 handoff), so the branch predates Phases 3 and 4.
+- **`e282188` Add the notes domain (solid):**
+  - `packages/shared/src/domain/notes.ts`: inline `#tag` parsing (nested, lowercased, parents implicit), tag rename/delete rewriting, stable task `blockId`s, the `NoteTodo` projection, marking a converted line, the 1-3-7-21-60 review schedule with a deterministic weighted daily pick.
+  - `packages/shared/src/schemas/notes.ts` and `canNote` in the policy module.
+  - `server/services/notes.ts`: create, update, archive, trash and purge notes; toggle to-dos and set due dates; convert a line or a note into a work item with a `CREATED_FROM` reference; daily review actions; tag rename, merge and delete. Every write runs in `withMutation`.
+  - `server/queries/notes.ts` and routes under `/api/v1/[ws]/notes` (grid, one note, tags, to-dos, review, summary, search), plus `server/actions/notes.ts`.
+  - Tests: `domain/notes.test.ts`, `policy/notes.test.ts`, `services/notes.test.ts`.
+- **`5736494` WIP UI (unverified):** `/[ws]/notes` (grid, sidebar with tags, editor, quick capture, convert dialog), `/[ws]/notes/todos`, `/[ws]/notes/review`, Home widgets, notes in the ⌘K palette, the realtime hookup and about 270 `en.json` strings. **Nothing in this commit was typechecked, linted, tested or looked at.** Expect bugs.
+
+**How to pick it up:**
+
+1. Branch from `main` and merge the WIP into it:
+
+   ```bash
+   git checkout -b claude/phase-5 origin/main
+   git merge origin/wip/phase-5-notes
+   ```
+
+   Five files conflict, all small and additive: `components/shell/global-shortcuts.tsx`, `components/shell/sidebar.tsx`, `features/realtime/realtime-provider.tsx`, `features/work-items/item-detail.tsx` and `server/services/work-items.ts`. Keep both sides. `en.json`, the shortcut registry and the policy module merge cleanly.
+
+2. Adapt the notes code to what Phases 3–4 changed:
+   - `withMutation` now hands the callback `m` with `m.webhook`, and `MutationActor` has a `type`.
+   - Notifications go through `notify()`.
+   - The sidebar has Inbox and Messages entries and new props (`intakePending`, `showRequests`, `showContacts`, `canChat`).
+   - The realtime provider uses `SharedEventSource`. Specs should wait on `<html data-realtime>`.
+   - Home may already read the Inbox summary for its notifications widget.
+3. Run `pnpm typecheck && pnpm lint && pnpm test`, then go screen by screen: fix, screenshot, compare with the Spott reference, and add e2e specs for the Phase 5 acceptance list.
+4. Phase 5b (embeddings, semantic search) still waits on Q-6.
 
 ### What the user has decided so far
 
@@ -99,8 +152,8 @@ Phase 3 seed data: the HELP project has a published form at <http://localhost:30
 ## 3. Checks
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test     # 159 Vitest tests after Phase 3; integration tests use DATABASE_URL_TEST
-pnpm e2e                                      # 25 Playwright tests + setup after Phase 3; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
+pnpm typecheck && pnpm lint && pnpm test     # 192 Vitest tests after Phase 4; integration tests use DATABASE_URL_TEST
+pnpm e2e                                      # 31 Playwright tests + setup after Phase 4; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
 pnpm perf                                     # 50k-item benchmark on the test DB (~40 s, not in CI)
 pnpm db:drift                                 # schema vs migrations must be empty
 ```
@@ -110,7 +163,7 @@ CI (`.github/workflows/ci.yml`):
 - It runs typecheck, lint (including `prettier --check`), Vitest, the drift check, `pnpm build` and the Playwright suite against a freshly seeded database, with Mailpit as a service and the worker running in the background (the intake e2e reads confirmation emails).
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
-- **Last verified:** see §1.1 for the CI result of the Phase 3–4 merge. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
+- **Last verified:** CI_STATUS_PLACEHOLDER Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
 - Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
@@ -124,34 +177,37 @@ apps/web/src
   app/(public)/s/[token]       contact status page
   app/embed.js                 floating "Feedback" button script
   app/api/public/…             form submit + uploads, status-page replies/uploads/files (rate-limited)
-  app/(app)/[ws]/…             home, projects, p/[ident]/items|views|settings|intake(/forms), views, i/[ref],
-                               requests (guests), contacts, settings (… integrations)
+  app/(app)/[ws]/…             home, inbox, messages, projects, p/[ident]/items|views|settings|intake(/forms), views,
+                               i/[ref], requests (guests), contacts, settings (… integrations, notifications)
   app/api/auth/[...all]        Better Auth
-  app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054) + /realtime (SSE)
+  app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054), /realtime (SSE), channels/[id]/typing
   server/
     services/                  every write: zod → policy → withMutation (Activity + realtime outbox + webhooks)
-                               intake (triage), public-intake (forms, status page), intake-forms, contacts, webhooks
+                               intake (triage), public-intake (forms, status page), intake-forms, contacts, webhooks,
+                               inbox (notifications, preferences), channels + messages (chat)
     intake/core.ts             creating triage items, notifying triagers and submitters, status links
     notifications/notify.ts    the one way to create Inbox notifications (prefs, grouping, realtime)
     webhooks/dispatch.ts       matches events to webhooks, coalesces, enqueues webhook.deliver
     rate-limit.ts              Postgres fixed-window counters + client IP
     queries/                   reads: work-items (lists, detail), filters (AST → Prisma), views, palette, workspace-items
     actions/                   thin server actions over services, return ActionResult
-    realtime/                  LISTEN hub + per-connection topic access (D-063)
+    realtime/                  LISTEN hub (stored + dopl_ephemeral) + per-connection topic access (D-063, D-085)
     mutation.ts, session.ts, auth.ts, api.ts
   features/
     intake/                    triage queue + bar, request panel, form builder, public form, request thread, contacts
+    inbox/                     list + reader, filters, bulk actions, badge
+    messages/                  channel list, conversation, composer, threads, typing, create-item-from-message
     work-items/                list, board (+ swimlanes), table, calendar, timeline, peek/detail, pickers, data hooks
     filters/                   builder + chip bar
     views/                     save dialog, view menu, views list
     palette/                   "current item" store for ⌘K
-    realtime/                  client provider (query invalidation)
+    realtime/                  SharedEventSource (leader tab, D-086) + provider (query invalidation)
   components/                  ui primitives (re-themed Radix), shell (sidebar, header, palette, shortcuts overlay), editor (Tiptap)
   lib/shortcuts/registry.ts    the one shortcut registry (D-068)
 packages/shared/src            zod schemas (work-item, view, filters, intake, webhooks…), policy, dates, sort keys,
                                rich text, Discord renderer, secret box, email templates
 packages/db                    schema.prisma (all phases), migrations, client, seed (+ seed/intake.ts), bootstrap
-apps/worker                    pg-boss: email.send, webhook.deliver, snooze.wake, maintenance.prune
+apps/worker                    pg-boss: email.send, email.digest, webhook.deliver, snooze.wake, maintenance.prune
 ```
 
 Patterns to follow (details in `CLAUDE.md`):
@@ -223,6 +279,9 @@ The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later 
 - **Chrome blocks a page it considers public from loading scripts on localhost** (Local Network Access). Cross-origin embed tests serve the host page from a real loopback server (`127.0.0.1:4599`), not `page.route`.
 - **Playwright's expected Chromium may not be installed** in cloud containers; set `PW_CHROMIUM=/opt/pw-browsers/chromium`.
 - **The test database needs the pg-boss queues** (services enqueue in-transaction); `test/global-setup.ts` installs them.
+- **ProseMirror attrs are null-prototype objects.** Send editor JSON to server actions only after a plain-JSON round trip; `RichTextEditor`'s `onChange` already does this (D-091).
+- **The realtime hub is a `globalThis` singleton** (`__doplRealtime`), so `next dev` hot reload keeps the old one. Restart the dev server after changing `server/realtime/`.
+- **Wait for the realtime stream before triggering events from another browser:** `await expect(page.locator("html[data-realtime=open]")).toBeAttached()`. A follower tab shows `relay`.
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---
@@ -234,10 +293,11 @@ Carried forward (also ticked off in ROADMAP as they get done):
 - Playwright visual baselines, an axe check on `/dev/ui`, and a lint rule against raw hex values (from Phase 1).
 - The SSO sign-in flow isn't tested end to end against a mock OIDC provider. Registering providers works.
 - Unfiltered lists above about 3,000 rows exceed the 50 ms target: they take 40–70 ms (D-062).
-- Realtime: changed fields don't flash yet, and there's no one-stream-per-browser leader tab (D-063).
+- Realtime: changed fields don't flash yet.
 - Shortcuts without handlers: `T`, `E`, `M` (peek), `[`. Creating items from a cross-project view isn't possible yet.
 - Moved items' old identifiers don't redirect (Q-23).
 - Phase 3 carry-overs (ROADMAP): email-to-intake (needs Phase 7), deleting bytes of abandoned uploads, Turnstile verified with real keys, contact pages listing email threads.
+- Phase 4 carry-overs (ROADMAP): per-channel mute, per-project notification preferences in the UI, `DUE_SOON` notifications, chat search and image previews, a chat seed, mobile screenshots, agent replies in DMs (Phase 8).
 
 Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block upcoming work:
 
@@ -245,13 +305,14 @@ Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block
 - **Q-6:** the embeddings endpoint, model and dimensions (Phase 5b).
 - **Q-20:** who sets up the Google Cloud pieces (OAuth, service account, Pub/Sub).
 - **Q-16, Q-17, Q-18:** mailbox, Warpgate and model details (Phases 7–8).
+- **Q-25 to Q-28** (chat and notification defaults) don't block anything, but are worth a quick answer during the Phase 4 review.
 
 ---
 
 ## 7. Next steps
 
-1. Show the owner the Phase 3 (and Phase 4) screenshots and fix what they flag.
-2. **Phase 5: Notes & My Work** (ROADMAP §Phase 5). The data model exists (`Note`, `Tag`, `NoteTag`, `NoteTodo`); follow DATA_MODEL §3.5 and D-022 (to-dos are a projection keyed by the task node's `blockId`, which the rich-text sanitizer already allows). Home (`/vtk/home`) gets rebuilt as My Work; when Phase 4's Inbox is in place, its summary can read the `notifications` table. 5b (embeddings, semantic search) waits on Q-6.
+1. Show the owner the Phase 3 and Phase 4 screenshots and fix what they flag.
+2. **Phase 5: Notes & My Work** (ROADMAP §Phase 5). **Start from `wip/phase-5-notes`** (§1.2): the domain, services, queries and tests exist; the UI is drafted but unverified. Follow DATA_MODEL §3.5 and D-022 (to-dos are a projection keyed by the task node's `blockId`, which the rich-text sanitizer already allows). Home (`/vtk/home`) gets rebuilt as My Work, and its notifications summary can read the Inbox. 5b (embeddings, semantic search) waits on Q-6.
 3. **Phase 6: Analytics**, then **Phase 7: Shared mailbox** (also unlocks email-to-intake and mail events for Discord: `email_thread.created`, `email_message.received` are already defined in `WEBHOOK_EVENTS`), then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033).
 4. Keep the phase routine:
    - Build in small commits.

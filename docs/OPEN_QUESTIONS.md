@@ -114,3 +114,15 @@ _Default until answered:_ no alias yet. The move is recorded in the item's activ
 
 **Q-24 (Phase 2): Calendar drags and start dates.** When you drag an item with both dates on the calendar, should the start date move along to keep the duration?
 _Default:_ only the date shown moves. The timeline is the place to move both.
+
+**Q-25 (Phase 4): DMs in the Inbox.** Should direct messages (not only mentions) create Inbox notifications, as Slack does?
+_Default:_ no. DMs show an unread count in the Messages sidebar only (D-082).
+
+**Q-26 (Phase 4): Email defaults.** Should email be on by default for mentions and assignments?
+_Default:_ off for every type (`NotificationPreference.email` defaults to false). People switch it on in Settings → Notifications and get a digest every 10 minutes (D-087).
+
+**Q-27 (Phase 4): Chat for guests.** Should guests really never get chat, not even DMs with the team?
+_Default:_ no chat for guests (D-080). Their requests have a public conversation instead.
+
+**Q-28 (Phase 4): Chat retention.** How long should chat messages be kept? Related to Q-11.
+_Default:_ forever, like comments. Deleted messages are soft-deleted.
