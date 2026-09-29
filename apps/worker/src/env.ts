@@ -16,6 +16,8 @@ const schema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   MAIL_FROM: z.string().min(3),
+  /** Decrypts webhook URLs stored by the web app (D-052). */
+  DOPL_ENCRYPTION_KEY: z.string().min(32),
 });
 
 export const env = schema.parse(process.env);
