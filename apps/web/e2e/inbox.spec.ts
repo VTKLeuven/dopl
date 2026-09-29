@@ -36,6 +36,7 @@ test("a mention shows up in the Inbox live, with its badge, and can be triaged w
   await expect(row).toHaveAttribute("data-unread", "true");
   await page.keyboard.press("e");
   await expect(row).toBeHidden();
+  await expect(page.locator("html:not([data-saving])")).toBeAttached();
   await page.goto("/vtk/inbox?view=archived");
   await expect(page.getByTestId("inbox-row").filter({ hasText: tag })).toBeVisible();
 

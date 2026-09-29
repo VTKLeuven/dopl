@@ -163,7 +163,7 @@ CI (`.github/workflows/ci.yml`):
 - It runs typecheck, lint (including `prettier --check`), Vitest, the drift check, `pnpm build` and the Playwright suite against a freshly seeded database, with Mailpit as a service and the worker running in the background (the intake e2e reads confirmation emails).
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
-- **Last verified:** CI_STATUS_PLACEHOLDER Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
+- **Last verified:** `main` at `cfd5800` (Phase 3) passed every job, images included. The Phase 4 merge on top of it passed typecheck, lint, 192 Vitest tests, the drift check and the full Playwright suite (31 tests, cold dev server) locally before it was pushed. Check its CI run first thing. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
 - Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
