@@ -282,6 +282,29 @@ export function ProjectItemsView({
     [rows, groupOptions, meta, t, tf],
   );
 
+  // Swimlanes: the board's sub-group, as its own grouping of the same rows.
+  const lanes = useMemo(() => {
+    const sub =
+      scope.kind === "workspace" && options.subGroupBy === "state"
+        ? "stateGroup"
+        : options.subGroupBy;
+    if (options.layout !== "BOARD" || sub === "none" || sub === groupOptions.groupBy) return null;
+    return groupRows(rows, { ...groupOptions, groupBy: sub, showEmptyGroups: false }, meta, {
+      none: {
+        state: "",
+        priority: "",
+        assignee: t("noAssignee"),
+        label: t("noLabel"),
+        type: t("noType"),
+        stateGroup: "",
+        project: "",
+        none: "",
+      },
+      priority: (p: Priority) => t(`priority.${p}`),
+      stateGroup: (g: StateGroup) => tf(`stateGroup.${g}`),
+    }).filter((l) => l.rows.length > 0);
+  }, [rows, options.layout, options.subGroupBy, groupOptions, scope.kind, meta, t, tf]);
+
   const tableRows = useMemo(
     () =>
       sortRows(options.showSubItems ? rows : rows.filter((r) => !r.parentId), groupOptions.orderBy),
@@ -765,6 +788,7 @@ export function ProjectItemsView({
       ) : options.layout === "BOARD" ? (
         <BoardView
           groups={groups}
+          lanes={lanes}
           meta={meta}
           options={options}
           hiddenByState={items?.hiddenByState ?? {}}
@@ -879,6 +903,18 @@ function DisplayOptionsButton({
               onChange={(v) => setOptions({ groupBy: v as GroupKey })}
             />
           </Field>
+          {options.layout === "BOARD" ? (
+            <Field label={t("subGroupBy")}>
+              <Select
+                value={options.subGroupBy}
+                options={groupKeys.map((g) => ({
+                  value: g,
+                  label: g === "none" ? t("noSwimlanes") : t(`group.${g}`),
+                }))}
+                onChange={(v) => setOptions({ subGroupBy: v as GroupKey })}
+              />
+            </Field>
+          ) : null}
           <Field label={t("orderBy")}>
             <div className="flex gap-1.5">
               <Select

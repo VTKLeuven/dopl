@@ -8,6 +8,8 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCorners,
+  pointerWithin,
+  type CollisionDetection,
   useDroppable,
   useSensor,
   useSensors,
@@ -22,7 +24,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { keyBetween } from "@dopl/shared/sort-keys";
 import type { DisplayOptions } from "@dopl/shared/schemas/view";
 import { cn } from "@/lib/cn";
@@ -32,19 +34,40 @@ import { Avatar, AvatarStack } from "@/components/ui/avatar";
 import { Tag, TagDot, Overflow } from "@/components/ui/tag";
 import { StateIcon } from "@/components/icons/state-icon";
 import { PriorityIcon } from "@/components/icons/priority-icon";
+import { ProjectBadge } from "@/components/shell/project-badge";
 import { DatePicker, PriorityPicker } from "./pickers";
 import { TypeIcon } from "./type-icon";
 import { patchForGroup, type ItemGroup } from "./grouping";
 import type { ProjectMeta, WorkItemRow } from "./types";
 
-const cardId = (groupKey: string, rowId: string) => `${groupKey}::${rowId}`;
+/*
+ * Ids: a cell is `${laneKey}|${columnKey}` (lane "_" when there are no
+ * swimlanes); a card is `${cellKey}::${rowId}`.
+ */
+const NO_LANE = "_";
+
+/** The cell under the pointer wins; fall back to the nearest corner (e.g. dropping in a gap). */
+const collide: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  return hits.length ? hits : closestCorners(args);
+};
+const cellKey = (laneKey: string, colKey: string) => `${laneKey}|${colKey}`;
+const cardId = (cell: string, rowId: string) => `${cell}::${rowId}`;
+const parseCell = (cell: string) => {
+  const i = cell.indexOf("|");
+  return { laneKey: cell.slice(0, i), colKey: cell.slice(i + 1) };
+};
 const parseCardId = (id: string) => {
   const i = id.lastIndexOf("::");
-  return { groupKey: id.slice(0, i), rowId: id.slice(i + 2) };
+  return { cell: id.slice(0, i), rowId: id.slice(i + 2) };
 };
+/** Card or cell id → the cell it belongs to. */
+const cellOf = (overId: string) => (overId.includes("::") ? parseCardId(overId).cell : overId);
 
 export interface BoardViewProps {
   groups: ItemGroup[];
+  /** Swimlanes (sub-group), or null for a single row of columns. */
+  lanes: ItemGroup[] | null;
   meta: ProjectMeta;
   options: DisplayOptions;
   hiddenByState: Record<string, number>;
@@ -79,6 +102,19 @@ export function BoardView(props: BoardViewProps) {
     }
     return null;
   }, [activeId, groups]);
+  const lanes = props.lanes;
+  const laneByKey = useMemo(() => new Map((lanes ?? []).map((l) => [l.key, l])), [lanes]);
+  const colByKey = useMemo(() => new Map(groups.map((g) => [g.key, g])), [groups]);
+  // Row ids per lane, so a cell is the column's rows that are also in the lane.
+  const laneRowIds = useMemo(
+    () => new Map((lanes ?? []).map((l) => [l.key, new Set(l.rows.map((r) => r.id))])),
+    [lanes],
+  );
+  const cellRows = (laneKey: string, col: ItemGroup) => {
+    const ids = laneRowIds.get(laneKey);
+    return ids ? col.rows.filter((r) => ids.has(r.id)) : col.rows;
+  };
+  const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(new Set());
 
   const collapsedDone = (g: ItemGroup) =>
     Boolean(g.done) && options.completed === "hide" && g.rows.length === 0;
@@ -88,26 +124,29 @@ export function BoardView(props: BoardViewProps) {
     const { active, over } = event;
     if (!over || !meta.can.edit) return;
     const from = parseCardId(String(active.id));
-    const fromGroup = groups.find((g) => g.key === from.groupKey);
+    const fromCell = parseCell(from.cell);
+    const fromGroup = colByKey.get(fromCell.colKey);
     const row = fromGroup?.rows.find((r) => r.id === from.rowId);
     if (!fromGroup || !row) return;
     const overId = String(over.id);
-    const toGroup = overId.includes("::")
-      ? groups.find((g) => g.key === parseCardId(overId).groupKey)
-      : groups.find((g) => g.key === overId);
+    const toCell = parseCell(cellOf(overId));
+    const toGroup = colByKey.get(toCell.colKey);
     if (!toGroup) return;
+    const fromRows = cellRows(fromCell.laneKey, fromGroup);
+    const toRows = cellRows(toCell.laneKey, toGroup);
+    const sameCell = fromCell.laneKey === toCell.laneKey && fromGroup.key === toGroup.key;
 
-    // Neighbours in the target column after the drop.
+    // Neighbours in the target cell after the drop.
     let target: WorkItemRow[];
-    if (toGroup.key === fromGroup.key) {
-      const oldIndex = toGroup.rows.findIndex((r) => r.id === row.id);
+    if (sameCell) {
+      const oldIndex = fromRows.findIndex((r) => r.id === row.id);
       const newIndex = overId.includes("::")
-        ? toGroup.rows.findIndex((r) => r.id === parseCardId(overId).rowId)
-        : toGroup.rows.length - 1;
+        ? toRows.findIndex((r) => r.id === parseCardId(overId).rowId)
+        : toRows.length - 1;
       if (oldIndex === newIndex || newIndex < 0) return;
-      target = arrayMove(toGroup.rows, oldIndex, newIndex);
+      target = arrayMove(toRows, oldIndex, newIndex);
     } else {
-      const without = toGroup.rows.filter((r) => r.id !== row.id);
+      const without = toRows.filter((r) => r.id !== row.id);
       const overIndex = overId.includes("::")
         ? without.findIndex((r) => r.id === parseCardId(overId).rowId)
         : without.length;
@@ -121,8 +160,13 @@ export function BoardView(props: BoardViewProps) {
     const before = target[idx - 1] ?? null;
     const after = target[idx + 1] ?? null;
 
-    const patch = patchForGroup(row, fromGroup, toGroup, meta);
-    if (patch) props.onUpdate(row.id, patch);
+    const fromLane = laneByKey.get(fromCell.laneKey);
+    const toLane = laneByKey.get(toCell.laneKey);
+    const patch = {
+      ...patchForGroup(row, fromGroup, toGroup, meta),
+      ...(fromLane && toLane ? patchForGroup(row, fromLane, toLane, meta) : null),
+    };
+    if (Object.keys(patch).length) props.onUpdate(row.id, patch);
     if (options.orderBy.field === "manual") {
       let optimisticKey: string;
       try {
@@ -147,28 +191,110 @@ export function BoardView(props: BoardViewProps) {
     <DndContext
       id="board"
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collide}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div
-        className="flex min-h-0 flex-1 scrollbar-thin gap-3 overflow-x-auto bg-surface-muted p-3"
-        data-testid="board"
-      >
-        {groups.map((group) =>
-          collapsedDone(group) ? (
-            <CollapsedColumn
-              key={group.key}
-              group={group}
-              hidden={group.value ? (props.hiddenByState[group.value] ?? 0) : 0}
-              onShow={props.onShowDone}
-            />
-          ) : (
-            <Column key={group.key} group={group} {...props} activeId={activeId} t={t} />
-          ),
-        )}
-      </div>
+      {lanes ? (
+        <div
+          className="min-h-0 flex-1 scrollbar-thin overflow-auto bg-surface-muted"
+          data-testid="board"
+        >
+          <div className="sticky top-0 z-[2] flex w-max gap-3 bg-surface-muted px-3 pt-3">
+            {groups.map((group) =>
+              collapsedDone(group) ? (
+                <CollapsedColumn
+                  key={group.key}
+                  group={group}
+                  hidden={group.value ? (props.hiddenByState[group.value] ?? 0) : 0}
+                  onShow={props.onShowDone}
+                  compact
+                />
+              ) : (
+                <div key={group.key} className="w-[296px] shrink-0">
+                  <ColumnHeader group={group} {...props} t={t} />
+                </div>
+              ),
+            )}
+          </div>
+          {lanes.map((lane) => {
+            const collapsed = collapsedLanes.has(lane.key);
+            return (
+              <section
+                key={lane.key}
+                className="w-max px-3"
+                aria-label={lane.label}
+                data-testid="swimlane"
+              >
+                <LaneHeader
+                  lane={lane}
+                  meta={meta}
+                  collapsed={collapsed}
+                  onToggle={() =>
+                    setCollapsedLanes((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(lane.key)) next.delete(lane.key);
+                      else next.add(lane.key);
+                      return next;
+                    })
+                  }
+                />
+                {collapsed ? null : (
+                  <div className="flex gap-3 pb-3">
+                    {groups.map((group) =>
+                      collapsedDone(group) ? (
+                        <div key={group.key} className="w-11 shrink-0" />
+                      ) : (
+                        <Cell
+                          key={group.key}
+                          cell={cellKey(lane.key, group.key)}
+                          rows={cellRows(lane.key, group)}
+                          {...props}
+                          activeId={activeId}
+                          t={t}
+                        />
+                      ),
+                    )}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className="flex min-h-0 flex-1 scrollbar-thin gap-3 overflow-x-auto bg-surface-muted p-3"
+          data-testid="board"
+        >
+          {groups.map((group) =>
+            collapsedDone(group) ? (
+              <CollapsedColumn
+                key={group.key}
+                group={group}
+                hidden={group.value ? (props.hiddenByState[group.value] ?? 0) : 0}
+                onShow={props.onShowDone}
+              />
+            ) : (
+              <section
+                key={group.key}
+                className="flex w-[296px] shrink-0 flex-col"
+                aria-label={group.label}
+              >
+                <ColumnHeader group={group} {...props} t={t} />
+                <Cell
+                  cell={cellKey(NO_LANE, group.key)}
+                  rows={group.rows}
+                  {...props}
+                  activeId={activeId}
+                  t={t}
+                  fill
+                />
+              </section>
+            ),
+          )}
+        </div>
+      )}
       <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.2, 0, 0, 1)" }}>
         {activeRow ? <Card row={activeRow} meta={meta} options={options} overlay /> : null}
       </DragOverlay>
@@ -180,16 +306,21 @@ function CollapsedColumn({
   group,
   hidden,
   onShow,
+  compact = false,
 }: {
   group: ItemGroup;
   hidden: number;
   onShow: () => void;
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onShow}
-      className="flex w-11 shrink-0 flex-col items-center gap-2 rounded-card border border-dashed border-border-strong py-3 text-small text-fg-muted focus-ring hover:bg-surface"
+      className={cn(
+        "flex w-11 shrink-0 flex-col items-center gap-2 rounded-card border border-dashed border-border-strong py-3 text-small text-fg-muted focus-ring hover:bg-surface",
+        compact && "h-9 flex-row justify-center gap-1 py-0 [&>span:nth-child(2)]:hidden",
+      )}
     >
       {group.state ? <StateIcon group={group.state.group} color={group.state.color} /> : null}
       <span className="font-medium [writing-mode:vertical-rl]">{group.label}</span>
@@ -198,78 +329,132 @@ function CollapsedColumn({
   );
 }
 
-function Column({
+function ColumnHeader({
   group,
+  meta,
+  onCreateInGroup,
+  t,
+}: BoardViewProps & {
+  group: ItemGroup;
+  t: ReturnType<typeof useTranslations<"items">>;
+}) {
+  const user = group.userId ? meta.members.find((m) => m.id === group.userId) : null;
+  return (
+    <header className="group/col flex h-9 items-center gap-2 px-1.5">
+      {group.state ? <StateIcon group={group.state.group} color={group.state.color} /> : null}
+      {group.priority ? <PriorityIcon priority={group.priority} /> : null}
+      {group.color ? <TagDot color={group.color} /> : null}
+      {group.typeIcon ? <TypeIcon icon={group.typeIcon.icon} color={group.typeIcon.color} /> : null}
+      {group.project ? (
+        <ProjectBadge name={group.project.name} color={group.project.color} size={16} />
+      ) : null}
+      {user ? <Avatar user={user} size="xs" /> : null}
+      <h3 className="truncate text-body font-medium">{group.label || t("title")}</h3>
+      <span className="text-small text-fg-muted tabular">{group.rows.length}</span>
+      {meta.can.create ? (
+        <Tooltip content={t("newItem")} shortcut="c">
+          <button
+            type="button"
+            aria-label={t("newItem")}
+            onClick={() => onCreateInGroup(group)}
+            className="ml-auto inline-flex size-6 items-center justify-center rounded-[7px] text-icon focus-ring hover:bg-neutral-150 hover:text-fg"
+          >
+            <Plus className="size-4" />
+          </button>
+        </Tooltip>
+      ) : null}
+    </header>
+  );
+}
+
+function LaneHeader({
+  lane,
+  meta,
+  collapsed,
+  onToggle,
+}: {
+  lane: ItemGroup;
+  meta: ProjectMeta;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const user = lane.userId ? meta.members.find((m) => m.id === lane.userId) : null;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={!collapsed}
+      className="sticky left-3 my-1 flex h-8 items-center gap-2 rounded-[7px] px-1.5 text-body font-medium text-fg focus-ring hover:bg-neutral-150"
+    >
+      <ChevronRight
+        className={cn("size-3.5 text-icon transition-transform", !collapsed && "rotate-90")}
+      />
+      {lane.state ? <StateIcon group={lane.state.group} color={lane.state.color} /> : null}
+      {lane.priority ? <PriorityIcon priority={lane.priority} /> : null}
+      {lane.color ? <TagDot color={lane.color} /> : null}
+      {lane.typeIcon ? <TypeIcon icon={lane.typeIcon.icon} color={lane.typeIcon.color} /> : null}
+      {lane.project ? (
+        <ProjectBadge name={lane.project.name} color={lane.project.color} size={16} />
+      ) : null}
+      {user ? <Avatar user={user} size="xs" /> : null}
+      <span className="truncate">{lane.label}</span>
+      <span className="text-small font-normal text-fg-muted tabular">{lane.rows.length}</span>
+    </button>
+  );
+}
+
+/** A droppable list of cards: a whole column, or one lane's slice of it. */
+function Cell({
+  cell,
+  rows,
   meta,
   options,
   onOpen,
   onUpdate,
-  onCreateInGroup,
   activeId,
   focusedId,
   onFocus,
   t,
+  fill = false,
 }: BoardViewProps & {
-  group: ItemGroup;
+  cell: string;
+  rows: WorkItemRow[];
   activeId: string | null;
   t: ReturnType<typeof useTranslations<"items">>;
+  fill?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: group.key });
-  const ids = group.rows.map((r) => cardId(group.key, r.id));
-  const user = group.userId ? meta.members.find((m) => m.id === group.userId) : null;
+  const { setNodeRef, isOver } = useDroppable({ id: cell });
+  const ids = rows.map((r) => cardId(cell, r.id));
   return (
-    <section className="flex w-[296px] shrink-0 flex-col" aria-label={group.label}>
-      <header className="group/col flex h-9 items-center gap-2 px-1.5">
-        {group.state ? <StateIcon group={group.state.group} color={group.state.color} /> : null}
-        {group.priority ? <PriorityIcon priority={group.priority} /> : null}
-        {group.color ? <TagDot color={group.color} /> : null}
-        {group.typeIcon ? (
-          <TypeIcon icon={group.typeIcon.icon} color={group.typeIcon.color} />
-        ) : null}
-        {user ? <Avatar user={user} size="xs" /> : null}
-        <h3 className="truncate text-body font-medium">{group.label || t("title")}</h3>
-        <span className="text-small text-fg-muted tabular">{group.rows.length}</span>
-        {meta.can.create ? (
-          <Tooltip content={t("newItem")} shortcut="c">
-            <button
-              type="button"
-              aria-label={t("newItem")}
-              onClick={() => onCreateInGroup(group)}
-              className="ml-auto inline-flex size-6 items-center justify-center rounded-[7px] text-icon focus-ring hover:bg-neutral-150 hover:text-fg"
-            >
-              <Plus className="size-4" />
-            </button>
-          </Tooltip>
-        ) : null}
-      </header>
-      <div
-        ref={setNodeRef}
-        className={cn(
-          "flex min-h-24 flex-1 scrollbar-thin flex-col gap-2 overflow-y-auto rounded-card p-1 pb-8 transition-colors",
-          isOver && "bg-sky-50/70 outline-1 outline-sky-300 outline-dashed",
-        )}
-      >
-        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          {group.rows.map((row) => (
-            <SortableCard
-              key={cardId(group.key, row.id)}
-              id={cardId(group.key, row.id)}
-              row={row}
-              meta={meta}
-              options={options}
-              hidden={activeId === cardId(group.key, row.id)}
-              focused={focusedId === row.id}
-              onOpen={() => onOpen(row)}
-              onFocus={() => onFocus(row.id)}
-              onUpdate={onUpdate}
-            />
-          ))}
-        </SortableContext>
-        {group.rows.length === 0 ? (
-          <p className="px-2 py-6 text-center text-small text-fg-muted">{t("emptyGroup")}</p>
-        ) : null}
-      </div>
-    </section>
+    <div
+      ref={setNodeRef}
+      data-cell={cell}
+      className={cn(
+        "flex w-[296px] shrink-0 flex-col gap-2 rounded-card p-1 transition-colors",
+        fill ? "min-h-24 flex-1 scrollbar-thin overflow-y-auto pb-8" : "min-h-16",
+        isOver && "bg-sky-50/70 outline-1 outline-sky-300 outline-dashed",
+      )}
+    >
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        {rows.map((row) => (
+          <SortableCard
+            key={cardId(cell, row.id)}
+            id={cardId(cell, row.id)}
+            row={row}
+            meta={meta}
+            options={options}
+            hidden={activeId === cardId(cell, row.id)}
+            focused={focusedId === row.id}
+            onOpen={() => onOpen(row)}
+            onFocus={() => onFocus(row.id)}
+            onUpdate={onUpdate}
+          />
+        ))}
+      </SortableContext>
+      {rows.length === 0 && fill ? (
+        <p className="px-2 py-6 text-center text-small text-fg-muted">{t("emptyGroup")}</p>
+      ) : null}
+    </div>
   );
 }
 

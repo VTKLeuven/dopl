@@ -355,7 +355,7 @@
       "TIMELINE": "Timeline"
     },
     "groupBy": "Group by",
-    "subGroupBy": "Sub-group",
+    "subGroupBy": "Swimlanes",
     "orderBy": "Order by",
     "completedItems": "Completed items",
     "density": "Density",
@@ -516,7 +516,8 @@
     "bulkUpdated": "{count, plural, one {# item updated} other {# items updated}}",
     "archivedMany": "{count, plural, one {Item archived} other {# items archived}}",
     "movedMany": "{count, plural, one {Item moved} other {# items moved}}",
-    "moveTo": "Move to project"
+    "moveTo": "Move to project",
+    "noSwimlanes": "None"
   },
   "projectSettings": {
     "title": "Project settings",
