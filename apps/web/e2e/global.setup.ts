@@ -3,6 +3,9 @@ import { expect, test as setup } from "@playwright/test";
 export const MEMBER = { email: "bram@dopl.test", password: "dopl-dev-password" };
 
 setup("sign in as a seeded member and ensure the sandbox project", async ({ page }) => {
+  // The first requests compile routes on a cold `next dev` (CI), and the
+  // warm-up below compiles more; together they outlast the default 60 s.
+  setup.setTimeout(240_000);
   await page.goto("/sign-in");
   await page.fill("#email", MEMBER.email);
   await page.fill("#password", MEMBER.password);
