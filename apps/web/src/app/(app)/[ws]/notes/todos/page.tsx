@@ -10,7 +10,10 @@ export default function TodosPage({ params }: PageProps<"/[ws]/notes/todos">) {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6 px-4 py-6 md:px-8" aria-busy>
+        <div
+          className="mx-auto flex w-full max-w-[880px] flex-col gap-6 px-4 py-6 md:px-8"
+          aria-busy
+        >
           <div className="flex flex-col gap-2">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-3.5 w-64" />

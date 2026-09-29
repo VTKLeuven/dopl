@@ -11,7 +11,12 @@ export interface InboxSummary {
     type: string;
     read: boolean;
     createdAt: string;
-    actor: { id: string; name: string; image: string | null; kind: "HUMAN" | "AGENT" | "SYSTEM" } | null;
+    actor: {
+      id: string;
+      name: string;
+      image: string | null;
+      kind: "HUMAN" | "AGENT" | "SYSTEM";
+    } | null;
     item: { identifier: string; title: string } | null;
     title: string | null;
   }>;

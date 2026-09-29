@@ -31,14 +31,7 @@ import {
 } from "@/server/actions/notes";
 import type { ActionResult } from "@/server/action-result";
 import type { PaletteData } from "@/server/queries/palette";
-import type {
-  NoteCard,
-  NoteSearchHit,
-  NotesSummary,
-  ReviewData,
-  TagRow,
-  TodoRow,
-} from "./types";
+import type { NoteCard, NoteSearchHit, NotesSummary, ReviewData, TagRow, TodoRow } from "./types";
 
 /* ─────────────── query keys (realtime invalidates ["notes", ws]) ─────────────── */
 
@@ -212,7 +205,8 @@ function belongs(card: NoteCard, key: readonly unknown[], me: string): boolean {
 
 /** Newest first, pinned on top in "all" (mirrors the server's order). */
 function sortCards(cards: NoteCard[], filter: NoteFilter): NoteCard[] {
-  const by = (a: string | null, b: string | null) => (a === b ? 0 : !a ? 1 : !b ? -1 : a < b ? 1 : -1);
+  const by = (a: string | null, b: string | null) =>
+    a === b ? 0 : !a ? 1 : !b ? -1 : a < b ? 1 : -1;
   return [...cards].sort((a, b) =>
     filter === "all"
       ? by(a.pinnedAt, b.pinnedAt) || by(a.createdAt, b.createdAt)
@@ -474,7 +468,12 @@ export function useNoteLifecycle(ws: string, me: string) {
       applyCard(qc, ws, me, card.id, unwrap(res));
       settle();
       if (undoable) {
-        const undo = { archive: "unarchive", unarchive: "archive", trash: "restore", restore: "trash" } as const;
+        const undo = {
+          archive: "unarchive",
+          unarchive: "archive",
+          trash: "restore",
+          restore: "trash",
+        } as const;
         toast(t(`toast.${change}`), {
           duration: 5000,
           action: { label: t("undo"), onClick: () => void run(next, undo[change], false) },
@@ -518,7 +517,8 @@ export function useToggleTodo(ws: string, me: string) {
     onMutate: async ({ noteId, blockId, checked }) => {
       await qc.cancelQueries({ queryKey: noteKeys.all(ws) });
       const snapshot: Snapshot = [];
-      const card = findCached(qc, ws, noteId) ?? qc.getQueryData<NoteCard>(noteKeys.one(ws, noteId));
+      const card =
+        findCached(qc, ws, noteId) ?? qc.getQueryData<NoteCard>(noteKeys.one(ws, noteId));
       if (card) {
         const { doc } = setTodoChecked(card.content as PMNode, blockId, checked);
         const next = withContent(card, doc);
@@ -530,7 +530,9 @@ export function useToggleTodo(ws: string, me: string) {
           }),
         );
       }
-      for (const [key, data] of qc.getQueriesData<TodoRow[]>({ queryKey: ["notes", ws, "todos"] })) {
+      for (const [key, data] of qc.getQueriesData<TodoRow[]>({
+        queryKey: ["notes", ws, "todos"],
+      })) {
         if (!Array.isArray(data) || !data.some((r) => r.noteId === noteId && r.blockId === blockId))
           continue;
         snapshot.push([key, data]);
@@ -561,7 +563,9 @@ export function useSetTodoDue(ws: string) {
     onMutate: async ({ todoId, dueDate }) => {
       await qc.cancelQueries({ queryKey: ["notes", ws, "todos"] });
       const snapshot: Snapshot = [];
-      for (const [key, data] of qc.getQueriesData<TodoRow[]>({ queryKey: ["notes", ws, "todos"] })) {
+      for (const [key, data] of qc.getQueriesData<TodoRow[]>({
+        queryKey: ["notes", ws, "todos"],
+      })) {
         if (!Array.isArray(data) || !data.some((r) => r.id === todoId)) continue;
         snapshot.push([key, data]);
         qc.setQueryData<TodoRow[]>(
@@ -617,9 +621,7 @@ export function useReviewAction(ws: string) {
   return useMutation({
     mutationFn: async (
       input: { noteId: string } & (
-        | { action: "keep" }
-        | { action: "archive" }
-        | { action: "snooze"; days: number }
+        { action: "keep" } | { action: "archive" } | { action: "snooze"; days: number }
       ),
     ) => unwrap(await reviewNoteAction(ws, input)),
     onMutate: async ({ noteId }) => {

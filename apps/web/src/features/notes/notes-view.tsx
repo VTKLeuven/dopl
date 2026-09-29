@@ -109,11 +109,12 @@ export function NotesView({
     return () => clearTimeout(id);
   }, [search, q, setState]);
 
-  const { data: notes, isError, isFetching, refetch } = useNotes(
-    ws,
-    params,
-    sameParams(params, initial.params) ? initial.notes : undefined,
-  );
+  const {
+    data: notes,
+    isError,
+    isFetching,
+    refetch,
+  } = useNotes(ws, params, sameParams(params, initial.params) ? initial.notes : undefined);
   const onTag = (path: string) => url.go({ filter: "all", tag: path });
   const onOpen = (id: string) => void url.setState({ note: id });
   const canCapture = (url.filter === "all" || url.filter === "pinned") && !url.q;
@@ -124,11 +125,7 @@ export function NotesView({
     <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5 px-4 py-5 md:px-6">
       <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 md:hidden">
         {(["all", "pinned", "shared", "archived", "trash"] as const).map((f) => (
-          <Chip
-            key={f}
-            active={url.filter === f && !url.tag}
-            onClick={() => url.go({ filter: f })}
-          >
+          <Chip key={f} active={url.filter === f && !url.tag} onClick={() => url.go({ filter: f })}>
             {EMPTY_ICON[f]}
             {t(`filter.${f}`)}
           </Chip>
@@ -219,7 +216,9 @@ export function NotesView({
           {rest.length > 0 ? (
             <section aria-label={t("section.others")} className="flex flex-col gap-2">
               {pinned.length > 0 ? (
-                <h2 className="px-1 text-caption font-medium text-fg-muted">{t("section.others")}</h2>
+                <h2 className="px-1 text-caption font-medium text-fg-muted">
+                  {t("section.others")}
+                </h2>
               ) : null}
               <NotesGrid ws={ws} me={me} cards={rest} onTag={onTag} onOpen={onOpen} />
             </section>

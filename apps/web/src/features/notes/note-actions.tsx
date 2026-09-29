@@ -219,7 +219,12 @@ export function AttachItemDialog({
       <DialogContent size="md" hideClose className="overflow-hidden p-0">
         <DialogTitle className="sr-only">{t("item")}</DialogTitle>
         <Command shouldFilter={false} loop>
-          <CommandInput placeholder={t("itemPlaceholder")} value={q} onValueChange={setQ} autoFocus />
+          <CommandInput
+            placeholder={t("itemPlaceholder")}
+            value={q}
+            onValueChange={setQ}
+            autoFocus
+          />
           <CommandList>
             <CommandEmpty>{t("noItems")}</CommandEmpty>
             {hits.map((h) => (

@@ -151,7 +151,7 @@ export function NoteCardView({
         variant === "dialog" && "border-0 shadow-none",
         cardColorClass(card.color),
         editing && variant !== "dialog" && "border-sky-300 ring-[3px] ring-sky-400/25",
-        !editing && "focus-visible:ring-[3px] focus-visible:ring-sky-400/30 hover:shadow-popover",
+        !editing && "hover:shadow-popover focus-visible:ring-[3px] focus-visible:ring-sky-400/30",
       )}
     >
       {card.pinnedAt && !trashed && variant !== "dialog" ? (
@@ -397,13 +397,9 @@ function CardFooter({
           {t("archived")}
         </span>
       ) : null}
-      <time
-        dateTime={card.updatedAt}
-        className="ml-auto shrink-0 tabular"
-      >
+      <time dateTime={card.updatedAt} className="ml-auto shrink-0 tabular">
         {when}
       </time>
     </footer>
   );
 }
-

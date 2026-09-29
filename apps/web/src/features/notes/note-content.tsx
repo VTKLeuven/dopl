@@ -140,7 +140,7 @@ function TaskItemView({ n, a }: { n: PMNode; a: ContentActions }) {
               e.stopPropagation();
               a.onConvertLine?.(blockId, label.trim());
             }}
-            className="mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] text-icon opacity-0 transition-opacity group-hover/task:opacity-100 hover:bg-neutral-150 hover:text-fg focus-visible:opacity-100 focus-ring"
+            className="mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] text-icon opacity-0 focus-ring transition-opacity group-hover/task:opacity-100 hover:bg-neutral-150 hover:text-fg focus-visible:opacity-100"
           >
             <SquareArrowOutUpRight className="size-3.5" />
           </button>

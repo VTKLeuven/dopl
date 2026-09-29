@@ -292,7 +292,11 @@ export function NoteEditor({
         "aria-multiline": "true",
       },
       handleKeyDown: (_view, event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && handlers.current.onSubmit) {
+        if (
+          (event.metaKey || event.ctrlKey) &&
+          event.key === "Enter" &&
+          handlers.current.onSubmit
+        ) {
           handlers.current.onSubmit();
           return true;
         }

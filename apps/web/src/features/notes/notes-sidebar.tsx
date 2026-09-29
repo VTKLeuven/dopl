@@ -52,7 +52,8 @@ export function buildTagTree(rows: TagRow[]): TagNode[] {
       : undefined;
     (parent ? parent.children : roots).push(node);
   }
-  const sum = (n: TagNode): number => (n.total = n.tag.count + n.children.reduce((s, c) => s + sum(c), 0));
+  const sum = (n: TagNode): number =>
+    (n.total = n.tag.count + n.children.reduce((s, c) => s + sum(c), 0));
   roots.forEach(sum);
   return roots;
 }
@@ -253,11 +254,15 @@ function TagTreeNode({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={() => onAction({ mode: "rename", tag: node.tag, total: node.total })}>
+            <DropdownMenuItem
+              onSelect={() => onAction({ mode: "rename", tag: node.tag, total: node.total })}
+            >
               <Pencil />
               {t("rename")}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onAction({ mode: "merge", tag: node.tag, total: node.total })}>
+            <DropdownMenuItem
+              onSelect={() => onAction({ mode: "merge", tag: node.tag, total: node.total })}
+            >
               <GitMerge />
               {t("merge")}
             </DropdownMenuItem>

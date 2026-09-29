@@ -44,7 +44,13 @@ export function TagDialog({
   return (
     <Dialog open={Boolean(state)} onOpenChange={(o) => !o && onClose()}>
       {state ? (
-        <TagForm key={`${state.mode}:${state.tag.id}`} ws={ws} state={state} tags={tags} onClose={onClose} />
+        <TagForm
+          key={`${state.mode}:${state.tag.id}`}
+          ws={ws}
+          state={state}
+          tags={tags}
+          onClose={onClose}
+        />
       ) : null}
     </Dialog>
   );
@@ -82,7 +88,11 @@ function TagForm({
   };
 
   const title =
-    state.mode === "rename" ? t("renameTitle") : state.mode === "merge" ? t("mergeTitle") : t("deleteTitle");
+    state.mode === "rename"
+      ? t("renameTitle")
+      : state.mode === "merge"
+        ? t("mergeTitle")
+        : t("deleteTitle");
   const others = tags.filter((x) => !isUnderTag(x.path, from));
 
   return (
@@ -151,7 +161,11 @@ function TagForm({
           loading={busy}
           disabled={state.mode !== "delete" && (!target || invalid || unchanged)}
         >
-          {state.mode === "rename" ? t("renameSubmit") : state.mode === "merge" ? t("mergeSubmit") : t("deleteSubmit")}
+          {state.mode === "rename"
+            ? t("renameSubmit")
+            : state.mode === "merge"
+              ? t("mergeSubmit")
+              : t("deleteSubmit")}
         </Button>
       </DialogFooter>
     </DialogContent>

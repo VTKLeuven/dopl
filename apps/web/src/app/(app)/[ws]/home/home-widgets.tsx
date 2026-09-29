@@ -234,7 +234,10 @@ export function TodaysFocus({
             </li>
           ))}
           {focusTodos.map((x) => (
-            <li key={x.id} className="flex h-11 items-center gap-2.5 border-b border-border px-4 last:border-0">
+            <li
+              key={x.id}
+              className="flex h-11 items-center gap-2.5 border-b border-border px-4 last:border-0"
+            >
               <Checkbox
                 checked={x.checked}
                 aria-label={x.text}
@@ -242,7 +245,12 @@ export function TodaysFocus({
                   toggle.mutate({ noteId: x.noteId, blockId: x.blockId, checked: v === true })
                 }
               />
-              <span className={cn("min-w-0 flex-1 truncate text-body", x.checked && "text-fg-muted line-through")}>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-body",
+                  x.checked && "text-fg-muted line-through",
+                )}
+              >
                 {x.text}
               </span>
               <span
@@ -312,7 +320,12 @@ export function InboxCard({ ws, inbox }: { ws: string; inbox: InboxSummary }) {
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block truncate text-small", n.read ? "text-fg-secondary" : "font-semibold text-fg")}>
+                  <span
+                    className={cn(
+                      "block truncate text-small",
+                      n.read ? "text-fg-secondary" : "font-semibold text-fg",
+                    )}
+                  >
                     {n.actor?.name ?? t("someone")} {verb(n.type)}
                   </span>
                   <span className="block truncate text-small text-fg-muted">
@@ -326,8 +339,15 @@ export function InboxCard({ ws, inbox }: { ws: string; inbox: InboxSummary }) {
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-caption text-fg-muted tabular">{relative(n.createdAt)}</span>
-                  {!n.read ? <span aria-label={t("unreadDot")} className="size-1.5 rounded-full bg-sky-600" /> : null}
+                  <span className="text-caption text-fg-muted tabular">
+                    {relative(n.createdAt)}
+                  </span>
+                  {!n.read ? (
+                    <span
+                      aria-label={t("unreadDot")}
+                      className="size-1.5 rounded-full bg-sky-600"
+                    />
+                  ) : null}
                 </span>
               </Link>
             </li>

@@ -122,7 +122,12 @@ export function TodoLine({
                 aria-label={t("convert")}
                 className="reveal-on-row-hover"
                 onClick={() =>
-                  onConvert({ kind: "todo", noteId: row.noteId, blockId: row.blockId, text: row.text })
+                  onConvert({
+                    kind: "todo",
+                    noteId: row.noteId,
+                    blockId: row.blockId,
+                    text: row.text,
+                  })
                 }
               >
                 <SquareArrowOutUpRight />
@@ -143,7 +148,10 @@ export function TodoListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <ul aria-hidden className="overflow-hidden rounded-card border border-border">
       {Array.from({ length: rows }).map((_, i) => (
-        <li key={i} className="flex h-12 items-center gap-3 border-b border-border px-4 last:border-0">
+        <li
+          key={i}
+          className="flex h-12 items-center gap-3 border-b border-border px-4 last:border-0"
+        >
           <Skeleton className="size-4 rounded-[4px]" />
           <Skeleton className="h-3.5" style={{ width: `${35 + ((i * 23) % 30)}%` }} />
           <Skeleton className="ml-auto h-3 w-24" />
@@ -171,11 +179,11 @@ export function TodosView({
     "status",
     parseAsStringLiteral(["open", "done", "converted"] as const).withDefault("open"),
   );
-  const { data: rows, isError, refetch } = useTodos(
-    ws,
-    status,
-    status === "open" ? initial : undefined,
-  );
+  const {
+    data: rows,
+    isError,
+    refetch,
+  } = useTodos(ws, status, status === "open" ? initial : undefined);
   const [convert, setConvert] = useState<ConvertTarget | null>(null);
   const open = (id: string) => void setNote(id);
 
@@ -244,10 +252,15 @@ export function TodosView({
                   )}
                 >
                   {t(`bucket.${b}`)}
-                  <span className="text-small font-normal text-fg-muted tabular">{list.length}</span>
+                  <span className="text-small font-normal text-fg-muted tabular">
+                    {list.length}
+                  </span>
                 </h2>
               ) : null}
-              <ul className="overflow-hidden rounded-card border border-border" data-testid="todo-list">
+              <ul
+                className="overflow-hidden rounded-card border border-border"
+                data-testid="todo-list"
+              >
                 {list.map((r) => (
                   <TodoLine
                     key={r.id}

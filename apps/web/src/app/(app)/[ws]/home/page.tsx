@@ -136,7 +136,8 @@ async function Home({ params }: { params: PageProps<"/[ws]/home">["params"] }) {
               })}
             </h1>
             <p className="mt-1 text-body text-fg-muted">
-              {format(parseISO(today), "EEEE d MMMM")} · {t("assignedCount", { count: rows.length })}
+              {format(parseISO(today), "EEEE d MMMM")} ·{" "}
+              {t("assignedCount", { count: rows.length })}
               {summary.openTodos > 0 ? ` · ${tw("todoCount", { count: summary.openTodos })}` : ""}
             </p>
           </div>

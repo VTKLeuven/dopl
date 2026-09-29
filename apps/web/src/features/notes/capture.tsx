@@ -89,7 +89,7 @@ export function CaptureComposer({
         data-testid="capture-bar"
         className={cn(
           "flex h-12 w-full items-center gap-2.5 rounded-card border border-border bg-surface px-4 text-left text-body text-fg-placeholder shadow-card",
-          "transition-shadow duration-[var(--dur-fast)] hover:shadow-popover focus-ring",
+          "focus-ring transition-shadow duration-[var(--dur-fast)] hover:shadow-popover",
           className,
         )}
       >
