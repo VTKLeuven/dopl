@@ -19,6 +19,7 @@ import {
 } from "@dopl/shared/schemas/messages";
 import { CreateWorkItemSchema } from "@dopl/shared/schemas/work-item";
 import { ConflictError, NotFoundError } from "../action-result";
+import { agentUserIds, findAgent, queueAgentRun } from "../agent/runs";
 import { withMutation, type Mutation } from "../mutation";
 import { notify } from "../notifications/notify";
 import { channelAccessById, usersWhoCanView, type ChannelAccess } from "../queries/channels";
@@ -143,6 +144,7 @@ export async function sendMessage(ctx: WorkspaceCtx, raw: unknown) {
         channelId: c.id,
         authorId: me,
         kind: ctx.actor.kind === "AGENT" ? "AGENT" : "USER",
+        agentRunId: ctx.agentRunId ?? null,
         threadRootId: root?.id ?? null,
         body: body as unknown as Prisma.InputJsonValue,
         bodyText: docToPlainText(body),
@@ -199,7 +201,26 @@ export async function sendMessage(ctx: WorkspaceCtx, raw: unknown) {
     }
 
     const data = channelData(access, root?.id ?? null, docToPlainText(body, 200));
-    const mentioned = await notifyMentions(m, access, message.id, extractMentions(body), data);
+    const allMentioned = extractMentions(body);
+    // The AI teammate answers DMs and @mentions with a run (Phase 8).
+    const agentMembers =
+      c.kind === "DM"
+        ? await m.tx.channelMember.findMany({
+            where: { channelId: c.id, user: { kind: "AGENT" } },
+            select: { userId: true },
+          })
+        : [];
+    const agents = new Set([
+      ...agentMembers.map((a) => a.userId),
+      ...(await agentUserIds(m.tx, ctx.workspace.id, allMentioned)),
+    ]);
+    const mentioned = await notifyMentions(
+      m,
+      access,
+      message.id,
+      allMentioned.filter((u) => !agents.has(u)),
+      data,
+    );
     if (root) {
       // The replier, the root's author and whoever gets mentioned follow the thread.
       const followers = [me, ...mentioned, ...(root.authorId ? [root.authorId] : [])];
@@ -245,6 +266,18 @@ export async function sendMessage(ctx: WorkspaceCtx, raw: unknown) {
       type: "message.created",
       payload: { id: message.id, channelId: c.id, threadRootId: root?.id ?? null, authorId: me },
     });
+    if (agents.size > 0) {
+      const agent = await findAgent(m.tx, ctx.workspace.id);
+      if (agent && agents.has(agent.userId))
+        await queueAgentRun(m, {
+          agent,
+          trigger: agentMembers.length > 0 ? "DIRECT_MESSAGE" : "MESSAGE_MENTION",
+          request: docToPlainText(body),
+          channelId: c.id,
+          threadRootId: root?.id ?? null,
+          triggerMessageId: message.id,
+        });
+    }
     return { id: message.id, createdAt: message.createdAt.toISOString() };
   });
 }

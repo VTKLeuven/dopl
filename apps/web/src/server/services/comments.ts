@@ -11,6 +11,7 @@ import { docToPlainText, extractMentions, isEmptyDoc, sanitizeDoc } from "@dopl/
 import { ConflictError, NotFoundError } from "../action-result";
 import { db } from "../db";
 import { notifySubmitter } from "../intake/core";
+import { agentUserIds, findAgent, queueAgentRun } from "../agent/runs";
 import { withMutation } from "../mutation";
 import { notify } from "../notifications/notify";
 import { projectAccessById } from "../queries/projects";
@@ -45,6 +46,7 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
         projectId: item.projectId,
         workItemId: item.id,
         authorId: ctx.actor.userId,
+        agentRunId: ctx.agentRunId ?? null,
         visibility: input.visibility,
         body: body as unknown as Prisma.InputJsonValue,
         bodyText: docToPlainText(body),
@@ -56,7 +58,10 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
       data: { commentCount: { increment: 1 } },
     });
 
-    const mentioned = extractMentions(body);
+    const allMentioned = extractMentions(body);
+    // @Dopl starts a run instead of a notification (Phase 8).
+    const agents = await agentUserIds(m.tx, ctx.workspace.id, allMentioned);
+    const mentioned = allMentioned.filter((u) => !agents.has(u));
     for (const userId of [ctx.actor.userId, ...mentioned]) {
       await m.tx.workItemSubscriber.upsert({
         where: { workItemId_userId: { workItemId: item.id, userId } },
@@ -141,6 +146,19 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
       type: "workItem.updated",
       payload: { id: item.id, fields: ["commentCount"] },
     });
+    if (agents.size > 0) {
+      const agent = await findAgent(m.tx, ctx.workspace.id);
+      if (agent && agents.has(agent.userId))
+        await queueAgentRun(m, {
+          agent,
+          trigger: "COMMENT_MENTION",
+          request: docToPlainText(body),
+          workItemId: item.id,
+          triggerCommentId: comment.id,
+          // Asking about this item is asking about its content (D-033).
+          includeUntrusted: true,
+        });
+    }
     return comment;
   });
 }

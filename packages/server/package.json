@@ -7,7 +7,8 @@
   "exports": {
     "./storage": "./src/storage.ts",
     "./webhooks": "./src/webhooks.ts",
-    "./notify": "./src/notify.ts"
+    "./notify": "./src/notify.ts",
+    "./agent": "./src/agent.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

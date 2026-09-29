@@ -31,6 +31,8 @@ export interface MutationActor {
   type: "USER" | "AGENT" | "CONTACT" | "SYSTEM";
   userId: string | null;
   contactId?: string | null;
+  /** Set for writes the AI teammate makes through MCP (Activity.agentRunId). */
+  agentRunId?: string | null;
 }
 
 export interface BaseMutation {
@@ -85,6 +87,7 @@ async function runMutation<T>(
             actorType: actor.type,
             actorId: actor.userId,
             actorContactId: actor.contactId ?? null,
+            agentRunId: actor.agentRunId ?? null,
             batchId,
           })),
         });
@@ -113,6 +116,7 @@ export function withMutation<T>(ctx: WorkspaceCtx, fn: (m: Mutation) => Promise<
   const actor: MutationActor = {
     type: ctx.actor.kind === "AGENT" ? "AGENT" : "USER",
     userId: ctx.actor.userId,
+    agentRunId: ctx.agentRunId ?? null,
   };
   return runMutation(ctx.workspace.id, actor, (m) => fn({ ...m, ctx }));
 }
@@ -144,7 +148,7 @@ export async function audit(
   await tx.auditLog.create({
     data: {
       workspaceId: ctx.workspace.id,
-      actorType: "USER",
+      actorType: ctx.actor.kind === "AGENT" ? "AGENT" : "USER",
       actorId: ctx.actor.userId,
       actorLabel: `${ctx.actor.name} <${ctx.actor.email}>`,
       action: entry.action,

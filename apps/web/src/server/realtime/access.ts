@@ -85,6 +85,9 @@ export class TopicAccess {
       }
       case "mailbox":
         return Boolean(id && this.mailboxes.has(id));
+      // The AI teammate's runs and approvals list (ids only): the team, not guests.
+      case "agent":
+        return id === this.ctx.workspace.id && this.ctx.role !== "GUEST";
       case "emailThread": {
         if (!id) return false;
         if (!this.threadMailbox.has(id)) {

@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/reset-password",
   "/api/auth/",
   "/api/public/",
+  "/api/mcp", // bearer tokens for the AI teammate (D-032), checked in the route
   "/f/",
   "/s/",
   "/embed.js",

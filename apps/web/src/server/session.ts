@@ -46,6 +46,8 @@ export interface WorkspaceCtx {
   role: WorkspaceRole;
   canApproveAgentActions: boolean;
   policyActor: PolicyActor;
+  /** Only on the AI teammate's MCP context: the run its writes belong to. */
+  agentRunId?: string;
 }
 
 export const getWorkspaceCtx = cache(async (slug: string): Promise<WorkspaceCtx | null> => {
