@@ -863,3 +863,63 @@ These routes are **internal**: they have no stability promise. The public REST A
 - `<html data-saving>` is present while mutations are in flight. Tests wait for it to disappear instead of `networkidle`, which the always-open realtime stream makes meaningless.
 - The Playwright setup empties the E2E sandbox (select all, delete) before the run.
 - Next keeps the previous route mounted (hidden) for instant back navigation, so a test id can match twice. Specs act on `filter({ visible: true })`.
+
+## Decisions made while building Phase 3 (2026-09-29)
+
+### D-071: Public forms can be framed anywhere; the allowed origins are checked on submit
+
+**Context:** ARCHITECTURE §6 planned a per-form `frame-ancestors` header. `proxy.ts` can't read the database (D-007), and `frame-ancestors` can't be set from a `<meta>` tag.
+**Decision:** `/f/*` sends no `X-Frame-Options`, so any site can frame a form. The form's `allowedEmbedOrigins` is enforced where it matters: the submit endpoint refuses (403 `embed_not_allowed`) a submission whose embedding origin isn't on the list. The iframe reports its host from `location.ancestorOrigins`, falling back to the `origin` parameter `embed.js` adds, then the referrer. An empty list means any site.
+**Trade-off:** a determined script can lie about its origin, but it could also post to the endpoint directly; the check stops casual reuse of a form on someone else's site. Rate limits, the honeypot and Turnstile do the real anti-abuse work.
+
+### D-072: Status links keep their token in the URL (amends D-026)
+
+**Decision:** `/s/<token>` is the credential; there's no swap to a path-scoped cookie. Only the SHA-256 is stored. A token lasts 90 days and renews when used (at most one write per hour). Every email to a contact carries a fresh token for that one request. `/s/*` responses send `Referrer-Policy: no-referrer`, blocked contacts' links stop working, and the page shows only an explicit allowlist of fields (`buildPublicRequestView`).
+**Why:** a cookie swap adds a redirect and state for no real gain: whoever holds the link can use it either way, and the referrer policy stops it leaking.
+
+### D-073: Public uploads go through the app and wait in quarantine
+
+**Context:** ARCHITECTURE §10 planned presigned PUTs. With the local-disk driver there's nothing to presign, and forms need the same size and type checks either way.
+**Decision:** `POST /api/public/forms/<slug>/uploads` takes one file (multipart), checks the form's size limit, MIME allowlist and per-submission count, and stores it as `Attachment(QUARANTINED)` under `<workspace>/intake/<form>/<clientSubmissionId>/`. The submit transaction claims only quarantined files under that prefix and makes them READY on the new item, so one submission can't claim another's uploads. Status-page replies work the same way under `<workspace>/status/<intake>/`. `maintenance.prune` drops quarantined rows older than two days.
+**Not done yet:** the bytes of abandoned uploads stay in storage (the worker has no storage client yet).
+
+### D-074: How public submissions are filtered
+
+- **Silently dropped** (the sender sees success, nothing is stored): a filled honeypot, a submission less than 2 s after the form rendered, and anything from a blocked contact.
+- **Refused:** more than 20 submissions per form from one IP in 10 minutes, or 10 from one email address (429 with `Retry-After`); 60 uploads per IP in 10 minutes; replies per status link (20 per 10 minutes). Keys are salted hashes, never raw IPs or emails (D-025).
+- **Turnstile** is per form and only offered when `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` are set.
+- **Idempotent:** a retried `clientSubmissionId` returns the first result.
+- The client IP is the first `X-Forwarded-For` hop, so the app must only be reachable through Caddy (D-051).
+
+### D-075: Requests live in triage until accepted
+
+- A request is a work item in the hidden TRIAGE state (D-018). It can be opened by id (`/api/v1/<ws>/items/<uuid>`), but only by people who may triage; guests never see triage items or the request panel.
+- While in triage, title, description, priority, labels and attachments can be edited, but not the state or parent (`in_triage`); only Accept moves it out, gives it the next number, puts it at the top of the manual order and optionally sets state, assignees, labels and priority.
+- Decline and duplicate keep the item in TRIAGE (numbers are never used up) and can be reopened. Snoozed means `PENDING` with a future `snoozedUntil`; the worker's `snooze.wake` job brings it back every minute and notifies whoever snoozed it.
+- The detail view is shared: triage mode swaps the header for the decision bar (Y accept, N decline, U duplicate, Z snooze) and hides properties, sub-items, relations and links.
+
+### D-076: Notifications are written in the mutation, through one helper
+
+**Decision:** Services call `notify()` (`server/notifications/notify.ts`) inside `withMutation` instead of enqueueing a `notifications.fanout` job. It skips the actor, honours in-app preferences, collapses unread rows with the same `groupKey` (the row moves to the top: its `createdAt` becomes the latest activity) and emits a `user:<id>` realtime event.
+**Rule:** internal comments never notify guests, even when a guest is subscribed to their own request; they hear about public replies only.
+**Why:** notifications then commit with the change and appear on the next realtime tick. A job adds latency and a second place to get recipients wrong. The job stays available for expensive fan-outs.
+
+### D-077: Webhook deliveries are coalesced in the outbox and rendered at send time
+
+- Matching and queuing happen in the mutation's transaction (`m.webhook(...)`): one `WebhookDelivery` per webhook and event, plus a `webhook.deliver` job.
+- `work_item.state_changed`, `completed` and `assigned` wait 60 s. Later updates to the same entity append to the waiting delivery (an atomic `jsonb` append), so five quick edits become one message. `work_item.created` and `intake.*` go out at once.
+- The worker renders the message when it sends it, from the entity's current state, and stores what it posted for redelivery.
+- **Safety:** only Discord webhook URLs are accepted (plus localhost outside production), so the worker can't be aimed at internal services; URLs are AES-GCM encrypted with `DOPL_ENCRYPTION_KEY`; `allowed_mentions` is empty and untrusted text is markdown-escaped.
+- **Failures:** 429 reschedules after `retry_after` without counting as a failure; other 4xx fail at once (retrying can't help); 5xx and network errors retry with backoff. Ten failures in a row disable the webhook, notify the admins (`INTEGRATION_FAILED`) and write an audit entry.
+
+### D-078: The form builder saves the whole form explicitly
+
+**Decision:** The builder edits a local draft with a live preview and saves everything at once (Save or ⌘S), rather than autosaving each keystroke. Fields are matched by key: removed fields are archived because old submissions reference them, and re-added ones come back. Options for fields mapped to priority, type or labels are derived from the project when saving, so they stay in sync. Publishing and unpublishing are audited, because they change what's on the public internet. The cached public page (`'use cache'` + `cacheTag`) is refreshed with `updateTag` on every save.
+**Why:** a half-edited form should never be live. Saving explicitly makes publishing predictable.
+
+### D-079: Operational notes from Phase 3
+
+- The test database now gets the pg-boss schema and queues in `test/global-setup.ts`, because services enqueue jobs inside their transactions.
+- CI runs Mailpit as a service and the worker in the background during e2e, so the confirmation-email flow is tested for real.
+- `PW_CHROMIUM` points Playwright at a preinstalled Chromium when its own build isn't downloaded (cloud dev containers).
+- next-intl message keys can't contain dots, so webhook event labels use `work_item_created` style keys.

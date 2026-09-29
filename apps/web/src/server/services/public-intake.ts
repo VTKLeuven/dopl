@@ -295,6 +295,7 @@ export async function submitPublicForm(
               key: f.key,
               label: f.label,
               type: f.type,
+              target: f.target,
               options: f.options,
             })),
             ipHash,

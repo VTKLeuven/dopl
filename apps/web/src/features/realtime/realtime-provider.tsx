@@ -36,6 +36,7 @@ export function RealtimeProvider() {
     const scopes = new Set<string>();
     const items = new Set<string>();
     const metas = new Set<string>();
+    const intake = new Set<string>();
     let refreshPage = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -52,11 +53,13 @@ export function RealtimeProvider() {
       if (scopes.size) void qc.invalidateQueries({ queryKey: ["items", "workspace"] });
       invalidateDetails(qc, items);
       for (const m of metas) void qc.invalidateQueries({ queryKey: ["meta", m] });
+      for (const p of intake) void qc.invalidateQueries({ queryKey: ["intake", p] });
       if (metas.size) void qc.invalidateQueries({ queryKey: ["meta", "workspace"] });
       if (refreshPage) router.refresh();
       scopes.clear();
       items.clear();
       metas.clear();
+      intake.clear();
       refreshPage = false;
     };
     const schedule = () => {
@@ -82,9 +85,15 @@ export function RealtimeProvider() {
           scopes.add(id);
         } else if (ev.type.startsWith("view.")) {
           refreshPage = true;
+        } else if (ev.type.startsWith("intake.")) {
+          // The triage queue, its counts and the sidebar badge.
+          intake.add(id);
+          refreshPage = true;
         }
       } else if (kind === "workItem" && id) {
         items.add(id);
+        // A guest's request page is server-rendered.
+        if (/\/requests\//.test(path.current)) refreshPage = true;
       } else if (kind === "workspace") {
         // Projects, members, labels, views: sidebar and settings are server-rendered.
         refreshPage = true;

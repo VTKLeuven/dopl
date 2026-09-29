@@ -478,6 +478,7 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
           toValue: true,
           meta: true,
           createdAt: true,
+          actorContactId: true,
           actor: { select: { name: true } },
         },
       },
@@ -537,7 +538,11 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
   const activities: ActivityView[] = item.activities.map((a) => ({
     id: a.id,
     actorId: a.actorId,
-    actorName: a.actor?.name ?? "System",
+    actorName:
+      a.actor?.name ??
+      (a.actorContactId && request?.submitter?.id === a.actorContactId
+        ? request.submitter.name
+        : "System"),
     verb: a.verb,
     field: a.field,
     fromValue: a.fromValue,

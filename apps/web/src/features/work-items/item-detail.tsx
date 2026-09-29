@@ -22,7 +22,11 @@ import {
   X,
   ExternalLink,
   GitBranch,
+  Globe,
+  Lock,
 } from "lucide-react";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { RequestPanel } from "@/features/intake/request-panel";
 import { cn } from "@/lib/cn";
 import { useRelativeTime } from "@/lib/use-relative-time";
 import { Button } from "@/components/ui/button";
@@ -86,16 +90,21 @@ import { useEditorSources } from "./editor-sources";
 import { Attachments } from "./attachments";
 import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
 
+export type DetailMode = "peek" | "page" | "triage";
+
 export function ItemDetail({
   ws,
   itemRef,
   mode,
   onClose,
+  header,
 }: {
   ws: string;
   itemRef: string;
-  mode: "peek" | "page";
+  mode: DetailMode;
   onClose?: () => void;
+  /** Triage mode: the intake queue supplies its own header and decision bar. */
+  header?: React.ReactNode;
 }) {
   const { data, isError } = useWorkItemDetail(ws, itemRef);
   const { data: meta } = useProjectMeta(ws, data?.projectId ?? "", undefined);
@@ -121,13 +130,23 @@ export function ItemDetail({
   }
   if (!data || !meta || meta.project.id !== data.projectId)
     return <DetailSkeleton mode={mode} onClose={onClose} />;
-  return <DetailBody ws={ws} item={data} meta={meta} mode={mode} onClose={onClose} />;
+  return (
+    <DetailBody
+      ws={ws}
+      itemRef={itemRef}
+      item={data}
+      meta={meta}
+      mode={mode}
+      onClose={onClose}
+      triageHeader={header}
+    />
+  );
 }
 
-function DetailSkeleton({ mode, onClose }: { mode: "peek" | "page"; onClose?: () => void }) {
+function DetailSkeleton({ mode, onClose }: { mode: DetailMode; onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col" aria-busy>
-      {mode === "peek" ? (
+      {mode !== "page" ? (
         <div className="flex h-12 items-center gap-2 border-b border-border px-4">
           <Skeleton className="h-3 w-32" />
           {onClose ? (
@@ -160,16 +179,20 @@ function DetailSkeleton({ mode, onClose }: { mode: "peek" | "page"; onClose?: ()
 
 function DetailBody({
   ws,
+  itemRef,
   item,
   meta,
   mode,
   onClose,
+  triageHeader,
 }: {
   ws: string;
+  itemRef: string;
   item: Detail;
   meta: ProjectMeta;
-  mode: "peek" | "page";
+  mode: DetailMode;
   onClose?: () => void;
+  triageHeader?: React.ReactNode;
 }) {
   const t = useTranslations("items");
   const qc = useQueryClient();
@@ -179,8 +202,11 @@ function DetailBody({
   const set = (patch: Record<string, unknown>) => update.mutate({ id: item.id, ...patch });
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: keys.relations(item.projectId) });
-    return qc.invalidateQueries({ queryKey: keys.detail(item.identifier) });
+    // Loaded by identifier, or by id while the item is still a request in triage.
+    void qc.invalidateQueries({ queryKey: keys.detail(item.identifier) });
+    return qc.invalidateQueries({ queryKey: keys.detail(itemRef) });
   };
+  const triage = mode === "triage";
   const url = () => `${window.location.origin}/${ws}/i/${item.identifier}`;
 
   const copy = async (text: string) => {
@@ -188,7 +214,9 @@ function DetailBody({
     toast(t("copied"));
   };
 
-  const header = (
+  const header = triage ? (
+    triageHeader
+  ) : (
     <div
       className={cn(
         "flex h-12 shrink-0 items-center gap-1 border-b border-border px-4",
@@ -335,6 +363,9 @@ function DetailBody({
               large={mode === "page"}
             />
             {mode === "peek" ? properties : null}
+            {item.request ? (
+              <RequestPanel ws={ws} request={item.request} defaultOpen={triage} />
+            ) : null}
             <DescriptionEditor
               ws={ws}
               item={item}
@@ -342,9 +373,13 @@ function DetailBody({
               disabled={!canEdit}
               onSave={(description) => set({ description })}
             />
-            <SubItems ws={ws} item={item} meta={meta} canEdit={canEdit} onCreated={refresh} />
-            <Relations ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
-            <Links ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+            {triage ? null : (
+              <>
+                <SubItems ws={ws} item={item} meta={meta} canEdit={canEdit} onCreated={refresh} />
+                <Relations ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+                <Links ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+              </>
+            )}
             <Attachments ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
             <Timeline ws={ws} item={item} meta={meta} onChanged={refresh} />
           </div>
@@ -991,7 +1026,14 @@ function Timeline({
       <ol className="relative flex flex-col gap-3 before:absolute before:top-2 before:bottom-2 before:left-[11px] before:w-px before:bg-border">
         {entries.map((e) =>
           e.kind === "comment" ? (
-            <CommentEntry key={e.c.id} ws={ws} c={e.c} meta={meta} onChanged={onChanged} />
+            <CommentEntry
+              key={e.c.id}
+              ws={ws}
+              c={e.c}
+              meta={meta}
+              onChanged={onChanged}
+              hasSubmitter={Boolean(item.request?.submitter)}
+            />
           ) : (
             <ActivityEntry key={e.a.id} a={e.a} meta={meta} />
           ),
@@ -1018,6 +1060,12 @@ function ActivityEntry({ a, meta }: { a: ActivityView; meta: ProjectMeta }) {
   const fmtDate = (v: unknown) => (typeof v === "string" ? format(parseISO(v), "d MMM yyyy") : "");
   let text: string;
   if (a.verb === "created") text = t("act.created");
+  else if (a.verb === "triaged") {
+    const decision = String(a.meta.decision ?? "");
+    const key = `act.triaged_${decision}`;
+    text = t.has(key as never) ? t(key as "act.created") : t("act.triaged");
+  } else if (a.verb === "duplicated")
+    text = t("act.duplicated", { number: String(a.meta.intakeNumber ?? "") });
   else if (a.verb !== "updated")
     text = t.has(`act.${a.verb}` as never) ? t(`act.${a.verb}` as "act.created") : a.verb;
   else {
@@ -1106,11 +1154,13 @@ function CommentEntry({
   c,
   meta,
   onChanged,
+  hasSubmitter,
 }: {
   ws: string;
   c: CommentView;
   meta: ProjectMeta;
   onChanged: () => void;
+  hasSubmitter: boolean;
 }) {
   const t = useTranslations("items");
   const relative = useRelativeTime();
@@ -1119,20 +1169,28 @@ function CommentEntry({
   const sources = useEditorSources(ws, meta);
   const author = meta.members.find((m) => m.id === c.authorId);
   const mine = c.authorId === meta.me;
+  const isPublic = c.visibility === "PUBLIC" && hasSubmitter;
   return (
-    <li className="relative flex gap-2">
+    <li className="relative flex gap-2" data-testid="comment" data-visibility={c.visibility}>
       <span className="relative z-[1] mt-0.5 shrink-0">
-        {author ? (
-          <Avatar user={author} size="sm" />
-        ) : (
-          <span className="flex size-6 items-center justify-center rounded-full bg-neutral-150 text-caption">
-            ?
-          </span>
-        )}
+        <Avatar user={author ?? { id: c.authorName, name: c.authorName }} size="sm" />
       </span>
-      <div className="group min-w-0 flex-1 rounded-card border border-border bg-surface px-3.5 py-2.5">
+      <div
+        className={cn(
+          "group min-w-0 flex-1 rounded-card border px-3.5 py-2.5",
+          isPublic ? "border-lavender-200 bg-lavender-50/60" : "border-border bg-surface",
+        )}
+      >
         <div className="flex items-center gap-2 text-small">
           <span className="font-medium text-fg">{c.authorName}</span>
+          {isPublic ? (
+            <Tooltip content={t("publicReplyHint")}>
+              <span className="inline-flex items-center gap-1 text-caption font-medium text-lavender-700">
+                <Globe className="size-3" aria-hidden />
+                {c.authorId ? t("publicReply") : t("fromSubmitter")}
+              </span>
+            </Tooltip>
+          ) : null}
           <span className="text-fg-muted tabular">{relative(c.createdAt)}</span>
           {c.editedAt ? <span className="text-fg-muted">· {t("edited")}</span> : null}
           <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -1279,11 +1337,18 @@ function CommentComposer({
   const [doc, setDoc] = useState<unknown>(null);
   const [key, setKey] = useState(0);
   const [pending, setPending] = useState(false);
+  const submitter = item.request?.submitter ?? null;
+  const [visibility, setVisibility] = useState<"INTERNAL" | "PUBLIC">("INTERNAL");
+  const isPublic = visibility === "PUBLIC" && submitter !== null;
   const me = meta.members.find((m) => m.id === meta.me);
   const submit = async () => {
     if (!doc || pending) return;
     setPending(true);
-    const res = await createCommentAction(ws, { workItemId: item.id, body: doc });
+    const res = await createCommentAction(ws, {
+      workItemId: item.id,
+      body: doc,
+      visibility: isPublic ? "PUBLIC" : "INTERNAL",
+    });
     setPending(false);
     if (res.ok) {
       setDoc(null);
@@ -1294,7 +1359,20 @@ function CommentComposer({
   return (
     <div className="flex gap-2">
       {me ? <Avatar user={me} size="sm" className="mt-2" /> : null}
-      <div className="min-w-0 flex-1 rounded-card border border-border-strong bg-surface px-3 py-2 shadow-xs focus-within:border-focus focus-within:ring-[3px] focus-within:ring-sky-400/30">
+      <div
+        className={cn(
+          "min-w-0 flex-1 rounded-card border px-3 py-2 shadow-xs focus-within:ring-[3px]",
+          isPublic
+            ? "border-lavender-300 bg-lavender-50/40 focus-within:border-lavender-600 focus-within:ring-lavender-300/30"
+            : "border-border-strong bg-surface focus-within:border-focus focus-within:ring-sky-400/30",
+        )}
+      >
+        {isPublic && submitter ? (
+          <p className="mb-1 flex items-center gap-1 text-caption font-medium text-lavender-700">
+            <Globe className="size-3" aria-hidden />
+            {t("publicReplyNotice", { name: submitter.name })}
+          </p>
+        ) : null}
         <RichTextEditor
           key={key}
           value={null}
@@ -1304,10 +1382,28 @@ function CommentComposer({
           sources={sources}
           minHeight="min-h-[44px]"
         />
-        <div className="mt-1 flex justify-end">
-          <Tooltip content={t("comment")} shortcut="mod+enter">
+        <div className="mt-1 flex items-center justify-between gap-2">
+          {submitter ? (
+            <SegmentedControl
+              value={visibility}
+              onValueChange={(v) => setVisibility(v as "INTERNAL" | "PUBLIC")}
+              label={t("commentVisibility")}
+            >
+              <SegmentedControlItem value="INTERNAL" data-testid="comment-internal">
+                <Lock />
+                {t("internalNote")}
+              </SegmentedControlItem>
+              <SegmentedControlItem value="PUBLIC" data-testid="comment-public">
+                <Globe />
+                {t("replyToSubmitter")}
+              </SegmentedControlItem>
+            </SegmentedControl>
+          ) : (
+            <span />
+          )}
+          <Tooltip content={isPublic ? t("sendReply") : t("comment")} shortcut="mod+enter">
             <Button size="sm" variant="primary" onClick={submit} loading={pending}>
-              {t("comment")}
+              {isPublic ? t("sendReply") : t("comment")}
             </Button>
           </Tooltip>
         </div>

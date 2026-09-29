@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { canWorkspace } from "@dopl/shared/policy";
 import { listSidebarProjects } from "@/server/queries/projects";
+import { triageProjectIds } from "@/server/queries/intake";
 import { listFavoriteViews } from "@/server/queries/views";
 import { getWorkspaceCtx } from "@/server/session";
 import { Sidebar } from "@/components/shell/sidebar";
@@ -10,9 +11,10 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
   const { ws } = await params;
   const ctx = await getWorkspaceCtx(ws);
   if (!ctx) notFound();
-  const [projects, favorites] = await Promise.all([
+  const [projects, favorites, intakePending] = await Promise.all([
     listSidebarProjects(ctx),
     listFavoriteViews(ctx),
+    triageProjectIds(ctx),
   ]);
   const props = {
     workspace: { slug: ctx.workspace.slug, name: ctx.workspace.name },
@@ -25,6 +27,9 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     projects,
     favorites,
     canCreateProject: canWorkspace(ctx.policyActor, "project.create"),
+    intakePending,
+    showRequests: ctx.role === "GUEST",
+    showContacts: canWorkspace(ctx.policyActor, "contact.view"),
   };
   return (
     <>

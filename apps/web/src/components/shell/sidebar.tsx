@@ -11,8 +11,10 @@ import {
   LogOut,
   Plus,
   Search,
+  Send,
   Settings,
   UserRound,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authClient } from "@/lib/auth-client";
@@ -42,6 +44,11 @@ export interface SidebarProps {
     project: { identifier: string; name: string; color: string | null } | null;
   }>;
   canCreateProject: boolean;
+  /** Pending (not snoozed) requests per project the actor triages. */
+  intakePending?: Record<string, number>;
+  /** Guests (and anyone who asked for something) get "Requests". */
+  showRequests?: boolean;
+  showContacts?: boolean;
   onNavigate?: () => void;
 }
 
@@ -99,11 +106,13 @@ function SubItem({
   label,
   active,
   onNavigate,
+  count,
 }: {
   href: string;
   label: string;
   active: boolean;
   onNavigate?: () => void;
+  count?: number;
 }) {
   return (
     <Link
@@ -111,11 +120,16 @@ function SubItem({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "ml-[26px] flex h-8 items-center rounded-control px-2.5 text-body text-fg-secondary focus-ring",
+        "ml-[26px] flex h-8 items-center gap-2 rounded-control px-2.5 text-body text-fg-secondary focus-ring",
         active ? "bg-sidebar-active font-medium text-fg" : "hover:bg-sidebar-hover",
       )}
     >
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {count ? (
+        <span className="rounded-full bg-lavender-100 px-1.5 text-caption font-medium text-lavender-800 tabular">
+          {count}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -126,6 +140,9 @@ export function Sidebar({
   projects,
   favorites,
   canCreateProject,
+  intakePending = {},
+  showRequests = false,
+  showContacts = false,
   onNavigate,
 }: SidebarProps) {
   const t = useTranslations("shell");
@@ -176,6 +193,15 @@ export function Sidebar({
           active={isActive(`${base}/views`)}
           onNavigate={onNavigate}
         />
+        {showRequests ? (
+          <NavItem
+            href={`${base}/requests`}
+            icon={<Send />}
+            label={t("requests")}
+            active={isActive(`${base}/requests`)}
+            onNavigate={onNavigate}
+          />
+        ) : null}
       </div>
 
       {favorites.length > 0 ? (
@@ -254,6 +280,15 @@ export function Sidebar({
                     onNavigate={onNavigate}
                   />
                 ) : null}
+                {open && p.id in intakePending ? (
+                  <SubItem
+                    href={`${href}/intake`}
+                    label={t("intake")}
+                    active={isActive(`${href}/intake`)}
+                    onNavigate={onNavigate}
+                    count={intakePending[p.id]}
+                  />
+                ) : null}
               </div>
             );
           })
@@ -262,6 +297,15 @@ export function Sidebar({
 
       <SectionLabel>{t("tools")}</SectionLabel>
       <div className="flex flex-col gap-0.5">
+        {showContacts ? (
+          <NavItem
+            href={`${base}/contacts`}
+            icon={<Users />}
+            label={t("contacts")}
+            active={isActive(`${base}/contacts`)}
+            onNavigate={onNavigate}
+          />
+        ) : null}
         <NavItem
           href={`${base}/settings`}
           icon={<Settings />}

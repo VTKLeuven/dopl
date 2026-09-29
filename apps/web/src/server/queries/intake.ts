@@ -10,7 +10,7 @@ import {
   type IntakeTab,
   type PublicStatus,
 } from "@dopl/shared/schemas/intake";
-import { formatIdentifier } from "@dopl/shared/schemas/work-item";
+import { formatIdentifier, type Priority } from "@dopl/shared/schemas/work-item";
 import { docToPlainText, type PMNode } from "@dopl/shared/rich-text";
 import { z } from "zod";
 import type { RequestInfo } from "@/features/work-items/types";
@@ -28,7 +28,7 @@ export interface IntakeRow {
   source: "IN_APP" | "FORM" | "EMAIL" | "API";
   workItemId: string;
   title: string;
-  priority: string;
+  priority: Priority;
   commentCount: number;
   attachmentCount: number;
   createdAt: string;
@@ -148,22 +148,31 @@ export async function countIntake(access: ProjectAccess): Promise<IntakeCounts> 
   };
 }
 
-/** Pending counts for the sidebar badge, per accessible project where the actor triages. */
-export async function pendingIntakeByProject(ctx: WorkspaceCtx): Promise<Record<string, number>> {
+/**
+ * Sidebar: projects where the actor triages (intake on, or requests waiting),
+ * with the number of pending requests (snoozed ones excluded).
+ */
+export async function triageProjectIds(ctx: WorkspaceCtx): Promise<Record<string, number>> {
   if (ctx.role === "GUEST") return {};
   const now = new Date();
-  const rows = await db.intakeItem.groupBy({
-    by: ["projectId"],
-    where: {
-      workspaceId: ctx.workspace.id,
-      status: "PENDING",
-      OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
-      workItem: { deletedAt: null },
-      project: { ...accessibleProjectsWhere(ctx), archivedAt: null },
-    },
-    _count: { _all: true },
-  });
-  return Object.fromEntries(rows.map((r) => [r.projectId, r._count._all]));
+  const scope = { ...accessibleProjectsWhere(ctx), archivedAt: null };
+  const [enabled, rows] = await Promise.all([
+    db.project.findMany({ where: { ...scope, intakeEnabled: true }, select: { id: true } }),
+    db.intakeItem.groupBy({
+      by: ["projectId"],
+      where: {
+        workspaceId: ctx.workspace.id,
+        status: "PENDING",
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+        workItem: { deletedAt: null },
+        project: scope,
+      },
+      _count: { _all: true },
+    }),
+  ]);
+  const out: Record<string, number> = Object.fromEntries(enabled.map((p) => [p.id, 0]));
+  for (const r of rows) out[r.projectId] = r._count._all;
+  return out;
 }
 
 /* ───────────────────────── request details ───────────────────────── */
@@ -182,6 +191,7 @@ const SnapshotSchema = z.array(
     key: z.string(),
     label: z.string(),
     type: z.string(),
+    target: z.string().optional(),
     options: FieldOptionsSchema.catch([]).default([]),
   }),
 );
@@ -192,8 +202,9 @@ export function readAnswers(snapshot: unknown, values: unknown): RequestAnswer[]
   const v = (values ?? {}) as Record<string, unknown>;
   const label = (opts: FieldOption[], value: unknown) =>
     opts.find((o) => o.value === value)?.label ?? String(value);
+  // Files are listed separately; title and description are shown as themselves.
   return fields
-    .filter((f) => f.type !== "FILE")
+    .filter((f) => f.type !== "FILE" && f.target !== "TITLE" && f.target !== "DESCRIPTION")
     .map((f) => {
       const raw = v[f.key];
       let value: RequestAnswer["value"] = null;

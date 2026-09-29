@@ -223,7 +223,24 @@ Where it differs from the plan below:
 
 ---
 
-## Phase 3: Intake
+## Phase 3: Intake ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Every item below is built except email-to-intake, which needs a connected mailbox (Phase 7) or a forwarding address. The CHANGELOG has the summary; decisions D-071 to D-079 record the choices.
+
+Where it differs from the plan below:
+
+- **Embeds (item 5):** forms can be framed by any site; the allowed-sites list is enforced on submit instead of with a per-form `frame-ancestors` header (D-071).
+- **Uploads (item 6):** files go through the app (multipart) instead of presigned PUTs, quarantined per submission until it commits (D-073).
+- **Status page (item 10):** the token stays in the URL (no cookie swap), with `Referrer-Policy: no-referrer` (D-072).
+- **Notifications:** written in the mutation through one `notify()` helper instead of a fan-out job (D-076).
+
+**Not done yet, carried forward:**
+
+- [ ] Email-to-intake (after Phase 7's mailbox, or a forwarding address)
+- [ ] Deleting the bytes of abandoned quarantined uploads (rows are pruned; the worker has no storage client yet)
+- [ ] Turnstile tested against real keys (the code path is unit-reachable but unverified end to end)
+- [ ] Contact pages list email threads (Phase 7)
+- [ ] An e2e check of the Discord post itself (covered by the worker's delivery tests with a fake Discord)
 
 1. **Triage queue:** tabs for Pending, Snoozed, Accepted, Declined and Duplicates. A list and peek with a triage bar: accept (pick state, assignee, labels), decline (reason, notify), duplicate (search and link), snooze (presets). Shortcuts `Y`, `N`, `U`, `Z`.
 2. **Guest submissions in-app:** a "New request" form for guests, a "My requests" list, and a guest-safe peek showing only PUBLIC comments and the public status.

@@ -18,6 +18,7 @@ import { uuidv7 } from "@dopl/shared/ids";
 import { createDbClient } from "../client";
 import type { Prisma } from "../generated/prisma/client";
 import { commentBank, people, projects } from "./data";
+import { seedIntake } from "./intake";
 
 loadEnv({ path: path.resolve(import.meta.dirname, "../../../../.env"), quiet: true });
 
@@ -446,6 +447,14 @@ async function main() {
     totalItems += count;
     console.log(`  ${spec.identifier.padEnd(6)} ${count} items, ${comments.length} comments`);
   }
+
+  const requests = await seedIntake(db, {
+    workspaceId: workspace.id,
+    team,
+    guestId: guest?.id ?? null,
+    today,
+  });
+  console.log(`  HELP   ${requests} intake requests, 2 forms`);
 
   console.log(`\nSeeded "${workspace.name}" (/${workspace.slug}): ${totalItems} work items.`);
   console.log(`Sign in with any of: ${people.map((p) => p.email).join(", ")}`);

@@ -3,7 +3,8 @@
  * through `resolveShortcut`, tooltips and menus read `keysFor`, and the `?`
  * overlay lists everything here. Labels are next-intl keys under "shortcuts".
  */
-export type ShortcutScope = "global" | "list" | "table" | "calendar" | "timeline" | "peek";
+export type ShortcutScope =
+  "global" | "list" | "table" | "calendar" | "timeline" | "peek" | "triage";
 
 export interface ShortcutDef {
   id: string;
@@ -49,6 +50,10 @@ export const SHORTCUTS = [
   { id: "barResize", keys: "shift+alt+right", scope: "timeline" },
   { id: "peekClose", keys: "esc", scope: "peek" },
   { id: "peekNext", keys: "j k", scope: "peek" },
+  { id: "triageAccept", keys: "y", scope: "triage" },
+  { id: "triageDecline", keys: "n", scope: "triage" },
+  { id: "triageDuplicate", keys: "u", scope: "triage" },
+  { id: "triageSnooze", keys: "z", scope: "triage" },
 ] as const satisfies readonly ShortcutDef[];
 
 export type ShortcutId = (typeof SHORTCUTS)[number]["id"];
