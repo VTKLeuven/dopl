@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
@@ -115,8 +115,13 @@ export function NotesView({
     isFetching,
     refetch,
   } = useNotes(ws, params, sameParams(params, initial.params) ? initial.notes : undefined);
-  const onTag = (path: string) => url.go({ filter: "all", tag: path });
-  const onOpen = (id: string) => void url.setState({ note: id });
+  // Stable callbacks, so capturing a note re-renders only the new card (memo).
+  const urlRef = useRef(url);
+  useEffect(() => {
+    urlRef.current = url;
+  });
+  const onTag = useCallback((path: string) => urlRef.current.go({ filter: "all", tag: path }), []);
+  const onOpen = useCallback((id: string) => void urlRef.current.setState({ note: id }), []);
   const canCapture = (url.filter === "all" || url.filter === "pinned") && !url.q;
   const pinned = url.filter === "all" ? (notes ?? []).filter((n) => n.pinnedAt) : [];
   const rest = url.filter === "all" ? (notes ?? []).filter((n) => !n.pinnedAt) : (notes ?? []);

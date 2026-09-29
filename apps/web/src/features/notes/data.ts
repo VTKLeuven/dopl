@@ -1,6 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+  replaceEqualDeep,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -80,12 +86,28 @@ export function listUrl(ws: string, p: ListParams): string {
   return `/api/v1/${ws}/notes?${s.toString()}`;
 }
 
+/**
+ * Structural sharing by note id instead of array index: when a card is added
+ * or moves, every other card keeps its object, so its memoized render is
+ * skipped (capturing a note re-renders one card, not the whole grid).
+ */
+function shareCardsById(old: unknown, next: unknown): unknown {
+  if (!Array.isArray(old) || !Array.isArray(next)) return replaceEqualDeep(old, next);
+  const byId = new Map((old as NoteCard[]).map((n) => [n.id, n]));
+  const out = (next as NoteCard[]).map((n) => {
+    const prev = byId.get(n.id);
+    return prev ? replaceEqualDeep(prev, n) : n;
+  });
+  return out.length === old.length && out.every((n, i) => n === old[i]) ? old : out;
+}
+
 export function useNotes(ws: string, p: ListParams, initial?: NoteCard[]) {
   return useQuery({
     queryKey: noteKeys.list(ws, p),
     queryFn: () => getJson<NoteCard[]>(listUrl(ws, p)),
     initialData: initial,
     placeholderData: (prev) => prev,
+    structuralSharing: shareCardsById,
   });
 }
 

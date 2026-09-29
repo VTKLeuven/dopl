@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
@@ -92,7 +92,8 @@ export interface NoteCardProps {
   canConvert?: boolean;
 }
 
-export function NoteCardView({
+/** Memoized: a new or changed note re-renders only its own card. */
+export const NoteCardView = memo(function NoteCardView({
   ws,
   me,
   card,
@@ -322,16 +323,21 @@ export function NoteCardView({
         </div>
       ) : null}
 
-      <ConvertDialog ws={ws} me={me.id} target={convert} onClose={() => setConvert(null)} />
-      <AttachItemDialog
-        ws={ws}
-        open={attach}
-        onClose={() => setAttach(false)}
-        onPick={(workItemId) => patch({ sharing: { kind: "workItem", workItemId } })}
-      />
+      {/* Mounted only while open: every card carrying two dialogs slows the grid down. */}
+      {convert ? (
+        <ConvertDialog ws={ws} me={me.id} target={convert} onClose={() => setConvert(null)} />
+      ) : null}
+      {attach ? (
+        <AttachItemDialog
+          ws={ws}
+          open
+          onClose={() => setAttach(false)}
+          onPick={(workItemId) => patch({ sharing: { kind: "workItem", workItemId } })}
+        />
+      ) : null}
     </article>
   );
-}
+});
 
 function CardFooter({
   ws,

@@ -18,6 +18,7 @@ import {
 import { docToPlainText, type PMNode } from "@dopl/shared/rich-text";
 import { uuidv7 } from "@dopl/shared/ids";
 import type { DbClient } from "../client";
+import type { Prisma } from "../generated/prisma/client";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -157,7 +158,7 @@ export async function seedNotes(db: DbClient, opts: { workspaceId: string; today
         id: uuidv7(),
         workspaceId,
         ownerId,
-        content: doc as object,
+        content: doc as unknown as Prisma.InputJsonValue,
         contentText: docToPlainText(doc),
         color: spec.color ?? null,
         visibility: spec.visibility ?? "PRIVATE",
