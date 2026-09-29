@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Dopl on a server: a thin wrapper around docker compose (docs/ops/deploy.md).
+#
+#   ./dopl up                      start (or apply .env changes); migrations run first
+#   ./dopl update [tag]            pull the images (latest, or a commit SHA) and restart
+#   ./dopl bootstrap EMAIL "NAME"  first run: create the workspace and the owner's invite link
+#   ./dopl status                  containers and their health
+#   ./dopl logs [service]          follow logs (web, worker, postgres, backup…)
+#   ./dopl backup                  make a backup now (docker/backups/)
+#   ./dopl restore DUMP [UPLOADS]  restore one (file names in docker/backups/)
+#   ./dopl down                    stop everything (data stays in the volumes)
+#   ./dopl compose …               any other docker compose command
+set -euo pipefail
+cd "$(dirname "$0")"
+
+[ -f .env ] || {
+  echo "No .env here. Start with: cp .env.production.example .env  (see docs/ops/deploy.md)" >&2
+  exit 1
+}
+
+profiles=()
+# Caddy runs when DOPL_CADDY=true in .env (HTTPS on :80/:443 for DOPL_DOMAIN).
+if grep -qE '^DOPL_CADDY=true' .env; then profiles=(--profile caddy); fi
+compose() { docker compose -f docker/compose.prod.yml --env-file .env "${profiles[@]}" "$@"; }
+
+cmd="${1:-help}"
+shift || true
+case "$cmd" in
+  up)
+    compose up -d --remove-orphans
+    compose ps
+    ;;
+  update)
+    if [ -n "${1:-}" ]; then
+      sed -i.bak "s|^DOPL_VERSION=.*|DOPL_VERSION=$1|" .env && rm -f .env.bak
+    fi
+    compose pull
+    compose up -d --remove-orphans
+    compose ps
+    ;;
+  bootstrap)
+    [ $# -ge 2 ] || { echo 'usage: ./dopl bootstrap you@vtk.be "Your Name" [--workspace "VTK IT"] [--slug vtk]' >&2; exit 1; }
+    email="$1"
+    name="$2"
+    shift 2
+    compose run --rm migrate pnpm dopl:bootstrap --email "$email" --name "$name" "$@"
+    ;;
+  status) compose ps ;;
+  logs) compose logs -f --tail=200 "$@" ;;
+  backup) compose exec backup /bin/bash /backup.sh now ;;
+  restore)
+    [ $# -ge 1 ] || { echo "usage: ./dopl restore dopl-<stamp>.dump [uploads-<stamp>.tar.gz]" >&2; ls docker/backups 2>/dev/null; exit 1; }
+    dump="/backups/$(basename "$1")"
+    uploads="${2:+/backups/$(basename "$2")}"
+    read -r -p "This replaces the database${uploads:+ and uploads} with $1. Type 'restore' to go on: " ok
+    [ "$ok" = "restore" ] || { echo "Cancelled."; exit 1; }
+    compose stop web worker
+    compose exec backup /bin/bash /restore.sh "$dump" ${uploads:+"$uploads"}
+    compose up -d
+    ;;
+  down) compose down ;;
+  compose) compose "$@" ;;
+  *)
+    sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac

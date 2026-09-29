@@ -33,9 +33,28 @@ describe("web never holds worker secrets (D-027)", () => {
     const compose = await read("docker/compose.prod.yml");
     const web = service(compose, "web");
     const worker = service(compose, "worker");
-    expect(web).not.toMatch(/secrets|worker\.env|volumes:|GOOGLE|GMAIL|SSH/i);
+    expect(web).not.toMatch(/secrets|worker\.env|GOOGLE|GMAIL|SSH|HERMES/i);
+    // The only volume the web container gets is the uploads volume.
+    const webMounts = web.split("volumes:")[1]?.match(/^ {6}- \S+:\S+/gm) ?? [];
+    expect(webMounts.map((m) => m.trim())).toEqual(["- uploads:/data/uploads"]);
     expect(worker).toMatch(/\.\/secrets:\/run\/secrets:ro/);
     expect(worker).toMatch(/worker\.env/);
+  });
+
+  it("shares uploads between web and worker, and backs up the database and uploads", async () => {
+    const compose = await read("docker/compose.prod.yml");
+    for (const name of ["web", "worker", "backup", "uploads-init"])
+      expect(service(compose, name)).toMatch(/- uploads:\/data\/uploads/);
+    expect(service(compose, "web")).toMatch(
+      /uploads-init: \{ condition: service_completed_successfully \}/,
+    );
+    expect(service(compose, "worker")).toMatch(
+      /uploads-init: \{ condition: service_completed_successfully \}/,
+    );
+    const prodEnv = await read(".env.production.example");
+    expect(prodEnv).toMatch(/^STORAGE_LOCAL_DIR=\/data\/uploads$/m);
+    expect(prodEnv).toMatch(/^DATABASE_URL=postgresql:\/\/\S+@postgres:5432\//m);
+    for (const v of SECRET_VARS) expect(prodEnv).not.toMatch(new RegExp(`^${v}=`, "m"));
   });
 
   it("keeps the secret settings out of the shared .env", async () => {

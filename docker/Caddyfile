@@ -1,0 +1,15 @@
+# Used by `docker compose -f docker/compose.prod.yml --profile caddy up -d`.
+# Caddy gets a certificate for DOPL_DOMAIN automatically (ports 80 and 443 must
+# reach this server). With your own proxy, copy the two routes below.
+{$DOPL_DOMAIN} {
+	encode zstd gzip
+
+	# Server-sent events: the realtime stream and the MCP server must not be
+	# buffered (they flush events and progress as they happen).
+	@stream path_regexp stream ^/api/(v1/[^/]+/realtime|mcp)$
+	reverse_proxy @stream web:3000 {
+		flush_interval -1
+	}
+
+	reverse_proxy web:3000
+}

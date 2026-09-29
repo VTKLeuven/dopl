@@ -31,6 +31,9 @@ RUN pnpm --filter @dopl/worker deploy --prod --legacy /out/worker && cp -r apps/
 FROM node:24-bookworm-slim AS web
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
+# Uploads (STORAGE_DRIVER=local) live on a volume shared with the worker; a new
+# named volume copies this directory's owner, so `node` can write to it.
+RUN mkdir -p /data/uploads && chown node:node /data/uploads
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=node:node /repo/apps/web/public ./apps/web/public
@@ -42,6 +45,7 @@ CMD ["node", "apps/web/server.js"]
 FROM node:24-bookworm-slim AS worker
 ENV NODE_ENV=production
 WORKDIR /app
+RUN mkdir -p /data/uploads && chown node:node /data/uploads
 COPY --from=build --chown=node:node /out/worker ./
 USER node
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s CMD node -e "fetch('http://127.0.0.1:'+(process.env.WORKER_HEALTH_PORT||3001)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

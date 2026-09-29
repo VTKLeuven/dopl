@@ -4,7 +4,7 @@ Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 
 
 **To start a new session**, open Claude Code in the repo and paste:
 
-> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then continue with what §7 lists and stop for my review after each phase.
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then continue with what §1.0 and §7 list and stop for my review after each step.
 
 ---
 
@@ -39,6 +39,30 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 **The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 8 are built and merged (the owner asked for Phases 6, 7 and 8 right after the one before, and then for 5b and the carry-overs); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-8/` at the start of the next session.
 
 Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
+
+### 1.0 Going live (read this first)
+
+**Dopl is ready to deploy.** The production stack was run end to end from the published GHCR images on 2026-09-29: migrations, `./dopl bootstrap`, accepting the owner invite, forced 2FA enrolment, a project, an item with an attachment (upload and download), an invite email over SMTP, a backup, a restore (data and uploads back, audit trigger intact) and a 2FA reset. `docs/ops/deploy.md` is the guide; `README.md` has the short version; D-125 records the choices.
+
+**To go live, the owner does:**
+
+1. A server with Docker and the compose plugin, DNS `dopl.vtk.be` → the server.
+2. `git clone https://github.com/d1ff1cult0/dopl.git /opt/dopl`, `cp .env.production.example .env`, generate the secrets and fill in the domain and SMTP (deploy.md §2). Keep a copy of `.env` in a password manager.
+3. **SMTP:** allow the server's IP in the Google Workspace SMTP relay (or use SMTP AUTH). Without working email nobody can join (invite-only).
+4. HTTPS: `DOPL_CADDY=true`, or the existing reverse proxy with the two unbuffered SSE paths (deploy.md §4).
+5. `./dopl up`, `./dopl bootstrap you@vtk.be "Name"`, open the link, set a password and 2FA, invite the team.
+6. Copy `docker/backups/` off the server nightly with existing tooling, and do one test restore on a spare machine.
+
+**After it's live, in this order:**
+
+1. **Use it for a week or two** with the team (projects, items, intake forms, chat, notes). Collect what's missing or annoying; that's the review of Phases 3–8 the owner still owes.
+2. **Pin the version** once it's stable: `./dopl update <commit-sha>`, and update deliberately after checking CI's `images` job.
+3. **Google Cloud (Q-20):** one project with an OAuth client (Google sign-in) and a service account with domain-wide delegation plus Pub/Sub (the shared mailbox). Then connect `it@vtk.be` following `docs/ops/gmail-setup.md` (Q-16). Only `GoogleGmail` itself hasn't run against Google yet.
+4. **AI teammate:** deploy Hermes with Qwen 3.8 27B, create the Warpgate user and key, fill in `worker.env`, then Settings → AI teammate (Check connection, hosts, rules, MCP token) following `docs/ops/agent-setup.md`. Start with a lab host only. The adapter has only run against the fake Hermes.
+5. **SSO (Q-21)** once the identity provider is chosen; **Phase 5b** (semantic search) once Q-6 is answered.
+6. The carry-overs in §6 and the ROADMAP, by what the team asks for.
+
+**Known risk:** `e2e/messages.spec.ts` ("two people: live messages…") has timing budgets (2 s, 3 s) that CI's cold dev server sometimes misses, even on the retry; it failed `ca0cfaa` and passed on `553ba4f`. It's a test-environment flake, not a product bug, but it can turn `main` red. If it keeps happening, run CI's e2e against a production build instead of `next dev` (the sign-in rate limit needs a test-only allowance first, D-114).
 
 ### 1.1 Phase 4 status
 
@@ -295,7 +319,7 @@ The worker's secrets (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_*`, `HERM
 ## 5. Gotchas learned the hard way
 
 - **Prisma refuses `migrate reset` when run by an AI agent.** Don't work around it. Tests use `migrate deploy` plus a separate workspace per test (D-061).
-- **Don't build the Docker images locally.** It crashed OrbStack twice; CI builds them. A local `pnpm build` is fine.
+- **Don't build the Docker images locally.** It crashed OrbStack twice; CI builds them. A local `pnpm build` is fine. To test the production stack, run `docker/compose.prod.yml` with the published images in a scratch directory under its own project name and port (`docker compose -p dopl-deploytest …`, `DOPL_PORT=3900`), with a small override that adds `extra_hosts: host.docker.internal:host-gateway` to reach the dev Mailpit.
 - **After adding a route**, run `npx next typegen` in `apps/web` or `PageProps` and `RouteContext` won't typecheck.
 - **After `pnpm add` in `apps/web`**, restart the dev server and delete `apps/web/.next/dev` (stale Turbopack modules).
 - **Next keeps the previous route mounted but hidden**, so a test id can match twice. In Playwright, use `.filter({ visible: true })`.
@@ -362,7 +386,8 @@ Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block
 
 ## 7. Next steps
 
-1. Show the owner the Phase 3 to 7 screenshots and fix what they flag.
+0. Deploy and go live (§1.0). Anything the team reports during the first weeks comes before new features.
+1. Show the owner the Phase 3 to 8 screenshots and fix what they flag.
 2. Connect the real mailbox once Q-20 is answered: follow `docs/ops/gmail-setup.md`, then watch the status page and the sync log. Only `GoogleGmail` (`apps/worker/src/gmail/client.ts`) hasn't run against Google yet.
 3. Connect the real Hermes and Warpgate: follow `docs/ops/agent-setup.md`, then Settings → AI teammate → Check connection and a first `uptime` on a lab host.
 4. **Phase 5b** (embeddings) and the carry-overs (see the ROADMAP and §6).
@@ -379,4 +404,5 @@ Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block
 - **Pushing to `main` is fine**; they asked for it.
 - **Mind the budget:** the owner pays per session. Prefer targeted checks over repeated full screenshot passes, and don't start parallel agents unless asked.
 - **Stop after each phase** and show the screenshots.
+- **The owner speaks Dutch**; answer in Dutch, keep the code and docs in English.
 - **Match the Spott reference's feel and the Dopl colours.** Plane and Blinko are inspiration only: never copy their code, schemas, styles or assets.
