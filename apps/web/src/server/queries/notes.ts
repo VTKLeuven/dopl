@@ -106,6 +106,7 @@ function cardSelect(ctx: WorkspaceCtx) {
     archivedAt: true,
     deletedAt: true,
     openTodoCount: true,
+    reviewCount: true,
     createdAt: true,
     updatedAt: true,
     tags: { select: { tag: { select: { path: true } } } },
@@ -166,6 +167,7 @@ function toCard(ctx: WorkspaceCtx, n: CardRow): NoteCard {
     todoCount: n._count.todos,
     openTodoCount: n.openTodoCount,
     convertedTo: converted ? toRef(converted) : null,
+    reviewCount: n.reviewCount,
     createdAt: n.createdAt.toISOString(),
     updatedAt: n.updatedAt.toISOString(),
     canEdit: mine && canNote(ctx.policyActor, policy, "note.edit"),
@@ -226,6 +228,10 @@ export async function listNotes(ctx: WorkspaceCtx, query: NotesQuery): Promise<N
       case "trash":
         where = { workspaceId: ws, ownerId: me, deletedAt: { not: null } };
         orderBy = [{ deletedAt: "desc" }];
+        break;
+      case "recent":
+        where = { workspaceId: ws, ownerId: me, deletedAt: null, archivedAt: null };
+        orderBy = [{ updatedAt: "desc" }];
         break;
     }
   }

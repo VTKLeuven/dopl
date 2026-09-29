@@ -12,9 +12,16 @@ import {
 } from "@/components/ui/dialog";
 import { Shortcut } from "@/components/ui/kbd";
 import { SHORTCUTS, comboOf, isTypingTarget, type ShortcutScope } from "@/lib/shortcuts/registry";
+import { QuickCapture } from "@/features/notes/quick-capture";
 
 const SEQUENCE_MS = 1200;
-const GO: Record<string, string> = { h: "home", p: "projects", v: "views", s: "settings" };
+const GO: Record<string, string> = {
+  h: "home",
+  p: "projects",
+  v: "views",
+  s: "settings",
+  n: "notes",
+};
 const SCOPE_ORDER: ShortcutScope[] = ["global", "list", "table", "calendar", "timeline", "peek"];
 
 /** `?` opens the shortcut overlay; `g` then a letter navigates (DESIGN_SYSTEM §7.1). */
@@ -49,7 +56,12 @@ export function GlobalShortcuts() {
     return () => window.removeEventListener("keydown", onKey);
   }, [params.ws, router]);
 
-  return help ? <ShortcutsOverlay onClose={() => setHelp(false)} /> : null;
+  return (
+    <>
+      {help ? <ShortcutsOverlay onClose={() => setHelp(false)} /> : null}
+      <QuickCapture />
+    </>
+  );
 }
 
 function ShortcutsOverlay({ onClose }: { onClose: () => void }) {

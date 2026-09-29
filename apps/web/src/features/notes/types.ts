@@ -27,6 +27,8 @@ export interface NoteCard {
   openTodoCount: number;
   /** The work item this note was converted into (if the viewer can see it). */
   convertedTo: NoteRef | null;
+  /** Times kept in the daily review (drives the next interval). */
+  reviewCount: number;
   createdAt: string;
   updatedAt: string;
   canEdit: boolean;

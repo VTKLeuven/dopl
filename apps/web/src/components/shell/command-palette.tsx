@@ -47,6 +47,7 @@ import { useItemSearch, useProjectMeta, useWorkItemDetail } from "@/features/wor
 import { getCreateHandler, usePaletteItem, type PaletteItem } from "@/features/palette/context";
 import { keysFor } from "@/lib/shortcuts/registry";
 import { OPEN_PALETTE_EVENT } from "./command-palette-events";
+import { PaletteNotes } from "@/features/notes/palette-notes";
 
 type ItemPageKind = "state" | "priority" | "assignee" | "labels" | "due";
 type Page =
@@ -56,7 +57,9 @@ type Page =
 
 /** Server search results are already matched; everything else uses cmdk's fuzzy score. */
 function paletteFilter(value: string, search: string, keywords?: string[]) {
-  return value.startsWith("item:") ? 1 : defaultFilter(value, search, keywords);
+  return value.startsWith("item:") || value.startsWith("note:")
+    ? 1
+    : defaultFilter(value, search, keywords);
 }
 
 async function getJson<T>(url: string): Promise<T> {
@@ -283,6 +286,8 @@ function RootPage({
         </CommandGroup>
       ) : null}
 
+      <PaletteNotes ws={ws} query={query} go={go} close={close} part="results" />
+
       {contextItem ? (
         <CommandGroup heading={`${contextItem.identifier} · ${contextItem.title}`}>
           <ItemActionEntries
@@ -380,6 +385,8 @@ function RootPage({
           {t("goSettings")}
         </CommandItem>
       </CommandGroup>
+
+      <PaletteNotes ws={ws} query={query} go={go} close={close} part="commands" />
 
       {data?.projects.length ? (
         <CommandGroup heading={t("projects")}>

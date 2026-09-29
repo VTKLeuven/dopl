@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Settings,
+  StickyNote,
   UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -129,6 +130,7 @@ export function Sidebar({
   onNavigate,
 }: SidebarProps) {
   const t = useTranslations("shell");
+  const tNotes = useTranslations("notes");
   const pathname = usePathname();
   const router = useRouter();
   const base = `/${workspace.slug}`;
@@ -160,6 +162,13 @@ export function Sidebar({
           icon={<House />}
           label={t("home")}
           active={isActive(`${base}/home`)}
+          onNavigate={onNavigate}
+        />
+        <NavItem
+          href={`${base}/notes`}
+          icon={<StickyNote />}
+          label={tNotes("title")}
+          active={isActive(`${base}/notes`)}
           onNavigate={onNavigate}
         />
         <NavItem

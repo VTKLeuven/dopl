@@ -84,6 +84,7 @@ import {
 } from "./pickers";
 import { useEditorSources } from "./editor-sources";
 import { Attachments } from "./attachments";
+import { ItemNotes } from "@/features/notes/item-notes";
 import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
 
 export function ItemDetail({
@@ -346,6 +347,7 @@ function DetailBody({
             <Relations ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
             <Links ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
             <Attachments ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+            <ItemNotes ws={ws} itemId={item.id} />
             <Timeline ws={ws} item={item} meta={meta} onChanged={refresh} />
           </div>
         </div>

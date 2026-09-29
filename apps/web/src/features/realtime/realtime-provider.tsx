@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { WorkItemDetail } from "@/features/work-items/types";
+import { handleNotesEvent } from "@/features/notes/realtime";
 
 interface WireEvent {
   topic: string;
@@ -70,6 +71,7 @@ export function RealtimeProvider() {
       } catch {
         return;
       }
+      if (handleNotesEvent(qc, ws, ev.type)) return;
       const [kind, id] = ev.topic.split(":");
       if (kind === "project" && id) {
         if (ev.type.startsWith("workItem.")) {

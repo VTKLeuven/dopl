@@ -92,8 +92,8 @@ const TagPathInput = z
 export const RenameTagSchema = z.object({ tagId: z.uuid(), path: TagPathInput });
 export const DeleteTagSchema = z.object({ tagId: z.uuid() });
 
-/** List filters for the notes grid (URL state). */
-export const NoteFilterSchema = z.enum(["all", "pinned", "shared", "archived", "trash"]);
+/** List filters for the notes grid (URL state); "recent" is Home's most recently edited. */
+export const NoteFilterSchema = z.enum(["all", "pinned", "shared", "archived", "trash", "recent"]);
 export type NoteFilter = z.infer<typeof NoteFilterSchema>;
 
 export const NotesQuerySchema = z.object({
