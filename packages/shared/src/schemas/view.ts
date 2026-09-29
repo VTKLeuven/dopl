@@ -1,6 +1,15 @@
 import { z } from "zod";
 
-export const GroupKeySchema = z.enum(["state", "priority", "assignee", "label", "type", "none"]);
+export const GroupKeySchema = z.enum([
+  "state",
+  "stateGroup",
+  "project",
+  "priority",
+  "assignee",
+  "label",
+  "type",
+  "none",
+]);
 export type GroupKey = z.infer<typeof GroupKeySchema>;
 export const OrderFieldSchema = z.enum([
   "manual",
@@ -52,3 +61,29 @@ export const DisplayOptionsSchema = z.object({
 });
 export type DisplayOptions = z.infer<typeof DisplayOptionsSchema>;
 export const defaultDisplayOptions: DisplayOptions = DisplayOptionsSchema.parse({});
+
+/* ─────────────── saved views ─────────────── */
+
+export const ViewNameSchema = z.string().trim().min(1, "Give the view a name.").max(80);
+
+export const CreateViewSchema = z.object({
+  /** null for a workspace (cross-project) view. */
+  projectId: z.uuid().nullable(),
+  name: ViewNameSchema,
+  description: z.string().trim().max(500).nullish(),
+  visibility: z.enum(["PRIVATE", "WORKSPACE"]).default("PRIVATE"),
+  filters: z.unknown(),
+  displayOptions: z.unknown(),
+});
+export type CreateViewInput = z.input<typeof CreateViewSchema>;
+
+export const UpdateViewSchema = z.object({
+  id: z.uuid(),
+  name: ViewNameSchema.optional(),
+  description: z.string().trim().max(500).nullish(),
+  visibility: z.enum(["PRIVATE", "WORKSPACE"]).optional(),
+  filters: z.unknown().optional(),
+  displayOptions: z.unknown().optional(),
+  isLocked: z.boolean().optional(),
+});
+export type UpdateViewInput = z.input<typeof UpdateViewSchema>;

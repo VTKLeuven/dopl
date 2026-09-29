@@ -1,17 +1,15 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { DisplayOptionsSchema, defaultDisplayOptions } from "@dopl/shared/schemas/view";
 import { parseFilter } from "@dopl/shared/schemas/filters";
 import { db } from "@/server/db";
-import { getProjectAccess } from "@/server/queries/projects";
-import { getProjectMeta, listProjectItems } from "@/server/queries/work-items";
+import { getWorkspaceMeta, listWorkspaceItems } from "@/server/queries/workspace-items";
 import { requireWorkspaceCtx } from "@/server/session";
 import { PageHeaderSkeleton, RowsSkeleton } from "@/components/shell/page-skeletons";
 import { ProjectItemsView } from "@/features/work-items/project-items-view";
 
-export default function ProjectItemsPage({
-  params,
-  searchParams,
-}: PageProps<"/[ws]/p/[ident]/items">) {
+/** Every item across the projects the member can see; the unsaved workspace view. */
+export default function AllItemsPage({ params, searchParams }: PageProps<"/[ws]/views/all">) {
   return (
     <Suspense
       fallback={
@@ -22,35 +20,34 @@ export default function ProjectItemsPage({
         </>
       }
     >
-      <ProjectItems params={params} searchParams={searchParams} />
+      <AllItems params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function ProjectItems({
+async function AllItems({
   params,
   searchParams,
-}: Pick<PageProps<"/[ws]/p/[ident]/items">, "params" | "searchParams">) {
-  const { ws, ident } = await params;
+}: Pick<PageProps<"/[ws]/views/all">, "params" | "searchParams">) {
+  const { ws } = await params;
   const { f } = await searchParams;
   const ctx = await requireWorkspaceCtx(ws);
-  const access = await getProjectAccess(ctx, ident);
+  if (ctx.role === "GUEST") notFound();
   const pref = await db.viewPreference.findUnique({
-    where: { userId_scope: { userId: ctx.actor.userId, scope: `project:${access.project.id}` } },
+    where: { userId_scope: { userId: ctx.actor.userId, scope: "workspace:all" } },
     select: { displayOptions: true, filters: true },
   });
   const parsed = DisplayOptionsSchema.safeParse(pref?.displayOptions ?? {});
   const options = parsed.success ? parsed.data : defaultDisplayOptions;
-  // A shared link's filter wins over the user's last-used one.
   const filters = parseFilter(typeof f === "string" ? safeJson(f) : (pref?.filters ?? {}));
   const [items, meta] = await Promise.all([
-    listProjectItems(ctx, access, { completed: options.completed, filters }),
-    getProjectMeta(ctx, access),
+    listWorkspaceItems(ctx, { completed: options.completed, filters }),
+    getWorkspaceMeta(ctx),
   ]);
   return (
     <ProjectItemsView
       ws={ws}
-      scope={{ kind: "project", projectId: access.project.id }}
+      scope={{ kind: "workspace" }}
       initialItems={items}
       initialMeta={meta}
       initialOptions={options}

@@ -34,6 +34,9 @@ export interface StateMeta {
   color: string;
   sortKey: string;
   isDefault: boolean;
+  /** Set in workspace (cross-project) metadata. */
+  projectId?: string;
+  projectName?: string;
 }
 export interface LabelMeta {
   id: string;
@@ -64,6 +67,8 @@ export interface ProjectMeta {
     color: string | null;
     estimateSystem: "NONE" | "POINTS" | "HOURS";
   };
+  /** Only in workspace (cross-project) metadata. */
+  projects?: Array<{ id: string; identifier: string; name: string; color: string | null }>;
   states: StateMeta[];
   labels: LabelMeta[];
   types: TypeMeta[];

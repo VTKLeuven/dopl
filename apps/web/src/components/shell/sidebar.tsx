@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   FolderKanban,
   House,
+  Layers,
   LogOut,
   Plus,
   Search,
@@ -34,6 +35,12 @@ export interface SidebarProps {
   workspace: { slug: string; name: string };
   user: { id: string; name: string; email: string; image: string | null };
   projects: Array<{ id: string; identifier: string; name: string; color: string | null }>;
+  favorites: Array<{
+    id: string;
+    name: string;
+    href: string;
+    project: { identifier: string; name: string; color: string | null } | null;
+  }>;
   canCreateProject: boolean;
   onNavigate?: () => void;
 }
@@ -87,7 +94,40 @@ function SectionLabel({
   );
 }
 
-export function Sidebar({ workspace, user, projects, canCreateProject, onNavigate }: SidebarProps) {
+function SubItem({
+  href,
+  label,
+  active,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={href as never}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "ml-[26px] flex h-8 items-center rounded-control px-2.5 text-body text-fg-secondary focus-ring",
+        active ? "bg-sidebar-active font-medium text-fg" : "hover:bg-sidebar-hover",
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
+
+export function Sidebar({
+  workspace,
+  user,
+  projects,
+  favorites,
+  canCreateProject,
+  onNavigate,
+}: SidebarProps) {
   const t = useTranslations("shell");
   const pathname = usePathname();
   const router = useRouter();
@@ -129,7 +169,43 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
           active={pathname === `${base}/projects`}
           onNavigate={onNavigate}
         />
+        <NavItem
+          href={`${base}/views`}
+          icon={<Layers />}
+          label={t("views")}
+          active={isActive(`${base}/views`)}
+          onNavigate={onNavigate}
+        />
       </div>
+
+      {favorites.length > 0 ? (
+        <>
+          <SectionLabel>{t("favorites")}</SectionLabel>
+          <div className="flex flex-col gap-0.5" data-testid="sidebar-favorites">
+            {favorites.map((f) => (
+              <NavItem
+                key={f.id}
+                href={f.href}
+                icon={
+                  f.project ? (
+                    <span className="relative">
+                      <Layers />
+                      <span className="absolute -right-1 -bottom-1">
+                        <ProjectBadge name={f.project.name} color={f.project.color} size={11} />
+                      </span>
+                    </span>
+                  ) : (
+                    <Layers />
+                  )
+                }
+                label={f.name}
+                active={pathname === f.href}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
 
       <SectionLabel
         action={
@@ -155,20 +231,38 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
         ) : (
           projects.map((p) => {
             const href = `${base}/p/${p.identifier}`;
+            const open = isActive(href);
             return (
-              <NavItem
-                key={p.id}
-                href={`${href}/items`}
-                icon={<ProjectBadge name={p.name} color={p.color} />}
-                label={p.name}
-                active={isActive(href)}
-                onNavigate={onNavigate}
-                trailing={
-                  <span className="text-caption font-medium text-fg-muted tabular opacity-0 transition-opacity group-hover:opacity-100">
-                    {p.identifier}
-                  </span>
-                }
-              />
+              <div key={p.id} className="flex flex-col gap-0.5">
+                <NavItem
+                  href={`${href}/items`}
+                  icon={<ProjectBadge name={p.name} color={p.color} />}
+                  label={p.name}
+                  active={open && !pathname.startsWith(`${href}/`)}
+                  onNavigate={onNavigate}
+                  trailing={
+                    <span className="text-caption font-medium text-fg-muted tabular opacity-0 transition-opacity group-hover:opacity-100">
+                      {p.identifier}
+                    </span>
+                  }
+                />
+                {open ? (
+                  <>
+                    <SubItem
+                      href={`${href}/items`}
+                      label={t("items")}
+                      active={isActive(`${href}/items`)}
+                      onNavigate={onNavigate}
+                    />
+                    <SubItem
+                      href={`${href}/views`}
+                      label={t("projectViews")}
+                      active={isActive(`${href}/views`)}
+                      onNavigate={onNavigate}
+                    />
+                  </>
+                ) : null}
+              </div>
             );
           })
         )}

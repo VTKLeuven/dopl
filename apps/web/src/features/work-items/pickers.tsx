@@ -135,6 +135,10 @@ export function StatePicker({
 }) {
   const t = useTranslations("items");
   const state = meta.states.find((s) => s.id === value);
+  // Workspace metadata holds every project's states; offer only this item's.
+  const states = state?.projectId
+    ? meta.states.filter((s) => s.projectId === state.projectId)
+    : meta.states;
   return (
     <Picker
       open={open}
@@ -143,7 +147,7 @@ export function StatePicker({
       placeholder={t("changeState")}
       selected={[value]}
       onChange={([v]) => v && v !== value && onChange(v)}
-      options={meta.states.map((s) => ({
+      options={states.map((s) => ({
         value: s.id,
         label: s.name,
         icon: <StateIcon group={s.group} color={s.color} />,
@@ -286,6 +290,7 @@ export function LabelPicker({
   onOpenChange,
   disabled,
   max = 2,
+  projectId,
 }: {
   meta: ProjectMeta;
   value: string[];
@@ -295,6 +300,8 @@ export function LabelPicker({
   onOpenChange?: (o: boolean) => void;
   disabled?: boolean;
   max?: number;
+  /** In workspace views: offer workspace labels plus this project's. */
+  projectId?: string;
 }) {
   const t = useTranslations("items");
   const labels = value
@@ -309,11 +316,13 @@ export function LabelPicker({
       placeholder={t("addLabels")}
       selected={value}
       onChange={onChange}
-      options={meta.labels.map((l) => ({
-        value: l.id,
-        label: l.name,
-        icon: <TagDot color={l.color} className="mx-1" />,
-      }))}
+      options={meta.labels
+        .filter((l) => !projectId || !l.projectId || l.projectId === projectId)
+        .map((l) => ({
+          value: l.id,
+          label: l.name,
+          icon: <TagDot color={l.color} className="mx-1" />,
+        }))}
       trigger={
         <button
           type="button"

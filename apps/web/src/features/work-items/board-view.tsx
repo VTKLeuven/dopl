@@ -121,7 +121,7 @@ export function BoardView(props: BoardViewProps) {
     const before = target[idx - 1] ?? null;
     const after = target[idx + 1] ?? null;
 
-    const patch = patchForGroup(row, fromGroup, toGroup);
+    const patch = patchForGroup(row, fromGroup, toGroup, meta);
     if (patch) props.onUpdate(row.id, patch);
     if (options.orderBy.field === "manual") {
       let optimisticKey: string;

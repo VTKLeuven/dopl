@@ -50,20 +50,41 @@ export function itemsSearchParams(mode: CompletedMode, filters: FilterGroup): st
   return `completed=${mode}${key ? `&f=${encodeURIComponent(key)}` : ""}`;
 }
 
-export function useProjectItems(
+/** Where a list of items comes from: one project, or every project (workspace views). */
+export type ItemsScope = { kind: "project"; projectId: string } | { kind: "workspace" };
+
+/** Cache key for a scope; project scopes use the project id so mutations can find them. */
+export function scopeKey(scope: ItemsScope): string {
+  return scope.kind === "project" ? scope.projectId : "workspace";
+}
+
+function scopeBase(ws: string, scope: ItemsScope): string {
+  return scope.kind === "project" ? `/api/v1/${ws}/projects/${scope.projectId}` : `/api/v1/${ws}`;
+}
+
+export function useItems(
   ws: string,
-  projectId: string,
+  scope: ItemsScope,
   query: { completed: CompletedMode; filters: FilterGroup },
   initial?: ItemsData,
 ) {
   return useQuery({
-    queryKey: keys.itemsQuery(projectId, query.completed, filterKey(query.filters)),
+    queryKey: keys.itemsQuery(scopeKey(scope), query.completed, filterKey(query.filters)),
     queryFn: () =>
       getJson<ItemsData>(
-        `/api/v1/${ws}/projects/${projectId}/items?${itemsSearchParams(query.completed, query.filters)}`,
+        `${scopeBase(ws, scope)}/items?${itemsSearchParams(query.completed, query.filters)}`,
       ),
     initialData: initial,
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useScopeMeta(ws: string, scope: ItemsScope, initial?: ProjectMeta) {
+  return useQuery({
+    queryKey: keys.meta(scopeKey(scope)),
+    queryFn: () => getJson<ProjectMeta>(`${scopeBase(ws, scope)}/meta`),
+    initialData: initial,
+    staleTime: 5 * 60_000,
   });
 }
 

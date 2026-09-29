@@ -11,7 +11,9 @@ import {
   GanttChart,
   Eye,
   EyeOff,
+  Layers,
   LayoutList,
+  Lock,
   ListTodo,
   Plus,
   Search,
@@ -19,6 +21,7 @@ import {
   Sheet,
   SlidersHorizontal,
   Trash,
+  Users,
   X,
 } from "lucide-react";
 import {
@@ -28,10 +31,12 @@ import {
   type OrderField,
   type PropertyKey,
 } from "@dopl/shared/schemas/view";
-import type { Priority } from "@dopl/shared/schemas/work-item";
+import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
 import { EMPTY_FILTER, isEmptyFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
 import { FilterBar } from "@/features/filters/filter-bar";
 import { FilterButton } from "@/features/filters/filter-builder";
+import { FavoriteButton, ViewMenu, ViewStateActions } from "@/features/views/view-controls";
+import type { ViewDetail } from "@/server/queries/views";
 import { cn } from "@/lib/cn";
 import { saveViewPreferenceAction } from "@/server/actions/view-preferences";
 import { Button } from "@/components/ui/button";
@@ -53,13 +58,15 @@ import { PageHeader } from "@/components/shell/page-header";
 import { ProjectBadge } from "@/components/shell/project-badge";
 import {
   filterKey,
+  scopeKey,
   useBlockingRelations,
   useBulkUpdate,
   useDeleteItems,
+  useItems,
   useMoveItem,
-  useProjectItems,
-  useProjectMeta,
+  useScopeMeta,
   useUpdateItem,
+  type ItemsScope,
   type BlockingRelation,
   type ItemsData,
 } from "./data";
@@ -75,6 +82,15 @@ import { AssigneePicker, LabelPicker, PriorityPicker, StatePicker } from "./pick
 import type { ProjectMeta, WorkItemRow } from "./types";
 
 const GROUP_KEYS: GroupKey[] = ["state", "priority", "assignee", "label", "type", "none"];
+const WORKSPACE_GROUP_KEYS: GroupKey[] = [
+  "stateGroup",
+  "project",
+  "priority",
+  "assignee",
+  "label",
+  "type",
+  "none",
+];
 const ORDER_FIELDS: OrderField[] = [
   "manual",
   "priority",
@@ -114,38 +130,48 @@ function isTypingTarget(el: EventTarget | null) {
 
 export function ProjectItemsView({
   ws,
-  projectId,
+  scope,
   initialItems,
   initialMeta,
   initialOptions,
   initialFilters,
+  view = null,
 }: {
   ws: string;
-  projectId: string;
+  scope: ItemsScope;
   initialItems: ItemsData;
   initialMeta: ProjectMeta;
   initialOptions: DisplayOptions;
   initialFilters: FilterGroup;
+  /** A saved view: its settings seed the state and changes aren't auto-saved. */
+  view?: ViewDetail | null;
 }) {
   const t = useTranslations("items");
   const tf = useTranslations("filters");
+  const tv = useTranslations("views");
   const [options, setOptionsState] = useState<DisplayOptions>(initialOptions);
   const [filters, setFiltersState] = useState<FilterGroup>(initialFilters);
-  const { data: meta = initialMeta } = useProjectMeta(ws, projectId, initialMeta);
-  const { data: items, isPlaceholderData } = useProjectItems(
+  const key = scopeKey(scope);
+  const projectId = scope.kind === "project" ? scope.projectId : null;
+  const { data: meta = initialMeta } = useScopeMeta(ws, scope, initialMeta);
+  const { data: items, isPlaceholderData } = useItems(
     ws,
-    projectId,
+    scope,
     { completed: options.completed, filters },
     options.completed === initialOptions.completed &&
       filterKey(filters) === filterKey(initialFilters)
       ? initialItems
       : undefined,
   );
-  const { mutate: updateItem } = useUpdateItem(ws, projectId);
-  const { data: relations } = useBlockingRelations(ws, projectId, options.layout === "TIMELINE");
-  const bulk = useBulkUpdate(ws, projectId);
-  const move = useMoveItem(ws, projectId);
-  const del = useDeleteItems(ws, projectId);
+  const { mutate: updateItem } = useUpdateItem(ws, key);
+  const { data: relations } = useBlockingRelations(
+    ws,
+    projectId ?? "",
+    options.layout === "TIMELINE" && Boolean(projectId),
+  );
+  const bulk = useBulkUpdate(ws, key);
+  const move = useMoveItem(ws, key);
+  const del = useDeleteItems(ws, key);
 
   const [peek, setPeek] = useQueryState("peek", parseAsString);
   const [, setFilterParam] = useQueryState("f", parseAsString);
@@ -163,18 +189,19 @@ export function ProjectItemsView({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ options: initialOptions, filters: initialFilters });
   const persist = useCallback(() => {
+    if (view) return; // saved views change only through Save
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(
       () =>
         void saveViewPreferenceAction(
           ws,
-          `project:${projectId}`,
+          projectId ? `project:${projectId}` : "workspace:all",
           latest.current.options,
           latest.current.filters,
         ),
       600,
     );
-  }, [ws, projectId]);
+  }, [ws, projectId, view]);
   const setOptions = useCallback(
     (patch: Partial<DisplayOptions>) => {
       const next = DisplayOptionsSchema.parse({ ...latest.current.options, ...patch });
@@ -188,11 +215,21 @@ export function ProjectItemsView({
     (next: FilterGroup) => {
       latest.current.filters = next;
       setFiltersState(next);
-      void setFilterParam(filterKey(next) || null);
+      if (!view) void setFilterParam(filterKey(next) || null);
       persist();
     },
-    [persist, setFilterParam],
+    [persist, setFilterParam, view],
   );
+  const modified = view
+    ? filterKey(filters) !== filterKey(view.filters) ||
+      JSON.stringify(options) !== JSON.stringify(view.displayOptions)
+    : false;
+  const resetToView = useCallback(() => {
+    if (!view) return;
+    latest.current = { options: view.displayOptions, filters: view.filters };
+    setOptionsState(view.displayOptions);
+    setFiltersState(view.filters);
+  }, [view]);
 
   const rows = useMemo(() => {
     const all = items?.rows ?? [];
@@ -203,25 +240,42 @@ export function ProjectItemsView({
     );
   }, [items, search]);
 
+  // Across projects each project has its own states and manual order, so
+  // "state" groups by state group and "manual" falls back to priority.
+  const groupOptions = useMemo<DisplayOptions>(() => {
+    if (scope.kind === "project") return options;
+    return {
+      ...options,
+      groupBy: options.groupBy === "state" ? "stateGroup" : options.groupBy,
+      orderBy:
+        options.orderBy.field === "manual" ? { field: "priority", dir: "asc" } : options.orderBy,
+    };
+  }, [options, scope.kind]);
+  const orderFields =
+    scope.kind === "workspace" ? ORDER_FIELDS.filter((f) => f !== "manual") : ORDER_FIELDS;
   const groups = useMemo(
     () =>
-      groupRows(rows, options, meta, {
+      groupRows(rows, groupOptions, meta, {
         none: {
           state: "",
           priority: "",
           assignee: t("noAssignee"),
           label: t("noLabel"),
           type: t("noType"),
+          stateGroup: "",
+          project: "",
           none: "",
         },
         priority: (p: Priority) => t(`priority.${p}`),
+        stateGroup: (g: StateGroup) => tf(`stateGroup.${g}`),
       }),
-    [rows, options, meta, t],
+    [rows, groupOptions, meta, t, tf],
   );
 
   const tableRows = useMemo(
-    () => sortRows(options.showSubItems ? rows : rows.filter((r) => !r.parentId), options.orderBy),
-    [rows, options.showSubItems, options.orderBy],
+    () =>
+      sortRows(options.showSubItems ? rows : rows.filter((r) => !r.parentId), groupOptions.orderBy),
+    [rows, options.showSubItems, groupOptions.orderBy],
   );
 
   const rowById = useMemo(() => new Map((items?.rows ?? []).map((r) => [r.id, r])), [items]);
@@ -354,6 +408,8 @@ export function ProjectItemsView({
     createInGroup,
   ]);
 
+  const projectIdentifier = scope.kind === "project" ? meta.project.identifier : null;
+  const listHref = projectIdentifier ? `/${ws}/p/${projectIdentifier}/views` : `/${ws}/views`;
   const hidden = items?.hiddenDone ?? 0;
   const filtered = !isEmptyFilter(filters);
   const isEmpty = (items?.rows.length ?? 0) === 0 && !filtered;
@@ -362,15 +418,54 @@ export function ProjectItemsView({
     <div className="relative flex min-h-0 flex-1 flex-col" data-density={options.density}>
       <PageHeader
         crumbs={[
-          {
-            label: meta.project.name,
-            icon: <ProjectBadge name={meta.project.name} color={meta.project.color} size={18} />,
-            href: `/${ws}/p/${meta.project.identifier}/items`,
-          },
-          { label: t("title") },
+          ...(scope.kind === "project"
+            ? [
+                {
+                  label: meta.project.name,
+                  icon: (
+                    <ProjectBadge name={meta.project.name} color={meta.project.color} size={18} />
+                  ),
+                  href: `/${ws}/p/${meta.project.identifier}/items`,
+                },
+              ]
+            : []),
+          ...(view
+            ? [
+                {
+                  label: tv("title"),
+                  icon: scope.kind === "workspace" ? <Layers /> : undefined,
+                  href: listHref,
+                },
+                {
+                  label: view.name,
+                  icon: view.isLocked ? (
+                    <Lock />
+                  ) : view.visibility === "WORKSPACE" ? (
+                    <Users />
+                  ) : null,
+                },
+              ]
+            : scope.kind === "workspace"
+              ? [
+                  { label: tv("title"), icon: <Layers />, href: listHref },
+                  { label: tv("allItems") },
+                ]
+              : [{ label: t("title") }]),
         ]}
         actions={
           <>
+            {view ? (
+              <>
+                <FavoriteButton ws={ws} viewId={view.id} initial={view.favorite} />
+                <ViewMenu
+                  ws={ws}
+                  view={view}
+                  projectIdentifier={projectIdentifier}
+                  filters={filters}
+                  options={options}
+                />
+              </>
+            ) : null}
             <SegmentedControl
               value={options.layout}
               onValueChange={(v) => setOptions({ layout: v as DisplayOptions["layout"] })}
@@ -403,7 +498,12 @@ export function ProjectItemsView({
                 </SegmentedControlItem>
               </Tooltip>
             </SegmentedControl>
-            <DisplayOptionsButton options={options} setOptions={setOptions} />
+            <DisplayOptionsButton
+              options={options}
+              setOptions={setOptions}
+              groupKeys={scope.kind === "workspace" ? WORKSPACE_GROUP_KEYS : GROUP_KEYS}
+              orderFields={orderFields}
+            />
             {meta.can.manage ? (
               <Tooltip content={t("projectSettings")}>
                 <Button
@@ -452,17 +552,19 @@ export function ProjectItemsView({
             <Chip className="hidden sm:inline-flex">
               <ArrowUpDown />
               {t("sortedBy")}{" "}
-              <span className="font-medium text-fg">{t(`order.${options.orderBy.field}`)}</span>
+              <span className="font-medium text-fg">
+                {t(`order.${groupOptions.orderBy.field}`)}
+              </span>
             </Chip>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuRadioGroup
-              value={options.orderBy.field}
+              value={groupOptions.orderBy.field}
               onValueChange={(field) =>
                 setOptions({ orderBy: { field: field as OrderField, dir: options.orderBy.dir } })
               }
             >
-              {ORDER_FIELDS.map((f) => (
+              {orderFields.map((f) => (
                 <DropdownMenuRadioItem key={f} value={f}>
                   {t(`order.${f}`)}
                 </DropdownMenuRadioItem>
@@ -490,7 +592,25 @@ export function ProjectItemsView({
           </Chip>
         </Tooltip>
       </div>
-      <FilterBar value={filters} onChange={setFilters} source={meta} />
+      <FilterBar
+        value={filters}
+        onChange={setFilters}
+        source={meta}
+        actions={
+          modified || (!view && filtered) ? (
+            <ViewStateActions
+              ws={ws}
+              view={view}
+              modified={modified}
+              projectId={projectId}
+              projectIdentifier={projectIdentifier}
+              filters={filters}
+              options={options}
+              onReset={resetToView}
+            />
+          ) : undefined
+        }
+      />
 
       {isEmpty && !search ? (
         <EmptyState
@@ -563,7 +683,10 @@ export function ProjectItemsView({
           onShowDone={() => setOptions({ completed: "show" })}
           onOpen={onOpen}
           onUpdate={onUpdate}
-          onMove={(input) => move.mutate(input)}
+          onMove={(input) => {
+            // Manual order is per project; across projects only column moves apply.
+            if (scope.kind === "project") move.mutate(input);
+          }}
           onCreateInGroup={createInGroup}
           focusedId={focusedId}
           onFocus={setFocusedId}
@@ -627,9 +750,13 @@ export function ProjectItemsView({
 function DisplayOptionsButton({
   options,
   setOptions,
+  groupKeys,
+  orderFields,
 }: {
   options: DisplayOptions;
   setOptions: (p: Partial<DisplayOptions>) => void;
+  groupKeys: GroupKey[];
+  orderFields: OrderField[];
 }) {
   const t = useTranslations("items");
   return (
@@ -644,16 +771,26 @@ function DisplayOptionsButton({
         <div className="flex flex-col gap-3 p-4">
           <Field label={t("groupBy")}>
             <Select
-              value={options.groupBy}
-              options={GROUP_KEYS.map((g) => ({ value: g, label: t(`group.${g}`) }))}
+              value={
+                groupKeys.includes(options.groupBy)
+                  ? options.groupBy
+                  : options.groupBy === "state"
+                    ? "stateGroup"
+                    : "state"
+              }
+              options={groupKeys.map((g) => ({ value: g, label: t(`group.${g}`) }))}
               onChange={(v) => setOptions({ groupBy: v as GroupKey })}
             />
           </Field>
           <Field label={t("orderBy")}>
             <div className="flex gap-1.5">
               <Select
-                value={options.orderBy.field}
-                options={ORDER_FIELDS.map((f) => ({ value: f, label: t(`order.${f}`) }))}
+                value={
+                  orderFields.includes(options.orderBy.field)
+                    ? options.orderBy.field
+                    : (orderFields[0] ?? "priority")
+                }
+                options={orderFields.map((f) => ({ value: f, label: t(`order.${f}`) }))}
                 onChange={(v) =>
                   setOptions({ orderBy: { field: v as OrderField, dir: options.orderBy.dir } })
                 }

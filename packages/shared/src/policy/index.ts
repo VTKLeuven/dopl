@@ -115,6 +115,40 @@ export function canEditComment(
   return canProject(actor, project, "comment.moderate");
 }
 
+export interface PolicyView {
+  ownerId: string;
+  visibility: "PRIVATE" | "WORKSPACE";
+  isLocked: boolean;
+}
+
+/**
+ * Saved views. Seeing one also needs access to its project (checked by the
+ * caller). Private views are the owner's alone. Shared views can be changed by
+ * any non-guest human unless the owner or an admin locked them.
+ */
+export type ViewAction = "view.see" | "view.edit" | "view.delete" | "view.lock";
+
+export function canView(actor: PolicyActor, view: PolicyView, action: ViewAction): boolean {
+  if (actor.kind === "SYSTEM") return true;
+  const owner = view.ownerId === actor.userId;
+  const admin = actor.kind === "HUMAN" && isAdmin(actor.workspaceRole);
+  switch (action) {
+    case "view.see":
+      return owner || view.visibility === "WORKSPACE";
+    case "view.edit":
+      if (owner || admin) return true;
+      return (
+        view.visibility === "WORKSPACE" &&
+        !view.isLocked &&
+        actor.kind === "HUMAN" &&
+        actor.workspaceRole !== "GUEST"
+      );
+    case "view.delete":
+    case "view.lock":
+      return owner || admin;
+  }
+}
+
 export function canApproveAgentAction(actor: PolicyActor): boolean {
   return (
     actor.kind === "HUMAN" &&

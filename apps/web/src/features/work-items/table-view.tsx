@@ -641,6 +641,7 @@ function Cell({
         <LabelPicker
           variant="field"
           meta={meta}
+          projectId={row.projectId}
           value={row.labelIds}
           onChange={(labelIds) => set({ labelIds })}
           {...picker}

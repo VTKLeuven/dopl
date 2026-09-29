@@ -3,10 +3,12 @@ import {
   canApproveAgentAction,
   canEditComment,
   canProject,
+  canView,
   canWorkspace,
   effectiveProjectRole,
   type PolicyActor,
   type PolicyProject,
+  type PolicyView,
   type ProjectAction,
   type ProjectRole,
   type WorkspaceRole,
@@ -132,5 +134,36 @@ describe("comments and approvals", () => {
     expect(canApproveAgentAction(actor("MEMBER", { canApproveAgentActions: true }))).toBe(true);
     expect(canApproveAgentAction(actor("GUEST", { canApproveAgentActions: true }))).toBe(false);
     expect(canApproveAgentAction(actor("ADMIN", { kind: "AGENT" }))).toBe(false);
+  });
+});
+
+describe("saved views", () => {
+  const view = (o: Partial<PolicyView> = {}): PolicyView => ({
+    ownerId: "owner",
+    visibility: "WORKSPACE",
+    isLocked: false,
+    ...o,
+  });
+  const owner = actor("MEMBER", { userId: "owner" });
+  it("private views belong to their owner", () => {
+    const v = view({ visibility: "PRIVATE" });
+    expect(canView(owner, v, "view.see")).toBe(true);
+    expect(canView(actor("MEMBER"), v, "view.see")).toBe(false);
+    expect(canView(actor("MEMBER"), v, "view.edit")).toBe(false);
+    expect(canView(actor("ADMIN"), v, "view.edit")).toBe(true);
+  });
+  it("shared views are editable by members until locked", () => {
+    expect(canView(actor("MEMBER"), view(), "view.edit")).toBe(true);
+    expect(canView(actor("GUEST"), view(), "view.edit")).toBe(false);
+    expect(canView(actor("MEMBER"), view({ isLocked: true }), "view.edit")).toBe(false);
+    expect(canView(owner, view({ isLocked: true }), "view.edit")).toBe(true);
+    expect(canView(actor("ADMIN"), view({ isLocked: true }), "view.edit")).toBe(true);
+    expect(canView(actor("MEMBER", { kind: "AGENT" }), view(), "view.edit")).toBe(false);
+  });
+  it("only owners and admins delete or lock", () => {
+    expect(canView(actor("MEMBER"), view(), "view.delete")).toBe(false);
+    expect(canView(actor("MEMBER"), view(), "view.lock")).toBe(false);
+    expect(canView(owner, view(), "view.delete")).toBe(true);
+    expect(canView(actor("ADMIN"), view(), "view.lock")).toBe(true);
   });
 });

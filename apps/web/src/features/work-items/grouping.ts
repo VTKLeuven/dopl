@@ -1,5 +1,11 @@
 import type { DisplayOptions, GroupKey } from "@dopl/shared/schemas/view";
-import { priorities, type Priority, type StateGroup } from "@dopl/shared/schemas/work-item";
+import {
+  DONE_GROUPS,
+  priorities,
+  type Priority,
+  type StateGroup,
+} from "@dopl/shared/schemas/work-item";
+import { stateGroupColor } from "@/components/icons/state-icon";
 import type { ProjectMeta, WorkItemRow } from "./types";
 
 export interface ItemGroup {
@@ -14,9 +20,12 @@ export interface ItemGroup {
   color?: string;
   userId?: string;
   typeIcon?: { icon: string; color: string };
+  project?: { name: string; color: string | null };
   /** Done groups start collapsed when done items are hidden (D-053). */
   done?: boolean;
 }
+
+const STATE_GROUPS: StateGroup[] = ["BACKLOG", "UNSTARTED", "STARTED", "COMPLETED", "CANCELLED"];
 
 const PRIORITY_RANK: Record<Priority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3, NONE: 4 };
 
@@ -54,7 +63,11 @@ export function groupRows(
   rows: WorkItemRow[],
   opts: DisplayOptions,
   meta: ProjectMeta,
-  labels: { none: Record<GroupKey, string>; priority: (p: Priority) => string },
+  labels: {
+    none: Record<GroupKey, string>;
+    priority: (p: Priority) => string;
+    stateGroup: (g: StateGroup) => string;
+  },
 ): ItemGroup[] {
   const visible = opts.showSubItems ? rows : rows.filter((r) => !r.parentId);
   const sorted = sortRows(visible, opts.orderBy);
@@ -78,6 +91,24 @@ export function groupRows(
         }),
       );
       for (const r of sorted) groups.find((g) => g.value === r.stateId)?.rows.push(r);
+      break;
+    case "stateGroup":
+      groups = STATE_GROUPS.map((g) =>
+        make({
+          key: `stateGroup:${g}`,
+          value: g,
+          label: labels.stateGroup(g),
+          state: { group: g, color: stateGroupColor[g] },
+          done: DONE_GROUPS.includes(g),
+        }),
+      );
+      for (const r of sorted) groups.find((g) => g.value === r.stateGroup)?.rows.push(r);
+      break;
+    case "project":
+      groups = (meta.projects ?? []).map((p) =>
+        make({ key: `project:${p.id}`, value: p.id, label: p.name, project: p }),
+      );
+      for (const r of sorted) groups.find((g) => g.value === r.projectId)?.rows.push(r);
       break;
     case "priority":
       groups = priorities.map((p) =>
@@ -143,11 +174,19 @@ export function patchForGroup(
   row: WorkItemRow,
   from: ItemGroup,
   to: ItemGroup,
+  meta?: ProjectMeta,
 ): Record<string, unknown> | null {
   if (from.key === to.key) return null;
   switch (to.field) {
     case "state":
       return to.value ? { stateId: to.value } : null;
+    case "stateGroup": {
+      // The first state of that group in the item's own project.
+      const state = meta?.states.find(
+        (s) => s.group === to.value && (!s.projectId || s.projectId === row.projectId),
+      );
+      return state ? { stateId: state.id } : null;
+    }
     case "priority":
       return { priority: to.value };
     case "type":
