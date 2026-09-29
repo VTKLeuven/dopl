@@ -25,7 +25,7 @@ const ALLOWED_ATTRS: Record<string, string[]> = {
   orderedList: ["start"],
   codeBlock: ["language"],
   mention: ["id", "label", "kind"],
-  workItemRef: ["id", "identifier"],
+  workItemRef: ["id", "identifier", "label"],
 };
 
 function safeHref(href: unknown): string | null {
@@ -90,7 +90,7 @@ export function docToPlainText(doc: PMNode | null | undefined, max = 20_000): st
   const walk = (n: PMNode) => {
     if (n.type === "text" && n.text) parts.push(n.text);
     else if (n.type === "mention") parts.push(`@${String(n.attrs?.label ?? "")}`);
-    else if (n.type === "workItemRef") parts.push(String(n.attrs?.identifier ?? ""));
+    else if (n.type === "workItemRef") parts.push(String(n.attrs?.identifier ?? n.attrs?.label ?? ""));
     else if (n.type === "hardBreak") parts.push("\n");
     n.content?.forEach(walk);
     if (BLOCK_BREAK.has(n.type)) parts.push("\n");

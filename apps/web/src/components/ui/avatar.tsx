@@ -49,7 +49,7 @@ export function Avatar({
       title={user.name}
     >
       {user.image ? <A.Image src={user.image} alt="" className="size-full object-cover" /> : null}
-      <A.Fallback delayMs={user.image ? 400 : 0} className={cn("flex size-full items-center justify-center", color.soft, color.text)}>
+      <A.Fallback delayMs={user.image ? 400 : 0} className={cn("flex size-full items-center justify-center", color.avatar)}>
         {initials(user.name)}
       </A.Fallback>
     </A.Root>
@@ -98,7 +98,7 @@ export function AvatarStack({
   return (
     <span className="inline-flex items-center">
       {shown.map((u, i) => (
-        <Avatar key={u.id} user={u} size={size} className={i > 0 ? "-ml-1.5" : undefined} />
+        <Avatar key={u.id} user={u} size={size} className={i > 0 ? "-ml-1" : undefined} />
       ))}
       {rest > 0 ? (
         <span className="tabular ml-1 text-small font-medium text-fg-muted">+{rest}</span>

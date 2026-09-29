@@ -30,6 +30,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "better-auth": "1.7.6",
     "prisma": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"

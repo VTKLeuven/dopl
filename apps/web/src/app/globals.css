@@ -305,3 +305,14 @@
   scrollbar-width: thin;
   scrollbar-color: var(--color-neutral-300) transparent;
 }
+
+/* Empty property placeholders appear only when their row/card is hovered or focused. */
+@utility reveal-on-row-hover {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+  :where(.group\/row:hover, .group\/row[data-focused], [data-state="open"]) & ,
+  &:focus-visible,
+  &[data-state="open"] {
+    opacity: 1;
+  }
+}
