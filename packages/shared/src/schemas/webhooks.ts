@@ -27,6 +27,8 @@ export const AVAILABLE_WEBHOOK_EVENTS: WebhookEvent[] = [
   "work_item.assigned",
   "intake.submitted",
   "intake.accepted",
+  "email_thread.created",
+  "email_message.received",
 ];
 
 /**
@@ -71,6 +73,8 @@ export const WebhookInputSchema = z.object({
   events: z.array(WebhookEventSchema).min(1).max(WEBHOOK_EVENTS.length),
   /** Empty = every project. */
   projectIds: z.array(z.uuid()).max(100).default([]),
+  /** Empty = every mailbox (mail events only). */
+  mailboxIds: z.array(z.uuid()).max(50).default([]),
   includeContent: z.boolean().default(false),
 });
 

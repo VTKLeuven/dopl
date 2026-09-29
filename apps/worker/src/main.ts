@@ -24,11 +24,12 @@ boss.on("error", (err) => {
 });
 
 let healthy = false;
+let stopConsumers: () => void = () => {};
 
 async function main() {
   await boss.start();
   await ensureQueues(boss);
-  await registerHandlers({ boss, db, logger });
+  stopConsumers = await registerHandlers({ boss, db, logger });
   healthy = true;
   logger.info({ queues: queueNames.length }, "worker started");
 }
@@ -52,6 +53,7 @@ health.listen(env.WORKER_HEALTH_PORT);
 async function shutdown(signal: string) {
   logger.info({ signal }, "shutting down");
   healthy = false;
+  stopConsumers();
   health.close();
   await boss.stop({ graceful: true, timeout: 20_000 });
   await db.$disconnect();

@@ -17,6 +17,21 @@ export const queues = {
   "snooze.wake": z.object({}),
   /** Nightly: one project_daily_stats row per project for "over time" charts. */
   "analytics.snapshot": z.object({}),
+  /* Shared mailbox (Phase 7). Only the worker holds Google credentials (D-027). */
+  /** Token + label list for a newly connected mailbox, then starts the backfill. */
+  "gmail.test": z.object({ mailboxId: z.uuid() }),
+  /** Initial backfill or full resync (after a history 404); resumable by page token. */
+  "gmail.backfill": z.object({ mailboxId: z.uuid(), kind: z.enum(["BACKFILL", "FULL_RESYNC"]) }),
+  /** Partial sync from the stored historyId (singleton per mailbox). */
+  "gmail.sync": z.object({ mailboxId: z.uuid(), reason: z.enum(["push", "poll", "manual"]) }),
+  /** Daily: users.watch for every active mailbox. */
+  "gmail.watch-renew": z.object({}),
+  /** Every 5 minutes: a sync for every active mailbox, in case pushes stop. */
+  "gmail.poll": z.object({}),
+  /** Downloads one attachment into blob storage on first open. */
+  "gmail.fetch-attachment": z.object({ attachmentId: z.uuid() }),
+  /** Sends one outbound reply (Phase 7b). */
+  "gmail.send": z.object({ messageId: z.uuid() }),
   "notifications.fanout": z.object({
     workspaceId: z.uuid(),
     activityIds: z.array(z.uuid()).min(1),

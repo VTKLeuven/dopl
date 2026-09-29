@@ -74,6 +74,38 @@ export async function wakeSnoozed(db: DbClient, logger: Logger): Promise<number>
     });
   }
 
+  // Email threads (Phase 7): back in their views, and the assignee hears about it.
+  const threads = await db.emailThread.findMany({
+    where: { snoozedUntil: { lte: now } },
+    take: 200,
+    select: { id: true, workspaceId: true, mailboxId: true, assigneeId: true, subject: true },
+  });
+  for (const t of threads) {
+    await db.$transaction(async (tx) => {
+      const woke = await tx.emailThread.updateMany({
+        where: { id: t.id, snoozedUntil: { lte: now } },
+        data: { snoozedUntil: null },
+      });
+      if (woke.count === 0) return;
+      if (t.assigneeId)
+        await notifyFromJob(tx, {
+          workspaceId: t.workspaceId,
+          recipientIds: [t.assigneeId],
+          type: "SNOOZE_ENDED",
+          entityType: "EMAIL_THREAD",
+          entityId: t.id,
+          emailThreadId: t.id,
+          data: { subject: t.subject },
+        });
+      await emitRealtime(tx, {
+        workspaceId: t.workspaceId,
+        topic: `mailbox:${t.mailboxId}`,
+        type: "email.thread.updated",
+        payload: { id: t.id },
+      });
+    });
+  }
+
   // Inbox snoozes that just ended (within the last minute): nudge badges.
   const since = new Date(now.getTime() - 65_000);
   const notifications = await db.notification.findMany({

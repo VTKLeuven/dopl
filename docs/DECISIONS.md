@@ -1112,3 +1112,42 @@ A shared dashboard is readable by every member (not guests) and editable only by
 - **Keyboard reorder** on a dashboard works between rows in the middle of the grid, but a widget alone on the last row found no target moving up in the e2e run. The spec drags with the pointer; the keyboard case is a carry-over.
 - **Chart data requests** use `GET …/analytics/query?q=<json>`; a malformed `q` is a 400, not a 500.
 - **Email metrics** (first response, resolution) are defined in the schema comment but not in the registry: they need Phase 7's mailbox access rules.
+
+### D-107: `@dopl/server` holds server code shared by web and worker
+
+The worker now creates notifications (new replies, ended snoozes) and Discord events (new mail) itself, so storage, `notify` and webhook dispatch moved from `apps/web/src/server` into a `@dopl/server` package that both import. It's server-only: React components never import it, the same rule as `@dopl/db`. Webhooks gained an optional `mailboxIds` filter: empty means every mailbox, and mail events from other mailboxes skip that webhook.
+
+### D-108: Pub/Sub is pulled over REST
+
+**Decision:** the worker long-polls `subscriptions.pull` over REST (90 s requests, acknowledging after it queues the syncs) instead of using `@google-cloud/pubsub`'s streaming gRPC client.
+**Why:** it needs no extra dependency or gRPC stack in the worker image, uses the same service-account token as the Gmail calls, and a notification only says "something changed" (the sync reads `history.list` anyway). A few seconds of delay at most is well inside the 10 s target. Without a subscription configured, the 5-minute poll covers everything. In dev, the fake Gmail's directory is watched with `fs.watch` as the push.
+
+### D-109: The email frame's height is estimated
+
+The frame is sandboxed without `allow-scripts` and `allow-same-origin` (D-028), so the page can't measure what's inside it. The height is estimated from the plain text (about 95 characters a line), between 96 and 520 px; longer emails get "Show more", which grows the frame. Rarely, a mail with big tables or images is cut off until you expand it. Measuring would need `allow-same-origin`, which the security model rules out.
+
+### D-110: Worker secrets live in `worker.env`, and the web refuses them
+
+`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_*` and (Phase 8) `AGENT_SSH_KEY_FILE` go in `worker.env` (gitignored; `worker.env.example` is committed), which only the worker loads. In production, only the worker container gets `env_file: worker.env` and the `./secrets:/run/secrets:ro` mount. The web app's env parser fails at start if it sees the key paths, and `deploy.test.ts` checks the compose file and the web env, which is the Phase 7 acceptance check for D-027.
+
+### D-111: A file-backed fake Gmail for dev, CI and tests
+
+**Decision:** with `GMAIL_FAKE_DIR` set (relative to the repo root), the worker uses `FakeGmail` instead of the Google client: one JSON store per mailbox with messages, a history log and attachments, implementing the same `GmailApi` interface (profile, labels, list, get, history, watch, send). `@dopl/shared/testing/fake-gmail` writes to it; `expireHistory` simulates the 404. Production refuses to start with it set.
+**Why:** the sync engine, ingest and replies run end to end in dev, CI and e2e without a Google Workspace, which the project doesn't have yet (Q-20). Only `GoogleGmail` itself (thin REST calls) is untested until a real mailbox is connected.
+
+### D-112: Mail presence is ephemeral
+
+"Viewing" and "replying" are pinged every 10 s from an open reader and sent as ephemeral realtime events on the thread's topic, like typing in chat (D-085). Nothing is stored; a presence disappears 25 s after the last ping. That's enough to avoid two people answering the same email, and a crash can't leave a stale "replying".
+
+### D-113: Replies are queued rows the worker sends
+
+Replying creates an OUTBOUND `email_messages` row with status `QUEUED` in the mutation and enqueues `gmail.send`. The worker composes the MIME message (nodemailer's `MailComposer`: HTML from the Tiptap document plus a text part, `In-Reply-To` and `References` from the thread), sends it with `threadId`, and stores Gmail's id so the next sync recognises it instead of adding a copy. Failures retry; the last one marks the row `FAILED` with the reason, shown on the message. The web never talks to Google (D-027). Sending is off per mailbox until an admin turns on "Reply from Dopl", because it needs the extra `gmail.send` scope.
+
+### D-114: Operational notes from Phase 7
+
+- **Backfill is quiet:** imported mail creates threads and contacts but no notifications or Discord events; only live mail (push, poll, manual sync) does.
+- **Thread subjects** use the first message's subject without `Re:`/`Fwd:` prefixes, so a thread that starts from an imported reply reads cleanly.
+- **Promoted items** are `untrusted` with `origin: EMAIL` and `createdByContactId`, so a Phase 8 agent run that reads them is tainted (D-033).
+- **e2e and the fake store:** specs append to the same fake store the worker watches, so they need the worker running with the same `GMAIL_FAKE_DIR` (CI sets `.data/fake-gmail`). The seed deletes and rewrites `it@vtk.be`'s store.
+- **Snoozed threads** wake in the same `snooze.wake` job as requests and notify the assignee with `SNOOZE_ENDED` on the thread.
+- **One e2e retry on CI:** `main` went red after Phase 6 on a different test each run (inbox mention, note capture, chat typing, the cross-origin embed), with `Error: aborted` from the cold dev server and all of them passing locally. Playwright now retries once when `CI` is set; a test that passes on retry shows as flaky in the log. Running CI's e2e against the production build would avoid compiling on demand, but production turns on Better Auth's sign-in rate limit (5 per 15 minutes), which the suite exceeds.

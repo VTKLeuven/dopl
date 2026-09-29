@@ -24,7 +24,8 @@
     "./schemas/intake": "./src/schemas/intake.ts",
     "./schemas/webhooks": "./src/schemas/webhooks.ts",
     "./discord": "./src/domain/discord.ts",
-    "./secretbox": "./src/crypto/secretbox.ts"
+    "./secretbox": "./src/crypto/secretbox.ts",
+    "./testing/*": "./src/testing/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

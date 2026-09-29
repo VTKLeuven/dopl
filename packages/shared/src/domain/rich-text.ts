@@ -173,3 +173,75 @@ export function textToDoc(text: string): PMNode {
       : [{ type: "paragraph" }],
   };
 }
+
+/* ───────────────────────── HTML (outgoing email) ───────────────────────── */
+
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const BLOCK_TAG: Record<string, string> = {
+  paragraph: "p",
+  bulletList: "ul",
+  orderedList: "ol",
+  taskList: "ul",
+  listItem: "li",
+  taskItem: "li",
+  blockquote: "blockquote",
+};
+
+/**
+ * Tiptap JSON → minimal HTML for an outgoing email reply (Phase 7b). The doc
+ * is sanitized first, every text escaped, and links limited to http(s) and
+ * mailto; @mentions and #INFRA-42 chips become plain text.
+ */
+export function docToHtml(raw: unknown): string {
+  const doc = sanitizeDoc(raw);
+  const attr = (n: PMNode, key: string): string => {
+    const v = n.attrs?.[key];
+    return typeof v === "string" || typeof v === "number" ? String(v) : "";
+  };
+  const inline = (n: PMNode): string => {
+    if (n.type === "mention") return escapeHtml(`@${attr(n, "label")}`);
+    if (n.type === "workItemRef") return escapeHtml(attr(n, "identifier") || attr(n, "label"));
+    if (n.type === "hardBreak") return "<br>";
+    let out = escapeHtml(n.text ?? "");
+    for (const m of n.marks ?? []) {
+      if (m.type === "bold") out = `<strong>${out}</strong>`;
+      else if (m.type === "italic") out = `<em>${out}</em>`;
+      else if (m.type === "strike") out = `<s>${out}</s>`;
+      else if (m.type === "underline") out = `<u>${out}</u>`;
+      else if (m.type === "code") out = `<code>${out}</code>`;
+      else if (m.type === "link") {
+        const href = safeHref(m.attrs?.href);
+        if (href) out = `<a href="${escapeHtml(href)}">${out}</a>`;
+      }
+    }
+    return out;
+  };
+  const block = (n: PMNode): string => {
+    if (
+      n.type === "text" ||
+      n.type === "mention" ||
+      n.type === "workItemRef" ||
+      n.type === "hardBreak"
+    )
+      return inline(n);
+    const inner = (n.content ?? []).map(block).join("");
+    if (n.type === "doc") return inner;
+    if (n.type === "heading") {
+      const level = Math.min(3, Math.max(1, Number(n.attrs?.level ?? 2)));
+      return `<h${level}>${inner}</h${level}>`;
+    }
+    if (n.type === "codeBlock") return `<pre><code>${inner}</code></pre>`;
+    if (n.type === "horizontalRule") return "<hr>";
+    if (n.type === "taskItem") return `<li>${n.attrs?.checked ? "☑" : "☐"} ${inner}</li>`;
+    const tag = BLOCK_TAG[n.type];
+    return tag ? `<${tag}>${inner}</${tag}>` : inner;
+  };
+  return block(doc);
+}

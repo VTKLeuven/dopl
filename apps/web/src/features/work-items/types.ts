@@ -166,7 +166,26 @@ export interface NoteReferenceView extends ReferenceBase {
   };
 }
 
-export type ReferenceView = MessageReferenceView | NoteReferenceView;
+/** An email conversation linked to the item, or the one it was created from (Phase 7). */
+export interface EmailReferenceView extends ReferenceBase {
+  source: "email";
+  thread: {
+    id: string;
+    subject: string;
+    mailbox: string;
+    /** false when the reader isn't a member of the mailbox: no content then. */
+    readable: boolean;
+    messages: Array<{
+      id: string;
+      direction: "INBOUND" | "OUTBOUND";
+      from: string;
+      sentAt: string;
+      excerpt: string;
+    }>;
+  };
+}
+
+export type ReferenceView = MessageReferenceView | NoteReferenceView | EmailReferenceView;
 
 export interface WorkItemDetail extends WorkItemRow {
   request: RequestInfo | null;

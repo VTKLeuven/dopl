@@ -10,6 +10,7 @@ import {
   House,
   Layers,
   LogOut,
+  Mail,
   Plus,
   Search,
   Send,
@@ -55,6 +56,7 @@ export interface SidebarProps {
   showRequests?: boolean;
   showContacts?: boolean;
   showAnalytics?: boolean;
+  showMail?: boolean;
   /** Team chat is for members; guests don't get Messages (Phase 4). */
   canChat?: boolean;
   onNavigate?: () => void;
@@ -152,6 +154,7 @@ export function Sidebar({
   showRequests = false,
   showContacts = false,
   showAnalytics = false,
+  showMail = false,
   canChat = false,
   onNavigate,
 }: SidebarProps) {
@@ -208,6 +211,15 @@ export function Sidebar({
             active={isActive(`${base}/messages`)}
             onNavigate={onNavigate}
             trailing={<MessagesNavDot ws={workspace.slug} />}
+          />
+        ) : null}
+        {showMail ? (
+          <NavItem
+            href={`${base}/mail`}
+            icon={<Mail />}
+            label={t("mail")}
+            active={isActive(`${base}/mail`)}
+            onNavigate={onNavigate}
           />
         ) : null}
         <NavItem

@@ -45,6 +45,41 @@ describe("discord messages", () => {
     const on = renderDiscordMessage({ ...base, includeContent: true });
     expect(on.embeds[0]?.description).toContain("Secret details");
   });
+  it("posts email threads without pinging anyone, content only when included", () => {
+    const email: DiscordEntity = {
+      kind: "email_thread",
+      identifier: "IT mailbox",
+      title: "@everyone urgent: printer down @here",
+      url: "https://dopl.vtk.be/vtk/mail?thread=t1",
+      projectName: "it@vtk.be",
+      assignees: [],
+      description: "Private details from the sender",
+      submitter: "Lotte <lotte@example.test>",
+    };
+    const at = "2026-09-29T10:00:00.000Z";
+    const created = renderDiscordMessage({
+      appUrl: "https://dopl.vtk.be",
+      workspaceName: "VTK IT",
+      events: [{ type: "email_thread.created", at }],
+      entity: email,
+      includeContent: false,
+    });
+    expect(created.allowed_mentions.parse).toEqual([]);
+    expect(created.embeds[0]?.author?.name).toBe("New email");
+    expect(created.embeds[0]?.footer?.text).toContain("it@vtk.be");
+    expect(JSON.stringify(created)).not.toContain("Private details");
+    expect(JSON.stringify(created)).not.toContain("lotte@example.test");
+    const reply = renderDiscordMessage({
+      appUrl: "https://dopl.vtk.be",
+      workspaceName: "VTK IT",
+      events: [{ type: "email_message.received", at }],
+      entity: email,
+      includeContent: true,
+    });
+    expect(reply.embeds[0]?.author?.name).toBe("New reply");
+    expect(reply.embeds[0]?.description).toContain("Private details");
+  });
+
   it("summarises coalesced updates with the latest state", () => {
     const msg = renderDiscordMessage({
       appUrl: "https://dopl.vtk.be",
