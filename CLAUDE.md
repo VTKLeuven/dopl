@@ -8,15 +8,15 @@ Dopl is a self-hosted project-management, personal-notes and IT-team tool: Plane
 
 ## Read first
 
-| File | What it's for |
-|---|---|
-| `PROMPT.md` | The original brief. It wins over everything else. |
-| `docs/ROADMAP.md` | Phases, tasks and acceptance criteria. Work top-down. |
-| `docs/ARCHITECTURE.md` | Components, flows, auth/policy, agent integration, security model |
-| `docs/DATA_MODEL.md` + `packages/db/prisma/schema.prisma` | The schema for all phases, with its invariants and indexes |
-| `docs/DESIGN_SYSTEM.md` | Tokens, components, layouts, keyboard map. The quality bar. |
-| `docs/DECISIONS.md` | Why things are the way they are (D-xxx). Add an entry for every non-obvious choice. |
-| `docs/OPEN_QUESTIONS.md` | Unresolved questions (Q-xx) and the defaults in use until they're answered |
+| File                                                      | What it's for                                                                       |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `PROMPT.md`                                               | The original brief. It wins over everything else.                                   |
+| `docs/ROADMAP.md`                                         | Phases, tasks and acceptance criteria. Work top-down.                               |
+| `docs/ARCHITECTURE.md`                                    | Components, flows, auth/policy, agent integration, security model                   |
+| `docs/DATA_MODEL.md` + `packages/db/prisma/schema.prisma` | The schema for all phases, with its invariants and indexes                          |
+| `docs/DESIGN_SYSTEM.md`                                   | Tokens, components, layouts, keyboard map. The quality bar.                         |
+| `docs/DECISIONS.md`                                       | Why things are the way they are (D-xxx). Add an entry for every non-obvious choice. |
+| `docs/OPEN_QUESTIONS.md`                                  | Unresolved questions (Q-xx) and the defaults in use until they're answered          |
 
 ## Repository layout (target)
 
@@ -100,4 +100,4 @@ pnpm db:drift          # prisma migrate diff migrations→schema; must print an 
 
 ## Licensing
 
-Plane (AGPL-3.0) and Blinko (GPL-3.0) are **inspiration only**: don't copy their code, schemas, styles or assets. Spott is proprietary: match its *feel*, not its assets. Hermes Agent (MIT) runs as a separate service. Reference clones, when needed, go in a temp directory **outside** this repo.
+Plane (AGPL-3.0) and Blinko (GPL-3.0) are **inspiration only**: don't copy their code, schemas, styles or assets. Spott is proprietary: match its _feel_, not its assets. Hermes Agent (MIT) runs as a separate service. Reference clones, when needed, go in a temp directory **outside** this repo.

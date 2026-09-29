@@ -1,0 +1,38 @@
+{
+  "name": "@dopl/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ids": "./src/ids.ts",
+    "./sort-keys": "./src/domain/sort-keys.ts",
+    "./schemas/*": "./src/schemas/*.ts",
+    "./domain/*": "./src/domain/*.ts",
+    "./policy": "./src/policy/index.ts",
+    "./query-keys": "./src/query-keys.ts",
+    "./jobs/queues": "./src/jobs/queues.ts",
+    "./palette": "./src/schemas/palette.ts",
+    "./crypto": "./src/crypto/tokens.ts",
+    "./emails": "./src/emails/templates.ts",
+    "./defaults": "./src/domain/defaults.ts",
+    "./schemas/project": "./src/schemas/project.ts",
+    "./schemas/members": "./src/schemas/members.ts",
+    "./schemas/work-item": "./src/schemas/work-item.ts",
+    "./schemas/view": "./src/schemas/view.ts",
+    "./rich-text": "./src/domain/rich-text.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "fractional-indexing": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
