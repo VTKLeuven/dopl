@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import type { UpdateWorkItemInput } from "@dopl/shared/schemas/work-item";
+import { isEmptyFilter, normalizeFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
 import {
   createWorkItemAction,
   createWorkItemsAction,
@@ -25,7 +26,8 @@ export interface ItemsData {
 /* ─────────────── query keys (one place; realtime reuses them later) ─────────────── */
 export const keys = {
   items: (projectId: string) => ["items", projectId] as const,
-  itemsMode: (projectId: string, mode: CompletedMode) => ["items", projectId, mode] as const,
+  itemsQuery: (projectId: string, mode: CompletedMode, filterKey: string) =>
+    ["items", projectId, mode, filterKey] as const,
   meta: (projectId: string) => ["meta", projectId] as const,
   detail: (ref: string) => ["item", ref.toUpperCase()] as const,
   search: (q: string, projectId?: string) => ["search-items", q, projectId ?? null] as const,
@@ -37,16 +39,28 @@ async function getJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Stable string for a filter; empty filters share one cache entry. */
+export function filterKey(filters: FilterGroup): string {
+  return isEmptyFilter(filters) ? "" : JSON.stringify(normalizeFilter(filters));
+}
+
+export function itemsSearchParams(mode: CompletedMode, filters: FilterGroup): string {
+  const key = filterKey(filters);
+  return `completed=${mode}${key ? `&f=${encodeURIComponent(key)}` : ""}`;
+}
+
 export function useProjectItems(
   ws: string,
   projectId: string,
-  mode: CompletedMode,
+  query: { completed: CompletedMode; filters: FilterGroup },
   initial?: ItemsData,
 ) {
   return useQuery({
-    queryKey: keys.itemsMode(projectId, mode),
+    queryKey: keys.itemsQuery(projectId, query.completed, filterKey(query.filters)),
     queryFn: () =>
-      getJson<ItemsData>(`/api/v1/${ws}/projects/${projectId}/items?completed=${mode}`),
+      getJson<ItemsData>(
+        `/api/v1/${ws}/projects/${projectId}/items?${itemsSearchParams(query.completed, query.filters)}`,
+      ),
     initialData: initial,
     placeholderData: (prev) => prev,
   });

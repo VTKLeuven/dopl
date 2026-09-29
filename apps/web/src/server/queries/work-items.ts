@@ -18,10 +18,13 @@ import { NotFoundError } from "../action-result";
 import { db } from "../db";
 import { fromDateOnly } from "../services/work-items";
 import type { WorkspaceCtx } from "../session";
+import { EMPTY_FILTER, parseFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
+import { compileFilter, type CompileContext } from "./filters";
 import { projectAccessById, type ProjectAccess } from "./projects";
 
 export const rowSelect = {
   id: true,
+  projectId: true,
   sequence: true,
   title: true,
   stateId: true,
@@ -49,6 +52,7 @@ type RowRecord = Prisma.WorkItemGetPayload<{ select: typeof rowSelect }>;
 export function toRow(r: RowRecord, projectIdentifier: string): WorkItemRow {
   return {
     id: r.id,
+    projectId: r.projectId,
     sequence: r.sequence,
     identifier: formatIdentifier(projectIdentifier, r.sequence),
     title: r.title,
@@ -87,26 +91,54 @@ export function completedWhere(mode: CompletedMode): Prisma.WorkItemWhereInput {
   };
 }
 
-export async function listProjectItems(
-  access: ProjectAccess,
-  mode: CompletedMode,
-): Promise<{ rows: WorkItemRow[]; hiddenDone: number; hiddenByState: Record<string, number> }> {
+export interface ItemsQuery {
+  completed: CompletedMode;
+  filters: FilterGroup;
+}
+
+export interface ItemsResult {
+  rows: WorkItemRow[];
+  hiddenDone: number;
+  hiddenByState: Record<string, number>;
+}
+
+export function compileContext(ctx: WorkspaceCtx): CompileContext {
+  return {
+    userId: ctx.actor.userId,
+    timeZone: ctx.workspace.timezone,
+    weekStartsOn: ctx.workspace.weekStartsOn,
+  };
+}
+
+/**
+ * Items for a set of projects, filtered by the view's AST and "completed" mode.
+ * Counts done items hidden by the mode (after the user's filter) for the
+ * "Done hidden · N" chip and collapsed board columns (D-053).
+ */
+export async function listItems(
+  ctx: WorkspaceCtx,
+  projects: Array<{ id: string; identifier: string }>,
+  query: ItemsQuery,
+): Promise<ItemsResult> {
+  const identifiers = new Map(projects.map((p) => [p.id, p.identifier]));
   const base: Prisma.WorkItemWhereInput = {
-    projectId: access.project.id,
+    workspaceId: ctx.workspace.id,
+    projectId: { in: [...identifiers.keys()] },
     deletedAt: null,
     archivedAt: null,
   };
+  const user = compileFilter(query.filters, compileContext(ctx));
   const [rows, doneByState] = await Promise.all([
     db.workItem.findMany({
-      where: { ...base, ...completedWhere(mode) },
+      where: { AND: [base, user, completedWhere(query.completed)] },
       select: rowSelect,
       orderBy: { sortKey: "asc" },
     }),
-    mode === "show"
+    query.completed === "show"
       ? Promise.resolve([])
       : db.workItem.groupBy({
           by: ["stateId"],
-          where: { ...base, stateGroup: { in: DONE_GROUPS } },
+          where: { AND: [base, user, { stateGroup: { in: DONE_GROUPS } }] },
           _count: { _all: true },
         }),
   ]);
@@ -121,7 +153,33 @@ export async function listProjectItems(
     if (hidden > 0) hiddenByState[g.stateId] = hidden;
     hiddenDone += hidden;
   }
-  return { rows: rows.map((r) => toRow(r, access.project.identifier)), hiddenDone, hiddenByState };
+  return {
+    rows: rows.map((r) => toRow(r, identifiers.get(r.projectId) ?? "")),
+    hiddenDone,
+    hiddenByState,
+  };
+}
+
+/** `?completed=hide|recent|show&f=<filter JSON>`; anything invalid falls back to defaults. */
+export function parseItemsQuery(params: URLSearchParams): ItemsQuery {
+  const mode = params.get("completed");
+  let filters: FilterGroup = EMPTY_FILTER;
+  const raw = params.get("f");
+  if (raw) {
+    try {
+      filters = parseFilter(JSON.parse(raw));
+    } catch {
+      filters = EMPTY_FILTER;
+    }
+  }
+  return {
+    completed: mode === "recent" || mode === "show" ? mode : "hide",
+    filters,
+  };
+}
+
+export function listProjectItems(ctx: WorkspaceCtx, access: ProjectAccess, query: ItemsQuery) {
+  return listItems(ctx, [access.project], query);
 }
 
 export async function getProjectMeta(

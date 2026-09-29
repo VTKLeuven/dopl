@@ -26,7 +26,7 @@ import type { ProjectMeta } from "./types";
 
 export type TriggerVariant = "icon" | "pill" | "field";
 
-interface Option {
+export interface PickerOption {
   value: string;
   label: string;
   icon?: React.ReactNode;
@@ -34,7 +34,7 @@ interface Option {
 }
 
 /** Popover + searchable list; single or multi select. */
-function Picker({
+export function Picker({
   options,
   selected,
   onChange,
@@ -46,7 +46,7 @@ function Picker({
   align = "start",
   disabled,
 }: {
-  options: Option[];
+  options: PickerOption[];
   selected: string[];
   onChange: (values: string[]) => void;
   multi?: boolean;

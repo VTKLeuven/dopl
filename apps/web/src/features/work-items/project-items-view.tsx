@@ -26,6 +26,9 @@ import {
   type PropertyKey,
 } from "@dopl/shared/schemas/view";
 import type { Priority } from "@dopl/shared/schemas/work-item";
+import { EMPTY_FILTER, isEmptyFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
+import { FilterBar } from "@/features/filters/filter-bar";
+import { FilterButton } from "@/features/filters/filter-builder";
 import { cn } from "@/lib/cn";
 import { saveViewPreferenceAction } from "@/server/actions/view-preferences";
 import { Button } from "@/components/ui/button";
@@ -46,6 +49,7 @@ import {
 import { PageHeader } from "@/components/shell/page-header";
 import { ProjectBadge } from "@/components/shell/project-badge";
 import {
+  filterKey,
   useBulkUpdate,
   useDeleteItems,
   useMoveItem,
@@ -101,21 +105,28 @@ export function ProjectItemsView({
   initialItems,
   initialMeta,
   initialOptions,
+  initialFilters,
 }: {
   ws: string;
   projectId: string;
   initialItems: ItemsData;
   initialMeta: ProjectMeta;
   initialOptions: DisplayOptions;
+  initialFilters: FilterGroup;
 }) {
   const t = useTranslations("items");
+  const tf = useTranslations("filters");
   const [options, setOptionsState] = useState<DisplayOptions>(initialOptions);
+  const [filters, setFiltersState] = useState<FilterGroup>(initialFilters);
   const { data: meta = initialMeta } = useProjectMeta(ws, projectId, initialMeta);
   const { data: items, isPlaceholderData } = useProjectItems(
     ws,
     projectId,
-    options.completed,
-    options.completed === initialOptions.completed ? initialItems : undefined,
+    { completed: options.completed, filters },
+    options.completed === initialOptions.completed &&
+      filterKey(filters) === filterKey(initialFilters)
+      ? initialItems
+      : undefined,
   );
   const update = useUpdateItem(ws, projectId);
   const bulk = useBulkUpdate(ws, projectId);
@@ -123,6 +134,7 @@ export function ProjectItemsView({
   const del = useDeleteItems(ws, projectId);
 
   const [peek, setPeek] = useQueryState("peek", parseAsString);
+  const [, setFilterParam] = useQueryState("f", parseAsString);
   const [search, setSearch] = useState("");
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -133,21 +145,39 @@ export function ProjectItemsView({
   const lastSelected = useRef<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Persist display options per user (debounced).
+  // Persist display options and filters per user (debounced).
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef({ options: initialOptions, filters: initialFilters });
+  const persist = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(
+      () =>
+        void saveViewPreferenceAction(
+          ws,
+          `project:${projectId}`,
+          latest.current.options,
+          latest.current.filters,
+        ),
+      600,
+    );
+  }, [ws, projectId]);
   const setOptions = useCallback(
     (patch: Partial<DisplayOptions>) => {
-      setOptionsState((prev) => {
-        const next = DisplayOptionsSchema.parse({ ...prev, ...patch });
-        if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(
-          () => void saveViewPreferenceAction(ws, `project:${projectId}`, next),
-          600,
-        );
-        return next;
-      });
+      const next = DisplayOptionsSchema.parse({ ...latest.current.options, ...patch });
+      latest.current.options = next;
+      setOptionsState(next);
+      persist();
     },
-    [ws, projectId],
+    [persist],
+  );
+  const setFilters = useCallback(
+    (next: FilterGroup) => {
+      latest.current.filters = next;
+      setFiltersState(next);
+      void setFilterParam(filterKey(next) || null);
+      persist();
+    },
+    [persist, setFilterParam],
   );
 
   const rows = useMemo(() => {
@@ -304,7 +334,8 @@ export function ProjectItemsView({
   ]);
 
   const hidden = items?.hiddenDone ?? 0;
-  const isEmpty = (items?.rows.length ?? 0) === 0;
+  const filtered = !isEmptyFilter(filters);
+  const isEmpty = (items?.rows.length ?? 0) === 0 && !filtered;
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col" data-density={options.density}>
@@ -379,6 +410,7 @@ export function ProjectItemsView({
             aria-label={t("searchPlaceholder")}
           />
         </div>
+        <FilterButton value={filters} onChange={setFilters} source={meta} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Chip className="hidden sm:inline-flex">
@@ -422,6 +454,7 @@ export function ProjectItemsView({
           </Chip>
         </Tooltip>
       </div>
+      <FilterBar value={filters} onChange={setFilters} source={meta} />
 
       {isEmpty && !search ? (
         <EmptyState
@@ -442,6 +475,11 @@ export function ProjectItemsView({
           icon={<Search />}
           title={t("emptyFilteredTitle")}
           description={t("emptyFilteredDescription")}
+          action={
+            filtered ? (
+              <Button onClick={() => setFilters(EMPTY_FILTER)}>{tf("clearAll")}</Button>
+            ) : null
+          }
         />
       ) : options.layout === "BOARD" ? (
         <BoardView

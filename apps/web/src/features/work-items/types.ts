@@ -3,6 +3,7 @@ import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
 
 export interface WorkItemRow {
   id: string;
+  projectId: string;
   sequence: number | null;
   identifier: string;
   title: string;
@@ -99,7 +100,6 @@ export interface RelationView {
 }
 
 export interface WorkItemDetail extends WorkItemRow {
-  projectId: string;
   projectIdentifier: string;
   description: unknown;
   createdById: string | null;

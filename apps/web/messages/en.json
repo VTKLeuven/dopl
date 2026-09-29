@@ -512,5 +512,113 @@
     "archiveHint": "Archived projects are read-only and hidden from the sidebar.",
     "visibilityWorkspace": "Workspace",
     "visibilityPrivate": "Private"
+  },
+  "filters": {
+    "button": "Filter",
+    "quick": "Quick",
+    "where": "Where",
+    "and": "and",
+    "or": "or",
+    "andHint": "and — match all",
+    "orHint": "or — match any",
+    "quickFilter": {
+      "mine": "My items",
+      "dueThisWeek": "Due this week",
+      "overdue": "Overdue",
+      "unassigned": "Unassigned",
+      "urgent": "High priority"
+    },
+    "addFilter": "Add filter",
+    "addGroup": "Add group",
+    "removeGroup": "Remove group",
+    "remove": "Remove filter",
+    "clear": "Clear",
+    "clearAll": "Clear all filters",
+    "empty": "No filters yet. Pick a quick filter or add one.",
+    "incomplete": "Incomplete filter, not applied",
+    "choose": "Choose…",
+    "search": "Search…",
+    "me": "Me",
+    "yes": "Yes",
+    "no": "No",
+    "pickDate": "Pick a date…",
+    "amount": "Amount",
+    "textPlaceholder": "Text in the title",
+    "anyOf": "Any of {count} filters",
+    "allOf": "All of {count} filters",
+    "field": {
+      "state": "State",
+      "stateGroup": "State group",
+      "priority": "Priority",
+      "type": "Type",
+      "project": "Project",
+      "parent": "Parent",
+      "createdBy": "Created by",
+      "origin": "Source",
+      "assignee": "Assignee",
+      "subscriber": "Subscriber",
+      "label": "Label",
+      "startDate": "Start date",
+      "dueDate": "Due date",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "completedAt": "Completed",
+      "estimate": "Estimate",
+      "title": "Title",
+      "hasSubItems": "Has sub-items",
+      "isBlocked": "Is blocked"
+    },
+    "op": {
+      "is": "is",
+      "isNot": "is not",
+      "includes": "includes",
+      "excludes": "excludes",
+      "isEmpty": "is empty",
+      "isNotEmpty": "is set",
+      "before": "is before",
+      "after": "is after",
+      "between": "is between",
+      "withinLast": "in the last",
+      "withinNext": "in the next",
+      "contains": "contains"
+    },
+    "token": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "tomorrow": "Tomorrow",
+      "startOfWeek": "Start of this week",
+      "endOfWeek": "End of this week",
+      "startOfMonth": "Start of this month",
+      "endOfMonth": "End of this month"
+    },
+    "unit": {
+      "day": "{count, plural, one {# day} other {# days}}",
+      "week": "{count, plural, one {# week} other {# weeks}}",
+      "month": "{count, plural, one {# month} other {# months}}"
+    },
+    "unitName": {
+      "day": "days",
+      "week": "weeks",
+      "month": "months"
+    },
+    "stateGroup": {
+      "TRIAGE": "Triage",
+      "BACKLOG": "Backlog",
+      "UNSTARTED": "Unstarted",
+      "STARTED": "Started",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "origin": {
+      "APP": "Created in Dopl",
+      "INTAKE_FORM": "Intake form",
+      "INTAKE_GUEST": "Guest request",
+      "EMAIL": "Email",
+      "MESSAGE": "Chat message",
+      "NOTE": "Note",
+      "AGENT": "AI teammate",
+      "API": "API",
+      "IMPORT": "Import"
+    }
   }
 }
