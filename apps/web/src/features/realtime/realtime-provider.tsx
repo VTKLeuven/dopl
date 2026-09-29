@@ -80,6 +80,18 @@ export function RealtimeProvider() {
         return;
       }
       if (handleNotesEvent(qc, ws, ev.type)) return;
+      // Shared mailbox (Phase 7): lists and counts, the open thread, the settings page.
+      if (ev.topic.startsWith("mailbox:") || ev.topic.startsWith("emailThread:")) {
+        const [kind, id] = ev.topic.split(":");
+        if (kind === "mailbox") {
+          void qc.invalidateQueries({ queryKey: ["mail", ws, "threads"] });
+          void qc.invalidateQueries({ queryKey: ["mail", ws, "mailboxes"] });
+          if (path.current.includes("/settings/mailboxes")) router.refresh();
+        } else if (id && ev.type !== "presence") {
+          void qc.invalidateQueries({ queryKey: ["mail", ws, "thread", id] });
+        }
+        return;
+      }
       // Dashboards (Phase 6): the list and layouts; charts refresh on their own schedule.
       if (ev.type.startsWith("dashboard.")) {
         void qc.invalidateQueries({ queryKey: ["analytics", ws, "dashboards"] });

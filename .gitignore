@@ -17,6 +17,8 @@ packages/db/src/generated/
 .env
 .env.*
 !.env.example
+# Worker-only secrets (D-027); worker.env.example is committed
+worker.env
 *.pem
 *.key
 secrets/

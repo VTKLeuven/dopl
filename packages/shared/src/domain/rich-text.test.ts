@@ -74,3 +74,45 @@ describe("extraction", () => {
     expect(docToPlainText(textToDoc("a\n\nb"))).toBe("a\nb");
   });
 });
+
+describe("docToHtml (outgoing email)", () => {
+  it("escapes text, keeps safe links, and flattens chips", async () => {
+    const { docToHtml } = await import("./rich-text");
+    const html = docToHtml({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Hi <Lotte> & " },
+            { type: "text", text: "bold", marks: [{ type: "bold" }] },
+            {
+              type: "text",
+              text: " x",
+              marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }],
+            },
+            {
+              type: "text",
+              text: " docs",
+              marks: [{ type: "link", attrs: { href: "https://vtk.be/it" } }],
+            },
+            { type: "mention", attrs: { id: "u1", label: "Bram" } },
+            { type: "workItemRef", attrs: { id: "i1", identifier: "INFRA-7", label: "INFRA-7" } },
+          ],
+        },
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "one" }] }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(html).toBe(
+      '<p>Hi &lt;Lotte&gt; &amp; <strong>bold</strong> x<a href="https://vtk.be/it"> docs</a>@BramINFRA-7</p><ul><li><p>one</p></li></ul>',
+    );
+  });
+});

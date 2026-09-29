@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Bell, Building2, KeyRound, ShieldCheck, Users, Webhook } from "lucide-react";
+import { Bell, Building2, KeyRound, Mail, ShieldCheck, Users, Webhook } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
@@ -26,6 +26,7 @@ export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
             label: t("integrations"),
             icon: <Webhook />,
           },
+          { href: `/${ws}/settings/mailboxes`, label: t("mailboxes"), icon: <Mail /> },
         ]
       : []),
     { section: t("you") },

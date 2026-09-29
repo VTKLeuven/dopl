@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "MailboxSyncKind" ADD VALUE 'CONNECTION_TEST';

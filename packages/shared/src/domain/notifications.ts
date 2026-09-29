@@ -39,6 +39,7 @@ export function notificationPath(ws: string, n: NotificationTarget): string | nu
       break;
     case "INTAKE_SUBMITTED":
     case "SNOOZE_ENDED": {
+      if (n.entityType === "EMAIL_THREAD") return `${base}/mail?view=all&thread=${n.entityId}`;
       const ident = n.projectIdentifier ?? str(n.data.projectIdentifier);
       if (ident && n.entityType === "INTAKE_ITEM")
         return `${base}/p/${ident}/intake?peek=${n.entityId}`;
@@ -51,7 +52,7 @@ export function notificationPath(ws: string, n: NotificationTarget): string | nu
     case "EMAIL_REPLY": {
       const thread =
         str(n.data.emailThreadId) ?? (n.entityType === "EMAIL_THREAD" ? n.entityId : null);
-      if (thread) return `${base}/mail/${thread}`;
+      if (thread) return `${base}/mail?view=all&thread=${thread}`;
       break;
     }
     default:
@@ -102,7 +103,11 @@ export function digestLine(n: {
     case "INTAKE_UPDATED":
       return line(`Your request was ${str(d.status) ?? "updated"}`);
     case "SNOOZE_ENDED":
-      return line("A snoozed request is back in the queue");
+      return line(
+        str(d.subject)
+          ? "A snoozed email is back in the mailbox"
+          : "A snoozed request is back in the queue",
+      );
     case "DUE_SOON":
       return line(`${item} is due soon`);
     case "AGENT_APPROVAL_REQUESTED":

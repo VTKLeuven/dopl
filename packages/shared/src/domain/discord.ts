@@ -9,8 +9,8 @@
 import type { WebhookEvent } from "../schemas/webhooks";
 
 export interface DiscordEntity {
-  kind: "work_item" | "intake";
-  /** "INFRA-42" or "Intake #12" */
+  kind: "work_item" | "intake" | "email_thread";
+  /** "INFRA-42", "Intake #12", or the mailbox address for email */
   identifier: string;
   title: string;
   url: string;
@@ -81,6 +81,8 @@ const PRIORITY_LABEL: Record<string, string> = {
 
 function summary(events: DiscordRenderInput["events"], entity: DiscordEntity): string {
   const types = new Set(events.map((e) => e.type));
+  if (types.has("email_thread.created")) return "New email";
+  if (types.has("email_message.received")) return "New reply";
   if (types.has("intake.submitted")) return "New request";
   if (types.has("intake.accepted")) return "Request accepted";
   if (types.has("work_item.created")) return "New work item";

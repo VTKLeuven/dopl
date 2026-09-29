@@ -251,27 +251,28 @@ sequenceDiagram
 
 ## 5. Background jobs (pg-boss)
 
-| Queue                             | Trigger                         | Notes                                                                                                                                        |
-| --------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `notifications.fanout`            | enqueued by services            | Resolves recipients (subscribers, mentions, assignees, approvers), applies preferences, inserts `notifications` and emits `user:<id>` events |
-| `email.send`                      | outbox row                      | SMTP send with retries/backoff; dead-letter after 5 attempts                                                                                 |
-| `email.digest`                    | schedule, every 10 min          | Batches unread notifications per user preference                                                                                             |
-| `intake.postprocess`              | after a public submit           | Spam signals, attachment promotion (quarantine → ready), confirmation email                                                                  |
-| `gmail.pubsub`                    | long-running consumer           | Streaming pull; each message → `gmail.sync` (singleton per mailbox)                                                                          |
-| `gmail.sync`                      | Pub/Sub, poll, manual           | `history.list` → batched `messages.get(full)` → upsert; 404 → `gmail.resync`                                                                 |
-| `gmail.backfill` / `gmail.resync` | connect / gap                   | Resumable via `backfillPageToken`                                                                                                            |
-| `gmail.watch-renew`               | schedule, daily                 | `users.watch` per active mailbox                                                                                                             |
-| `gmail.poll`                      | schedule, every 5 min           | Safety net if Pub/Sub is quiet                                                                                                               |
-| `gmail.fetch-attachment`          | web request                     | Download → blob store → NOTIFY result                                                                                                        |
-| `gmail.send` (Phase 7b)           | reply action                    | RFC 822 with `In-Reply-To`/`References`, `threadId`                                                                                          |
-| `webhook.deliver`                 | domain events (D-052)           | Discord embed; 60 s coalescing per entity; honours 429 `retry_after`; auto-disables after 10 failures                                        |
-| `agent.run`                       | mention / DM / assignment       | Starts the Hermes run, consumes SSE, persists steps (§8)                                                                                     |
-| `agent.exec`                      | approved or allowlisted command | SSH via Warpgate, streams output                                                                                                             |
-| `embeddings.index`                | note/item saved (debounced)     | Calls the AI server's embeddings endpoint, upserts `search.embeddings`                                                                       |
-| `snooze.wake`                     | schedule, every minute          | Snoozed intake, threads and notifications come back; notifies                                                                                |
-| `notes.review`                    | schedule, daily                 | Picks the daily resurfacing set per user                                                                                                     |
-| `analytics.snapshot`              | schedule, nightly               | `project_daily_stats`                                                                                                                        |
-| `maintenance.purge`               | schedule, nightly               | Hard-delete soft-deleted rows > 30 d; prune `realtime_events` > 24 h, `presences`, `rate_limit_counters`                                     |
+| Queue                    | Trigger                         | Notes                                                                                                                                        |
+| ------------------------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notifications.fanout`   | enqueued by services            | Resolves recipients (subscribers, mentions, assignees, approvers), applies preferences, inserts `notifications` and emits `user:<id>` events |
+| `email.send`             | outbox row                      | SMTP send with retries/backoff; dead-letter after 5 attempts                                                                                 |
+| `email.digest`           | schedule, every 10 min          | Batches unread notifications per user preference                                                                                             |
+| `intake.postprocess`     | after a public submit           | Spam signals, attachment promotion (quarantine → ready), confirmation email                                                                  |
+| Pub/Sub consumer         | long-running loop in the worker | REST long-poll `subscriptions.pull` (D-108); each notification → `gmail.sync` (singleton per mailbox)                                        |
+| `gmail.test`             | connect, "Test connection"      | DWD token for the address + label list; then `gmail.backfill`                                                                                |
+| `gmail.sync`             | Pub/Sub, poll, manual           | `history.list` → `messages.get(full)` → idempotent ingest; 404 → `gmail.backfill` with `FULL_RESYNC`                                         |
+| `gmail.backfill`         | connect / history 404           | `BACKFILL` or `FULL_RESYNC`; resumable via `backfillPageToken`, quiet (no notifications)                                                     |
+| `gmail.watch-renew`      | schedule, daily                 | `users.watch` per active mailbox                                                                                                             |
+| `gmail.poll`             | schedule, every 5 min           | Safety net if Pub/Sub is quiet                                                                                                               |
+| `gmail.fetch-attachment` | first open of an attachment     | Download → blob store; the web route waits briefly, then redirects                                                                           |
+| `gmail.send` (Phase 7b)  | reply action (`QUEUED` row)     | MailComposer MIME with `In-Reply-To`/`References`, sent with `threadId`; `SENT` or `FAILED` (D-113)                                          |
+| `webhook.deliver`        | domain events (D-052)           | Discord embed; 60 s coalescing per entity; honours 429 `retry_after`; auto-disables after 10 failures                                        |
+| `agent.run`              | mention / DM / assignment       | Starts the Hermes run, consumes SSE, persists steps (§8)                                                                                     |
+| `agent.exec`             | approved or allowlisted command | SSH via Warpgate, streams output                                                                                                             |
+| `embeddings.index`       | note/item saved (debounced)     | Calls the AI server's embeddings endpoint, upserts `search.embeddings`                                                                       |
+| `snooze.wake`            | schedule, every minute          | Snoozed intake, threads and notifications come back; notifies                                                                                |
+| `notes.review`           | schedule, daily                 | Picks the daily resurfacing set per user                                                                                                     |
+| `analytics.snapshot`     | schedule, nightly               | `project_daily_stats`                                                                                                                        |
+| `maintenance.purge`      | schedule, nightly               | Hard-delete soft-deleted rows > 30 d; prune `realtime_events` > 24 h, `presences`, `rate_limit_counters`                                     |
 
 Jobs are idempotent: upserts keyed on natural ids, singleton keys and "already done?" checks. Web enqueues jobs inside the mutation's transaction using pg-boss's `db` option with the Prisma transaction's connection. If that proves awkward, a `job_outbox` pattern is the fallback. Either way, a job exists if and only if the change committed.
 

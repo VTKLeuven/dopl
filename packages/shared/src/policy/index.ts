@@ -345,3 +345,36 @@ export function canDashboard(
       return owner || (dashboard.visibility === "WORKSPACE" && isAdmin(actor.workspaceRole));
   }
 }
+
+/* ───────────────────────── shared mailboxes (Phase 7) ───────────────────────── */
+
+export interface PolicyMailbox {
+  /** The actor is one of the mailbox's members. */
+  isMember: boolean;
+}
+
+export type MailboxAction =
+  | "mailbox.manage" // connect, settings, members, pause, disconnect
+  | "mailbox.read" // threads, messages, internal comments
+  | "mailbox.act"; // assign, status, snooze, labels, comment, promote, reply
+
+/**
+ * Only mailboxes someone connected are synced, and only their members (and
+ * workspace admins, who set them up) read them. Guests and agents never do:
+ * email is untrusted content for the AI teammate (D-033) and personal data.
+ */
+export function canMailbox(
+  actor: PolicyActor,
+  mailbox: PolicyMailbox,
+  action: MailboxAction,
+): boolean {
+  if (actor.kind !== "HUMAN" || actor.workspaceRole === "GUEST") return false;
+  const admin = isAdmin(actor.workspaceRole);
+  switch (action) {
+    case "mailbox.manage":
+      return admin;
+    case "mailbox.read":
+    case "mailbox.act":
+      return admin || mailbox.isMember;
+  }
+}

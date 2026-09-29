@@ -368,7 +368,7 @@ Where it differs from the plan below:
 
 **Not done yet, carried forward:**
 
-- [ ] Email first-response and resolution metrics (Phase 7)
+- [ ] Email first-response and resolution metrics (the data exists since Phase 7; carried forward there)
 - [ ] Keyboard reordering for a widget alone on the last row (the pointer works; D-106)
 - [ ] Dashboards scoped to one project are listed with the others in Analytics, not on the project's page
 - [ ] Dark-mode chart colours (no dark mode yet)
@@ -390,7 +390,26 @@ Where it differs from the plan below:
 
 ---
 
-## Phase 7: Shared mailbox
+## Phase 7: Shared mailbox ✅ (built 2026-09-29, awaiting review)
+
+**Status.** 7a and 7b are built, except the optional Gmail label mirroring. It was built and tested against a file-backed fake Gmail (D-111); no real mailbox is connected yet (Q-16, Q-20). The CHANGELOG has the summary; decisions D-107 to D-114 record the choices. Every acceptance check is covered: Playwright (`mail.spec.ts`: arrival within 10 s, the inert HTML email, views, promote with a live follow-up on the timeline, notes and replies), worker integration tests (404 resync without duplicates, connection test, send), `deploy.test.ts` (no Google credentials in the web container) and the Discord renderer tests (`@everyone` pings nobody).
+
+Where it differs from the plan below:
+
+- **Pub/Sub** is pulled over REST in a long-poll loop, not the streaming gRPC client (D-108).
+- **The email frame's height** is estimated from the text, with "Show more" for long emails; a sandbox without scripts or same-origin can't be measured (D-109).
+- **Collision presence** is ephemeral, like typing in chat: nothing is stored (D-112).
+- **Labels** on threads are the workspace's labels, the same as on items, not Gmail labels.
+- **Contacts:** each thread links to the person on the other side (the sender of inbound mail, or the first outside recipient of the team's own), who becomes a contact. Mail from a blocked contact is kept but marked ignored.
+
+**Not done yet, carried forward:**
+
+- [ ] Gmail label mirroring (`Dopl/Solved`…; off by default per Q-16)
+- [ ] "Load remote images" in the reader (they stay hidden; needs an image proxy so the sender can't track opens)
+- [ ] Inline `cid:` images (shown as attachments)
+- [ ] Email-to-intake (Phase 3 carry-over): a mailbox or a rule that turns mail into triage requests
+- [ ] Email first-response and resolution metrics in Analytics (Phase 6 carry-over; `firstResponseAt` and `solvedAt` are recorded)
+- [ ] Tested against a real Google Workspace mailbox (needs Q-16 and Q-20)
 
 **7a: Read and collaborate**
 

@@ -41,9 +41,15 @@ services:
     <<: *env
     depends_on:
       migrate: { condition: service_completed_successfully }
-    # Worker-only secrets (Google service account, agent SSH key) are mounted here only (D-027):
-    # volumes:
-    #   - ./secrets/google-sa.json:/run/secrets/google-sa.json:ro
+    # Worker-only secrets (Google service account, agent SSH key) reach this container
+    # only (D-027): worker.env for the settings, ./secrets for the key files.
+    # e.g. GOOGLE_SERVICE_ACCOUNT_KEY_FILE=/run/secrets/google-sa.json
+    env_file:
+      - ../.env
+      - path: ../worker.env
+        required: false
+    volumes:
+      - ./secrets:/run/secrets:ro
 
 volumes:
   pgdata:

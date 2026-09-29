@@ -45,6 +45,8 @@ jobs:
           cp .env.example .env
           sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -base64 32)|" .env
           sed -i "s|^DOPL_ENCRYPTION_KEY=.*|DOPL_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env
+          # The shared-mailbox e2e tests drive a fake Gmail (no Google in CI).
+          sed -i "s|^GMAIL_FAKE_DIR=.*|GMAIL_FAKE_DIR=.data/fake-gmail|" .env
           PGPASSWORD=dopl psql -h localhost -p 54320 -U dopl -d dopl -c "CREATE DATABASE dopl_test"
       - run: pnpm db:generate
       - run: pnpm db:deploy

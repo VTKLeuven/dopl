@@ -1,5 +1,51 @@
 # Changelog
 
+## Phase 7: Shared mailbox (2026-09-29)
+
+**Connecting a mailbox** (Settings → Mailboxes, admins)
+
+- `docs/ops/gmail-setup.md` walks a Google Workspace admin through the service account, domain-wide delegation, the Pub/Sub topic and pull subscription, and what to do when the IT address is a Google Group.
+- Connect a mailbox with its address, display name, import window and members. The worker tests the connection (a token for that mailbox and its label list), imports the window (resumable, quiet: no notifications for old mail), then starts push.
+- The mailbox page shows the status, last sync, push expiry, the last 20 sync runs and the last error, with Test connection, Sync now, Pause/Resume, and settings for members, the default assignee and "Reply from Dopl".
+
+**Sync** (worker)
+
+- Pub/Sub is pulled over REST (no public webhook). Each notification queues `gmail.sync`, which reads `history.list` from the stored `historyId`. A 404 (history expired) queues a full resync, and messages are never duplicated: ingest is idempotent on the Gmail message id.
+- `users.watch` is renewed every night; a 5-minute poll catches anything push missed and picks up newly connected mailboxes.
+- Attachments are fetched on first open and then stored.
+- The person on the other side becomes (or links to) a Contact, whose page now lists their conversations. Mail from a blocked contact is kept but ignored.
+- A reply to a solved conversation reopens it; the first answer from the team sets its first-response time.
+
+**Mail** (`/<ws>/mail`, members of a mailbox)
+
+- Views: Unassigned, Mine, Open, Snoozed, Solved, All, with counts, search, and the mailbox picker when there are several.
+- The reader: older messages collapsed, HTML in a sandboxed frame (no scripts, no same-origin, remote images hidden), attachments, and internal notes with @mentions (between the messages, never sent).
+- Assign, solve/reopen, snooze (the snooze wakes the thread and tells the assignee), and workspace labels.
+- "Viewing" and "replying" presence, so two people don't answer the same email.
+- **Create work item** from a thread (the text becomes the description, marked untrusted for the AI teammate, D-033) or **Link to item**. Linked items show the conversation on their timeline, and later replies appear there live.
+- On phones the list and the reader are separate screens.
+
+**Replying (7b)**
+
+- The composer has Reply and Internal note. A reply is queued and sent by the worker through the mailbox in the same Gmail thread (`In-Reply-To`, `References`), as the mailbox or its send-as alias, with HTML and text parts. It shows as sending, sent or failed (with the reason).
+- Off per mailbox until an admin turns on "Reply from Dopl" (it needs the `gmail.send` scope).
+
+**Notifications and Discord**
+
+- The assignee hears about new replies (`EMAIL_REPLY`), @mentions in notes (`EMAIL_MENTION`) and ended snoozes; Inbox rows open the conversation.
+- Discord webhooks can post `email_thread.created` and `email_message.received`, filtered by mailbox. Subjects and senders are escaped, so `@everyone` pings nobody.
+
+**Security**
+
+- Only the worker holds Google credentials: they live in `worker.env` and `docker/secrets`, which production mounts into the worker only. The web app refuses to start if it sees them, and a test checks the compose file and the web env (D-027).
+- Email HTML is sanitized on ingest (DOMPurify: no scripts, handlers, forms, `javascript:` links or remote style backgrounds) and shown only in a sandboxed frame with a strict CSP (D-028). An e2e test proves a hostile email runs nothing.
+
+**Development**
+
+- `GMAIL_FAKE_DIR` points the worker at a file-backed fake Gmail (never in production). The seed writes six conversations for `it@vtk.be` (members Bram and Chloé), and the e2e tests "receive" mail by appending to it.
+
+**Migration:** `20260929131612_mailbox_connection_test` (a `CONNECTION_TEST` sync kind). New worker queues: `gmail.test`, `gmail.backfill`, `gmail.sync`, `gmail.watch-renew`, `gmail.poll`, `gmail.fetch-attachment`, `gmail.send`. New package: `@dopl/server` (storage, webhook dispatch and notifications, shared by web and worker).
+
 ## Phase 6: Analytics (2026-09-29)
 
 **Metrics**

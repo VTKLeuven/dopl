@@ -20,6 +20,7 @@ import type { Prisma } from "../generated/prisma/client";
 import { commentBank, people, projects } from "./data";
 import { seedIntake } from "./intake";
 import { seedAnalytics } from "./analytics";
+import { seedMail } from "./mail";
 import { seedNotes } from "./notes";
 
 loadEnv({ path: path.resolve(import.meta.dirname, "../../../../.env"), quiet: true });
@@ -466,6 +467,14 @@ async function main() {
 
   const stats = await seedAnalytics(db, { workspaceId: workspace.id, today });
   console.log(`  Stats  ${stats} daily project snapshots (approximated)`);
+
+  const mails = await seedMail(db, {
+    workspaceId: workspace.id,
+    memberEmails: ["bram@dopl.test", "chloe@dopl.test"],
+  });
+  console.log(
+    `  Mail   it@vtk.be${mails ? `: ${mails} conversations in the fake Gmail` : " (set GMAIL_FAKE_DIR for sample mail)"}`,
+  );
 
   console.log(`\nSeeded "${workspace.name}" (/${workspace.slug}): ${totalItems} work items.`);
   console.log(`Sign in with any of: ${people.map((p) => p.email).join(", ")}`);

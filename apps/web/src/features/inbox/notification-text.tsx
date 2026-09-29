@@ -48,7 +48,9 @@ export function useNotificationText() {
       : row.type === "INTAKE_UPDATED" ||
           (row.type === "COMMENT" && row.entityType === "INTAKE_ITEM")
         ? t("yourRequest")
-        : row.identifier;
+        : row.entityType === "EMAIL_THREAD"
+          ? (str(d.mailbox) ?? row.identifier)
+          : row.identifier;
     // Chat: the message itself is the title; the channel is the context.
     const title = isMessage
       ? (str(d.excerpt) ?? actor)
@@ -76,6 +78,13 @@ export function useNotificationText() {
         break;
       case "INTEGRATION_FAILED":
         summary = t("text.INTEGRATION_FAILED", { name: str(d.name) ?? "" });
+        break;
+      case "EMAIL_REPLY":
+        summary = d.reopened ? t("text.EMAIL_REOPENED", { from }) : t("text.EMAIL_REPLY", { from });
+        break;
+      case "SNOOZE_ENDED":
+        summary =
+          row.entityType === "EMAIL_THREAD" ? t("text.SNOOZE_ENDED_EMAIL") : t("text.SNOOZE_ENDED");
         break;
       default:
         summary = t(`text.${row.type}`, { actor });

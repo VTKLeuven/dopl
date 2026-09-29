@@ -9,6 +9,7 @@ export interface WebhookView {
   urlHint: string;
   events: string[];
   projectIds: string[];
+  mailboxIds: string[];
   includeContent: boolean;
   enabled: boolean;
   failureCount: number;
@@ -39,6 +40,7 @@ export async function listWebhooks(ctx: WorkspaceCtx): Promise<WebhookView[]> {
       urlHint: true,
       events: true,
       projectIds: true,
+      mailboxIds: true,
       includeContent: true,
       enabled: true,
       failureCount: true,

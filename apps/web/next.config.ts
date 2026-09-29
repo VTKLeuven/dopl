@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   output: "standalone",
   outputFileTracingRoot: repoRoot,
-  transpilePackages: ["@dopl/db", "@dopl/shared"],
+  transpilePackages: ["@dopl/db", "@dopl/server", "@dopl/shared"],
   poweredByHeader: false,
   turbopack: {
     root: repoRoot,

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { canWorkspace } from "@dopl/shared/policy";
+import { canMailbox, canWorkspace } from "@dopl/shared/policy";
 import { listSidebarProjects } from "@/server/queries/projects";
 import { triageProjectIds } from "@/server/queries/intake";
+import { readableMailboxIds } from "@/server/queries/mail";
 import { listFavoriteViews } from "@/server/queries/views";
 import { getWorkspaceCtx } from "@/server/session";
 import { Sidebar } from "@/components/shell/sidebar";
@@ -11,10 +12,11 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
   const { ws } = await params;
   const ctx = await getWorkspaceCtx(ws);
   if (!ctx) notFound();
-  const [projects, favorites, intakePending] = await Promise.all([
+  const [projects, favorites, intakePending, mailboxes] = await Promise.all([
     listSidebarProjects(ctx),
     listFavoriteViews(ctx),
     triageProjectIds(ctx),
+    readableMailboxIds(ctx),
   ]);
   const props = {
     workspace: { slug: ctx.workspace.slug, name: ctx.workspace.name },
@@ -31,6 +33,9 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     showRequests: ctx.role === "GUEST",
     showContacts: canWorkspace(ctx.policyActor, "contact.view"),
     showAnalytics: canWorkspace(ctx.policyActor, "analytics.view"),
+    // Mail: anyone who can read a mailbox, and admins (who connect them).
+    showMail:
+      mailboxes.length > 0 || canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage"),
     canChat: ctx.role !== "GUEST",
   };
   return (
