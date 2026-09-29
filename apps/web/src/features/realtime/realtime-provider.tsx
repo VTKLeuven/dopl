@@ -41,6 +41,12 @@ export function RealtimeProvider() {
 
     const flush = () => {
       timer = null;
+      // A refetch landing while our own change is still saving would overwrite
+      // its optimistic update with stale data; wait until local writes settle.
+      if (qc.isMutating() > 0) {
+        timer = setTimeout(flush, FLUSH_MS);
+        return;
+      }
       for (const scope of scopes) void qc.invalidateQueries({ queryKey: ["items", scope] });
       for (const scope of scopes) void qc.invalidateQueries({ queryKey: ["relations", scope] });
       if (scopes.size) void qc.invalidateQueries({ queryKey: ["items", "workspace"] });
