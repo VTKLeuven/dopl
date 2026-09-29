@@ -1,5 +1,6 @@
 "use client";
 
+import { formatSize } from "@/features/intake/public-form";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -112,7 +113,7 @@ function Reader({ ws, thread, me }: { ws: string; thread: ThreadDetail; me: stri
       data-testid="thread-reader"
       aria-label={thread.subject}
     >
-      <header className="flex flex-col gap-3 border-b border-border px-5 py-4 md:px-6">
+      <header className="@container flex flex-col gap-3 border-b border-border px-5 py-4 md:px-6">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="text-title font-semibold text-fg" data-testid="thread-subject">
@@ -207,7 +208,8 @@ function Reader({ ws, thread, me }: { ws: string; thread: ThreadDetail; me: stri
               </SnoozeMenu>
             )}
             <LabelPicker ws={ws} thread={thread} />
-            <div className="ml-auto flex items-center gap-2">
+            {/* Right-aligned only when the row fits; wrapped, it starts at the left. */}
+            <div className="flex items-center gap-2 @3xl:ml-auto">
               <Button
                 variant="secondary"
                 size="sm"
@@ -332,11 +334,11 @@ function MessageCard({
         />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className="truncate text-body font-semibold text-fg">
+            <span className="max-w-full shrink-0 truncate text-body font-semibold text-fg">
               {m.from.name ?? m.from.email}
             </span>
             {m.from.name ? (
-              <span className="truncate text-small text-fg-muted">{m.from.email}</span>
+              <span className="min-w-0 truncate text-small text-fg-muted">{m.from.email}</span>
             ) : null}
           </span>
           <span className="block truncate text-small text-fg-muted">
@@ -397,9 +399,7 @@ function MessageCard({
                   >
                     <Paperclip className="size-3.5 text-icon" />
                     <span className="max-w-56 truncate">{a.filename}</span>
-                    <span className="text-fg-muted tabular">
-                      {fmt.number(a.size / 1024, { maximumFractionDigits: 0 })} KB
-                    </span>
+                    <span className="text-fg-muted tabular">{formatSize(a.size)}</span>
                   </a>
                 </li>
               ))}
