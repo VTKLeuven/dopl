@@ -405,7 +405,8 @@ function CardFooter({
           {t("archived")}
         </span>
       ) : null}
-      <time dateTime={card.updatedAt} className="ml-auto shrink-0 tabular">
+      {/* Relative time: server and client can straddle a minute boundary. */}
+      <time dateTime={card.updatedAt} className="ml-auto shrink-0 tabular" suppressHydrationWarning>
         {when}
       </time>
     </footer>

@@ -73,9 +73,12 @@ function TagForm({
   const from = state.tag.path;
   const target = normalizeTagPath(path);
   const exists = target ? tags.some((x) => x.path === target && x.id !== state.tag.id) : false;
-  const invalid =
-    state.mode !== "delete" && path.trim() !== "" && (!target || isUnderTag(target, from));
   const unchanged = target === from;
+  // Unchanged isn't an error (Rename just stays disabled); moving below itself is.
+  const invalid =
+    state.mode !== "delete" &&
+    path.trim() !== "" &&
+    (!target || (!unchanged && isUnderTag(target, from)));
   const busy = rename.isPending || remove.isPending;
 
   const submit = () => {

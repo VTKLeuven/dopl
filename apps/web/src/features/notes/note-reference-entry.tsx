@@ -24,7 +24,10 @@ export function NoteReferenceEntry({ ws, r }: { ws: string; r: NoteReferenceView
         <p className="text-small text-fg-muted">
           <span className="font-medium text-fg-secondary">{r.actorName ?? t("someone")}</span>{" "}
           {n.line !== null ? t("createdFromLine") : t("createdFromNote")}
-          <span className="tabular"> · {relative(r.createdAt)}</span>
+          <span className="tabular" suppressHydrationWarning>
+            {" "}
+            · {relative(r.createdAt)}
+          </span>
         </p>
         {n.excerpt === null ? (
           <p className="mt-1 inline-flex items-center gap-1.5 rounded-card border border-border bg-surface-muted px-3 py-2 text-small text-fg-muted">

@@ -457,6 +457,7 @@
   "myWork": {
     "week": "This week",
     "more": "+{count} more",
+    "dueCount": "{count} due",
     "focus": "Today's focus",
     "focusEmpty": "Nothing due today and nothing in progress. A good day to pick something up.",
     "dueToday": "Due today",

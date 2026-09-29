@@ -120,10 +120,11 @@ export function CalendarStrip({
               aria-current={isToday ? "date" : undefined}
               className={cn(
                 "flex min-h-[112px] min-w-0 flex-col gap-1 border-r border-border px-2 py-2 last:border-r-0",
+                "max-sm:min-h-16 max-sm:items-center max-sm:px-0.5",
                 isToday && "bg-sky-50",
               )}
             >
-              <div className="flex items-baseline gap-1.5 px-1">
+              <div className="flex items-baseline gap-1.5 px-1 max-sm:flex-col max-sm:items-center max-sm:gap-0">
                 <span
                   className={cn(
                     "text-caption font-medium uppercase",
@@ -141,13 +142,19 @@ export function CalendarStrip({
                   {format(parseISO(day), "d")}
                 </span>
               </div>
+              {/* Phones: seven columns only fit a count. */}
+              {entries.length > 0 ? (
+                <span className="text-caption font-medium text-fg-muted tabular sm:hidden">
+                  {t("dueCount", { count: entries.length })}
+                </span>
+              ) : null}
               {entries.slice(0, 3).map((e) =>
                 e.kind === "item" ? (
                   <Link
                     key={e.key}
                     href={`/${ws}/i/${e.i.identifier}` as never}
                     title={`${e.i.identifier} ${e.i.title}`}
-                    className="flex h-6 min-w-0 items-center gap-1.5 rounded-[6px] px-1 text-small hover:bg-surface"
+                    className="flex h-6 min-w-0 items-center gap-1.5 rounded-[6px] px-1 text-small hover:bg-surface max-sm:hidden"
                   >
                     <StateIcon group={e.i.stateGroup} color={e.i.stateColor} size={12} />
                     <span className="truncate">{e.i.title}</span>
@@ -156,7 +163,7 @@ export function CalendarStrip({
                   <span
                     key={e.key}
                     title={e.x.text}
-                    className="flex h-6 min-w-0 items-center gap-1.5 px-1 text-small text-fg-secondary"
+                    className="flex h-6 min-w-0 items-center gap-1.5 px-1 text-small text-fg-secondary max-sm:hidden"
                   >
                     <ListChecks className="size-3 shrink-0 text-icon" />
                     <span className="truncate">{e.x.text}</span>
@@ -164,7 +171,7 @@ export function CalendarStrip({
                 ),
               )}
               {entries.length > 3 ? (
-                <span className="px-1 text-caption font-medium text-fg-muted tabular">
+                <span className="px-1 text-caption font-medium text-fg-muted tabular max-sm:hidden">
                   {t("more", { count: entries.length - 3 })}
                 </span>
               ) : null}
@@ -227,7 +234,7 @@ export function TodaysFocus({
                 </span>
                 <StateIcon group={i.stateGroup} color={i.stateColor} label={i.stateName} />
                 <span className="min-w-0 flex-1 truncate text-body font-medium">{i.title}</span>
-                <span className="shrink-0 text-small text-fg-muted">
+                <span className="shrink-0 text-small text-fg-muted max-sm:hidden">
                   {i.dueDate === today ? t("dueToday") : t("inProgress")}
                 </span>
               </Link>
@@ -339,7 +346,7 @@ export function InboxCard({ ws, inbox }: { ws: string; inbox: InboxSummary }) {
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-caption text-fg-muted tabular">
+                  <span className="text-caption text-fg-muted tabular" suppressHydrationWarning>
                     {relative(n.createdAt)}
                   </span>
                   {!n.read ? (
