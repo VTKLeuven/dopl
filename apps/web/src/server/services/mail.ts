@@ -561,3 +561,47 @@ export async function publishThreadPresence(ctx: WorkspaceCtx, raw: unknown) {
     payload: { userId: ctx.actor.userId, name: ctx.actor.name, state: input.state },
   });
 }
+
+/* ───────────────────────── attachments ───────────────────────── */
+
+export class AttachmentTimeoutError extends Error {}
+
+/**
+ * An email attachment for download (D-027): stored bytes when the worker
+ * already fetched them; otherwise a fetch job, and a short wait for it.
+ */
+export async function resolveEmailAttachment(ctx: WorkspaceCtx, rawId: unknown) {
+  const id = MailboxIdSchema.parse(rawId);
+  const a = await db.emailAttachment.findFirst({
+    where: { id, message: { workspaceId: ctx.workspace.id } },
+    select: {
+      id: true,
+      filename: true,
+      mimeType: true,
+      storageKey: true,
+      message: { select: { thread: { select: { mailboxId: true } } } },
+    },
+  });
+  if (!a) throw new NotFoundError();
+  await loadMailbox(
+    db as unknown as TransactionClient,
+    ctx,
+    a.message.thread.mailboxId,
+    "mailbox.read",
+  );
+  if (a.storageKey) return { storageKey: a.storageKey, filename: a.filename, mimeType: a.mimeType };
+  await db.$transaction((tx) =>
+    enqueue(tx, "gmail.fetch-attachment", { attachmentId: a.id }, { singletonKey: a.id }),
+  );
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+    const row = await db.emailAttachment.findUnique({
+      where: { id },
+      select: { storageKey: true },
+    });
+    if (row?.storageKey)
+      return { storageKey: row.storageKey, filename: a.filename, mimeType: a.mimeType };
+  }
+  throw new AttachmentTimeoutError();
+}

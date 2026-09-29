@@ -121,7 +121,8 @@
     "projectAnalytics": "Analytics",
     "requests": "Requests",
     "intake": "Intake",
-    "contacts": "Contacts"
+    "contacts": "Contacts",
+    "mail": "Mail"
   },
   "palette": {
     "placeholder": "Search items, projects, people, or type a command…",
@@ -505,7 +506,8 @@
       "account": "Account & security",
       "workspace": "Workspace",
       "you": "You",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "mailboxes": "Mailboxes"
     },
     "account": {
       "profile": "Profile",
@@ -2058,6 +2060,199 @@
       "forbidden": "You can't change this dashboard.",
       "pageTitle": "Analytics didn't load",
       "pageDescription": "Something went wrong on our side. Try again in a moment."
+    }
+  },
+  "mail": {
+    "title": "Mail",
+    "manage": "Mailboxes",
+    "connect": "Connect a mailbox",
+    "mailboxes": "Mailboxes",
+    "allMailboxes": "All mailboxes",
+    "back": "Back to the list",
+    "search": "Search subject, sender…",
+    "loadMore": "Load more",
+    "retry": "Try again",
+    "view": {
+      "unassigned": "Unassigned",
+      "mine": "Mine",
+      "open": "Open",
+      "snoozed": "Snoozed",
+      "solved": "Solved",
+      "all": "All"
+    },
+    "empty": {
+      "noMailboxTitle": "No shared mailbox yet",
+      "noMailboxAdmin": "Connect the team's mailbox (for example it@vtk.be) to read, assign and answer mail together.",
+      "noMailboxMember": "No mailbox is shared with you. Ask an admin to add you to one.",
+      "noThreadTitle": "Pick a conversation",
+      "noThread": "Choose a thread on the left to read it, assign it or turn it into a work item.",
+      "noResults": "No conversations match your search.",
+      "errorTitle": "Mail didn't load",
+      "view": {
+        "unassigned": "Nothing waiting for an owner.",
+        "mine": "Nothing assigned to you.",
+        "open": "No open conversations. Inbox zero.",
+        "snoozed": "Nothing snoozed.",
+        "solved": "Nothing solved in this mailbox yet.",
+        "all": "No mail yet. New messages show up here within seconds."
+      }
+    },
+    "reader": {
+      "errorTitle": "This conversation didn't load",
+      "errorDescription": "It may have been removed, or you no longer have access to the mailbox.",
+      "retry": "Try again",
+      "solve": "Solve",
+      "reopen": "Reopen",
+      "unignore": "Move back to open",
+      "snooze": "Snooze",
+      "unsnooze": "Snoozed until {when}",
+      "labels": "Labels",
+      "newLabel": "New label, then Enter",
+      "link": "Link to item",
+      "promote": "Create work item",
+      "assignPlaceholder": "Assign to…",
+      "unassigned": "Unassigned",
+      "to": "To",
+      "cc": "Cc",
+      "frameTitle": "Email from {from}",
+      "showMore": "Show more",
+      "showLess": "Show less",
+      "remoteImagesHidden": "Remote images are hidden to protect your privacy.",
+      "internal": "Internal",
+      "someone": "Someone",
+      "noteHint": "Internal note: only your team sees this",
+      "notePlaceholder": "Add a note for the team… @mention someone",
+      "addNote": "Add note",
+      "noPeople": "Nobody with access to this mailbox matches",
+      "presenceViewing": "{count, plural, one {{name} is viewing} other {# people are viewing}}",
+      "presenceReplying": "{name} is replying…",
+      "outbound": {
+        "DRAFT": "Draft",
+        "QUEUED": "Sending soon",
+        "SENDING": "Sending…",
+        "SENT": "Sent",
+        "FAILED": "Not sent"
+      }
+    },
+    "promote": {
+      "title": "Create a work item from this email",
+      "description": "The item links back to this conversation, and new replies show up on its timeline.",
+      "itemTitle": "Title",
+      "project": "Project",
+      "projectPlaceholder": "Choose a project",
+      "untrusted": "The email's text becomes the description. It's marked as external content, so the AI teammate asks before acting on it.",
+      "cancel": "Cancel",
+      "submit": "Create item"
+    },
+    "link": {
+      "title": "Link to a work item",
+      "description": "The conversation shows up on the item's timeline, with new replies as they arrive.",
+      "placeholder": "Item, e.g. INFRA-42",
+      "cancel": "Cancel",
+      "submit": "Link"
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "forbidden": "You can't do that in this mailbox.",
+      "assigneeCannotRead": "That person can't read this mailbox. Add them to it first."
+    }
+  },
+  "mailboxes": {
+    "title": "Mailboxes",
+    "description": "Shared mailboxes the team reads in Mail. Only connected mailboxes are synced, never anyone's personal mail.",
+    "emptyTitle": "No mailbox connected",
+    "emptyDescription": "Connect the IT address to read, assign and answer its mail in Dopl.",
+    "connect": "Connect a mailbox",
+    "summary": "{members, plural, one {# member} other {# members}} · {threads, plural, one {# conversation} other {# conversations}}",
+    "synced": "synced {when}",
+    "setupTitle": "Before you connect",
+    "setupDescription": "A Google Workspace admin sets this up once. docs/ops/gmail-setup.md has every step.",
+    "setup": {
+      "delegation": "A service account with domain-wide delegation for gmail.readonly and gmail.modify (and gmail.send for replies), its key on the worker only.",
+      "pubsub": "A Pub/Sub topic Gmail may publish to, and a pull subscription for the worker. Without it Dopl checks every 5 minutes.",
+      "groups": "A Google Group address can't be synced: connect a real mailbox that receives the group's mail.",
+      "guide": "The web app never holds the Google key; the worker tests the connection when you connect."
+    },
+    "status": {
+      "CONNECTING": "Connecting",
+      "BACKFILLING": "Importing",
+      "ACTIVE": "Active",
+      "PAUSED": "Paused",
+      "ERROR": "Needs attention",
+      "DISCONNECTED": "Disconnected"
+    },
+    "connectDialog": {
+      "title": "Connect a mailbox",
+      "description": "The worker checks that it can read this mailbox, then imports recent mail.",
+      "email": "Mailbox address",
+      "emailHint": "A real user mailbox in your Google Workspace, not a group.",
+      "name": "Display name",
+      "namePlaceholder": "IT support",
+      "backfill": "Import the last (days)",
+      "backfillHint": "Older mail stays in Gmail. 90 days is a good start.",
+      "members": "Members",
+      "membersPlaceholder": "Who reads this mailbox",
+      "membersHint": "Admins can always open it.",
+      "cancel": "Cancel",
+      "submit": "Connect"
+    },
+    "errorTitle": "This mailbox can't sync",
+    "sync": "Sync",
+    "syncDescription": "Push notifications bring new mail within seconds; a check every 5 minutes catches anything missed.",
+    "address": "Address",
+    "lastSynced": "Last synced",
+    "backfillDone": "Import finished",
+    "push": "Push",
+    "pushUntil": "On, renewed daily (until {when})",
+    "pushOff": "Off (checking every 5 minutes)",
+    "lastError": "Last error",
+    "never": "Never",
+    "test": "Test connection",
+    "testQueued": "Testing the connection…",
+    "syncNow": "Sync now",
+    "syncQueued": "Syncing…",
+    "pause": "Pause",
+    "resume": "Resume",
+    "settings": "Settings",
+    "settingsDescription": "Who reads this mailbox, and who new conversations go to.",
+    "defaultAssignee": "New conversations go to",
+    "nobody": "Nobody (Unassigned)",
+    "defaultAssigneeHint": "Leave empty to collect new mail in Unassigned.",
+    "sendEnabled": "Reply from Dopl",
+    "sendEnabledHint": "Needs the gmail.send scope on the delegation. Replies go out from this mailbox.",
+    "save": "Save",
+    "saved": "Saved",
+    "logTitle": "Sync log",
+    "logDescription": "The last 20 runs.",
+    "logEmpty": "Nothing yet. The first run starts right after connecting.",
+    "logWhen": "When",
+    "logKind": "Run",
+    "logResult": "Result",
+    "logRunning": "Running…",
+    "kind": {
+      "CONNECTION_TEST": "Connection test",
+      "BACKFILL": "Import",
+      "PARTIAL": "Sync",
+      "FULL_RESYNC": "Full resync",
+      "WATCH_RENEW": "Push renewal",
+      "POLL": "Check"
+    },
+    "stat": {
+      "created": "{n} new",
+      "updated": "{n} updated",
+      "labels": "{n} labels",
+      "pages": "{n, plural, one {# page} other {# pages}}",
+      "durationMs": "{n} ms"
+    },
+    "disconnectTitle": "Disconnect",
+    "disconnectDescription": "Stops syncing. The conversations already in Dopl stay, with their notes and links.",
+    "disconnect": "Disconnect mailbox",
+    "disconnectConfirm": "Stop syncing this mailbox? Conversations already in Dopl stay.",
+    "errors": {
+      "exists": "That mailbox is already connected.",
+      "invalidMember": "Only active team members can read a mailbox.",
+      "invalidInput": "Check the address and the number of days.",
+      "generic": "Something went wrong. Try again."
     }
   }
 }

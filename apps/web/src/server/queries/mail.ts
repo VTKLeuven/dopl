@@ -280,6 +280,11 @@ export async function getThread(ctx: WorkspaceCtx, id: string): Promise<ThreadDe
         : [],
     ),
     assignable: await mailboxReaders(ctx, t.mailboxId),
+    labelOptions: await db.label.findMany({
+      where: { workspaceId: ctx.workspace.id, projectId: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true },
+    }),
     canAct: canMailbox(ctx.policyActor, { isMember }, "mailbox.act"),
   };
 }
@@ -362,4 +367,14 @@ export async function listMailboxesForAdmin(ctx: WorkspaceCtx) {
       _count: { select: { members: true, threads: true } },
     },
   });
+}
+
+/** People who can be mailbox members: active, human, not guests. */
+export async function teamMembers(workspaceId: string): Promise<Person[]> {
+  const rows = await db.workspaceMember.findMany({
+    where: { workspaceId, status: "ACTIVE", role: { not: "GUEST" }, user: { kind: "HUMAN" } },
+    select: { user: { select: { id: true, name: true, image: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+  return rows.map((r) => r.user);
 }

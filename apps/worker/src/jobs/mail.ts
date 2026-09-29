@@ -19,10 +19,14 @@ import {
   type SyncDeps,
 } from "../gmail/sync";
 
+/** GMAIL_FAKE_DIR is relative to the repo root, so the worker and e2e specs agree on it. */
+export const fakeMailDir = (value: string) =>
+  path.resolve(import.meta.dirname, "../../../..", value);
+
 /** The Gmail client for a mailbox: the fake in dev/tests, else domain-wide delegation. */
 export async function gmailFactory(): Promise<SyncDeps["gmailFor"]> {
   if (env.GMAIL_FAKE_DIR) {
-    const dir = path.resolve(env.GMAIL_FAKE_DIR);
+    const dir = fakeMailDir(env.GMAIL_FAKE_DIR);
     return (m) => new FakeGmail(dir, m.emailAddress);
   }
   if (!env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE) {
@@ -79,14 +83,28 @@ export async function registerMailHandlers(ctx: {
     await fetchAttachment(deps, attachmentId);
   });
 
+  /** Mailboxes still waiting for their first connection test (seeded, or an enqueue that got lost). */
+  const kickConnecting = async () => {
+    const waiting = await db.mailbox.findMany({
+      where: { status: "CONNECTING", deletedAt: null },
+      select: { id: true },
+    });
+    for (const m of waiting)
+      await db.$transaction((tx) =>
+        enqueue(tx, "gmail.test", { mailboxId: m.id }, { singletonKey: `test:${m.id}` }),
+      );
+  };
+
   // Every 5 minutes: a safety-net sync in case pushes stop (or none are configured).
   await boss.schedule("gmail.poll", "*/5 * * * *", {}, tz);
   await boss.work("gmail.poll", async () => {
+    await kickConnecting();
     for (const mailboxId of await activeMailboxIds(db))
       await db.$transaction((tx) =>
         enqueue(tx, "gmail.sync", { mailboxId, reason: "poll" }, { singletonKey: mailboxId }),
       );
   });
+  await kickConnecting();
   // Daily: users.watch expires after 7 days.
   await boss.schedule("gmail.watch-renew", "40 3 * * *", {}, tz);
   await boss.work("gmail.watch-renew", async () => {
@@ -98,7 +116,7 @@ export async function registerMailHandlers(ctx: {
 
   // Push: the fake directory in dev/tests, Pub/Sub in production.
   if (env.GMAIL_FAKE_DIR) {
-    const dir = path.resolve(env.GMAIL_FAKE_DIR);
+    const dir = fakeMailDir(env.GMAIL_FAKE_DIR);
     mkdirSync(dir, { recursive: true });
     logger.info({ dir }, "gmail: using fake mailboxes");
     return watchFakeMailboxes({ db, logger, enqueue }, dir);

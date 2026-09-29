@@ -3,6 +3,7 @@ import type { DbClient, Prisma, TransactionClient } from "@dopl/db";
 import { notify, type NotifyContext } from "@dopl/server/notify";
 import { queueWebhookEvents, type WebhookEventInput } from "@dopl/server/webhooks";
 import {
+  baseSubject,
   htmlToText,
   normalizeEmail,
   parseGmailMessage,
@@ -91,7 +92,8 @@ export async function ingestMessage(
             workspaceId: mailbox.workspaceId,
             mailboxId: mailbox.id,
             gmailThreadId: p.gmailThreadId,
-            subject: p.subject || "(no subject)",
+            // Backfill lists newest first, so a thread can start from a reply: drop "Re:".
+            subject: baseSubject(p.subject) || p.subject || "(no subject)",
             snippet: p.snippet,
             // Mail from a blocked contact is kept but out of the way.
             status: contact?.blockedAt ? "IGNORED" : "OPEN",

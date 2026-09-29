@@ -81,6 +81,8 @@ export interface ThreadDetail extends ThreadRow {
   }>;
   /** People the thread can be assigned to (they can read the mailbox). */
   assignable: Person[];
+  /** Workspace labels (not tied to a project) for the label picker. */
+  labelOptions: Array<{ id: string; name: string; color: string }>;
   canAct: boolean;
 }
 
