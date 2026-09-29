@@ -24,24 +24,11 @@ import {
 import { isGroup } from "@dopl/shared/schemas/filters";
 import { OPEN_GROUPS } from "@dopl/shared/schemas/work-item";
 import { db } from "../db";
+import type { KeyLabel, MetricResult } from "@/features/analytics/types";
 import type { WorkspaceCtx } from "../session";
 import { compileFilter, startOfDayIn } from "./filters";
 import { accessibleProjectsWhere } from "./projects";
 import { compileContext } from "./work-items";
-
-/** A label for an entity key (states, people, labels, types, projects); enums are translated in the UI. */
-export interface KeyLabel {
-  label: string;
-  color?: string | null;
-}
-
-export interface MetricResult extends ChartData {
-  /** The headline for the window before this one, for the delta on number tiles. */
-  previous: number | null;
-  from: string;
-  to: string;
-  labels: Record<string, KeyLabel>;
-}
 
 /** Hard cap on rows one chart reads; the window and filters keep real charts far below it. */
 const ROW_CAP = 100_000;

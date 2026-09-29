@@ -6,15 +6,31 @@ import type { WidgetSpec, WidgetWidth } from "../schemas/analytics";
  * database: every workspace and project gets them without a migration or a
  * seed, and "Duplicate" copies one into an editable dashboard.
  */
+export type DefaultWidgetKey =
+  | "open"
+  | "completed"
+  | "overdue"
+  | "flow"
+  | "openByState"
+  | "openOverTime"
+  | "openByProject"
+  | "openByPriority"
+  | "openByAssignee"
+  | "throughput"
+  | "cycleTime"
+  | "intakeVolume"
+  | "timeToTriage"
+  | "leadTime";
+
 export interface DefaultWidget {
   /** Stable key; also the i18n key under `analytics.default`. */
-  key: string;
+  key: DefaultWidgetKey;
   spec: WidgetSpec;
   w: WidgetWidth;
 }
 
 const w = (
-  key: string,
+  key: DefaultWidgetKey,
   width: WidgetWidth,
   spec: Omit<WidgetSpec, "filters" | "segment"> & Partial<Pick<WidgetSpec, "segment">>,
 ): DefaultWidget => ({

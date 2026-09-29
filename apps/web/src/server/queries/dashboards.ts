@@ -1,38 +1,11 @@
 import "server-only";
 import { canDashboard, canWorkspace, ForbiddenError } from "@dopl/shared/policy";
-import {
-  WidgetPositionSchema,
-  WidgetSpecSchema,
-  type WidgetSpec,
-  type WidgetWidth,
-} from "@dopl/shared/schemas/analytics";
+import { WidgetPositionSchema, WidgetSpecSchema } from "@dopl/shared/schemas/analytics";
 import { NotFoundError } from "../action-result";
 import { db } from "../db";
+import type { DashboardDetail, DashboardSummary, WidgetView } from "@/features/analytics/types";
 import type { WorkspaceCtx } from "../session";
 import { accessibleProjectsWhere } from "./projects";
-
-export interface DashboardSummary {
-  id: string;
-  name: string;
-  description: string | null;
-  visibility: "PRIVATE" | "WORKSPACE";
-  projectId: string | null;
-  owner: { id: string; name: string };
-  canEdit: boolean;
-  canDelete: boolean;
-}
-
-export interface WidgetView {
-  id: string;
-  title: string;
-  spec: WidgetSpec;
-  w: WidgetWidth;
-  key: string;
-}
-
-export interface DashboardDetail extends DashboardSummary {
-  widgets: WidgetView[];
-}
 
 const summarySelect = {
   id: true,
@@ -40,6 +13,7 @@ const summarySelect = {
   description: true,
   visibility: true,
   projectId: true,
+  project: { select: { identifier: true, name: true, color: true } },
   owner: { select: { id: true, name: true } },
 } as const;
 
@@ -51,6 +25,7 @@ function toSummary(
     description: string | null;
     visibility: "PRIVATE" | "WORKSPACE";
     projectId: string | null;
+    project: { identifier: string; name: string; color: string | null } | null;
     owner: { id: string; name: string };
   },
 ): DashboardSummary {
@@ -72,20 +47,16 @@ function visibleWhere(ctx: WorkspaceCtx) {
   };
 }
 
-/** Dashboards for the analytics sidebar: workspace-wide ones, or one project's. */
-export async function listDashboards(
-  ctx: WorkspaceCtx,
-  projectId: string | null = null,
-): Promise<DashboardSummary[]> {
+/** Dashboards for the analytics sidebar: the reader's own and shared ones, any scope. */
+export async function listDashboards(ctx: WorkspaceCtx): Promise<DashboardSummary[]> {
   if (!canWorkspace(ctx.policyActor, "analytics.view")) throw new ForbiddenError();
   const rows = await db.dashboard.findMany({
-    where: { ...visibleWhere(ctx), projectId },
-    select: { ...summarySelect, sortKey: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
+    where: visibleWhere(ctx),
+    select: { ...summarySelect, sortKey: true },
   });
   // Fractional keys compare as plain strings (COLLATE "C"), never localeCompare.
   rows.sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0));
-  return rows.map((r) => toSummary(ctx, r));
+  return rows.map(({ sortKey: _, ...r }) => toSummary(ctx, r));
 }
 
 export async function getDashboard(ctx: WorkspaceCtx, id: string): Promise<DashboardDetail> {
