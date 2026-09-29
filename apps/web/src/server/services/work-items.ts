@@ -201,7 +201,7 @@ async function loadItemForWrite(tx: TransactionClient, ctx: WorkspaceCtx, id: st
 
 /* ───────────────────────── create ───────────────────────── */
 
-async function createOne(
+export async function createOne(
   m: Mutation,
   access: ProjectAccess,
   input: ReturnType<typeof CreateWorkItemSchema.parse>,
