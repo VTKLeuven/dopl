@@ -245,6 +245,7 @@ export async function getProjectMeta(
       comment: access.can("comment.create"),
     },
     me: ctx.actor.userId,
+    calendar: { timeZone: ctx.workspace.timezone, weekStartsOn: ctx.workspace.weekStartsOn },
   };
 }
 

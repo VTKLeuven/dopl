@@ -108,7 +108,7 @@ export function Picker({
 }
 
 const triggerBase =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-[7px] text-small text-fg-secondary transition-colors duration-[var(--dur-fast)] focus-ring disabled:pointer-events-none";
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] text-small text-fg-secondary transition-colors duration-[var(--dur-fast)] focus-ring disabled:pointer-events-none";
 const triggerClasses: Record<TriggerVariant, string> = {
   icon: cn(triggerBase, "size-6 justify-center hover:bg-neutral-150"),
   pill: cn(triggerBase, "h-6 border border-border bg-surface px-1.5 hover:bg-surface-hover"),
@@ -354,18 +354,24 @@ export function TypePicker({
   value,
   onChange,
   variant = "icon",
+  open,
+  onOpenChange,
   disabled,
 }: {
   meta: ProjectMeta;
   value: string | null;
   onChange: (id: string | null) => void;
   variant?: TriggerVariant;
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
   disabled?: boolean;
 }) {
   const t = useTranslations("items");
   const type = meta.types.find((x) => x.id === value);
   return (
     <Picker
+      open={open}
+      onOpenChange={onOpenChange}
       disabled={disabled}
       placeholder={t("setType")}
       selected={value ? [value] : []}

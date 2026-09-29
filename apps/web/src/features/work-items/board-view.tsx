@@ -145,6 +145,7 @@ export function BoardView(props: BoardViewProps) {
 
   return (
     <DndContext
+      id="board"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}

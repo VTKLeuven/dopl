@@ -461,7 +461,8 @@
     "dropFiles": "Drop files to attach",
     "uploading": "Uploading {name}…",
     "uploadFailed": "Couldn't upload {name}.",
-    "tooLarge": "{name} is larger than 25 MB."
+    "tooLarge": "{name} is larger than 25 MB.",
+    "tableTitle": "Title"
   },
   "projectSettings": {
     "title": "Project settings",
@@ -620,5 +621,20 @@
       "API": "API",
       "IMPORT": "Import"
     }
+  },
+  "calendar": {
+    "previous": "Previous",
+    "next": "Next",
+    "today": "Today",
+    "dateField": "Date shown",
+    "due": "Due",
+    "start": "Start",
+    "mode": "Calendar range",
+    "month": "Month",
+    "week": "Week",
+    "unscheduled": "Unscheduled",
+    "allScheduled": "Everything here has a date.",
+    "more": "+{count} more",
+    "moveHint": "Shift+arrows move the item by a day or a week"
   }
 }

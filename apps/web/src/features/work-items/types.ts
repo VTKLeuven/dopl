@@ -70,6 +70,8 @@ export interface ProjectMeta {
   members: MemberMeta[];
   can: { create: boolean; edit: boolean; delete: boolean; manage: boolean; comment: boolean };
   me: string;
+  /** Calendar settings for date math (today, week bounds). */
+  calendar: { timeZone: string; weekStartsOn: number };
 }
 
 export interface CommentView {

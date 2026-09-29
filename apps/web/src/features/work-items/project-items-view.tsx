@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   ArrowUpDown,
+  CalendarDays,
   Columns3,
   Eye,
   EyeOff,
@@ -14,6 +15,7 @@ import {
   Plus,
   Search,
   Settings,
+  Sheet,
   SlidersHorizontal,
   Trash,
   X,
@@ -58,7 +60,9 @@ import {
   useUpdateItem,
   type ItemsData,
 } from "./data";
-import { defaultsForGroup, groupRows, type ItemGroup } from "./grouping";
+import { defaultsForGroup, groupRows, sortRows, type ItemGroup } from "./grouping";
+import { TableView } from "./table-view";
+import { CalendarView } from "./calendar-view";
 import { ListView, type PickerKind } from "./list-view";
 import { BoardView } from "./board-view";
 import { CreateItemDialog, type CreateDefaults } from "./create-item-dialog";
@@ -88,7 +92,11 @@ const PROPERTY_KEYS: PropertyKey[] = [
   "subItems",
   "type",
   "estimate",
+  "createdAt",
+  "updatedAt",
 ];
+/** Keys the table handles itself (grid navigation and cell editing). */
+const TABLE_KEYS = new Set(["j", "k", "ArrowDown", "ArrowUp", "Enter", "s", "p", "a", "l", "d"]);
 
 function isTypingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
@@ -128,7 +136,7 @@ export function ProjectItemsView({
       ? initialItems
       : undefined,
   );
-  const update = useUpdateItem(ws, projectId);
+  const { mutate: updateItem } = useUpdateItem(ws, projectId);
   const bulk = useBulkUpdate(ws, projectId);
   const move = useMoveItem(ws, projectId);
   const del = useDeleteItems(ws, projectId);
@@ -205,10 +213,16 @@ export function ProjectItemsView({
     [rows, options, meta, t],
   );
 
+  const tableRows = useMemo(
+    () => sortRows(options.showSubItems ? rows : rows.filter((r) => !r.parentId), options.orderBy),
+    [rows, options.showSubItems, options.orderBy],
+  );
+
   const rowById = useMemo(() => new Map((items?.rows ?? []).map((r) => [r.id, r])), [items]);
+  // `mutate` is stable, so memoized rows don't re-render when a mutation starts.
   const onUpdate = useCallback(
-    (id: string, patch: Record<string, unknown>) => update.mutate({ id, ...patch }),
-    [update],
+    (id: string, patch: Record<string, unknown>) => updateItem({ id, ...patch }),
+    [updateItem],
   );
   const onOpen = useCallback((row: WorkItemRow) => void setPeek(row.identifier), [setPeek]);
   const onOrderChange = useCallback((ids: string[]) => {
@@ -265,6 +279,8 @@ export function ProjectItemsView({
         return;
       }
       if (mod || e.altKey) return;
+      if ((options.layout === "TABLE" || options.layout === "CALENDAR") && TABLE_KEYS.has(e.key))
+        return;
       switch (e.key) {
         case "j":
         case "ArrowDown":
@@ -364,6 +380,16 @@ export function ProjectItemsView({
               <Tooltip content={t("layout.BOARD")}>
                 <SegmentedControlItem value="BOARD" aria-label={t("layout.BOARD")}>
                   <Columns3 />
+                </SegmentedControlItem>
+              </Tooltip>
+              <Tooltip content={t("layout.TABLE")}>
+                <SegmentedControlItem value="TABLE" aria-label={t("layout.TABLE")}>
+                  <Sheet />
+                </SegmentedControlItem>
+              </Tooltip>
+              <Tooltip content={t("layout.CALENDAR")}>
+                <SegmentedControlItem value="CALENDAR" aria-label={t("layout.CALENDAR")}>
+                  <CalendarDays />
                 </SegmentedControlItem>
               </Tooltip>
             </SegmentedControl>
@@ -480,6 +506,31 @@ export function ProjectItemsView({
               <Button onClick={() => setFilters(EMPTY_FILTER)}>{tf("clearAll")}</Button>
             ) : null
           }
+        />
+      ) : options.layout === "CALENDAR" ? (
+        <CalendarView
+          rows={tableRows}
+          meta={meta}
+          options={options}
+          setOptions={setOptions}
+          focusedId={focusedId}
+          onFocus={setFocusedId}
+          onOpen={onOpen}
+          onUpdate={onUpdate}
+        />
+      ) : options.layout === "TABLE" ? (
+        <TableView
+          rows={tableRows}
+          meta={meta}
+          options={options}
+          setOptions={setOptions}
+          selection={selection}
+          onToggleSelect={toggleSelect}
+          focusedId={focusedId}
+          onFocus={setFocusedId}
+          onOpen={onOpen}
+          onUpdate={onUpdate}
+          onOrderChange={onOrderChange}
         />
       ) : options.layout === "BOARD" ? (
         <BoardView
