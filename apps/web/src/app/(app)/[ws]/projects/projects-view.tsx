@@ -27,7 +27,19 @@ interface Row {
   open: number;
 }
 
-export function ProjectsView({ ws, title, icon, canCreate, projects }: { ws: string; title: string; icon: React.ReactNode; canCreate: boolean; projects: Row[] }) {
+export function ProjectsView({
+  ws,
+  title,
+  icon,
+  canCreate,
+  projects,
+}: {
+  ws: string;
+  title: string;
+  icon: React.ReactNode;
+  canCreate: boolean;
+  projects: Row[];
+}) {
   const t = useTranslations("projects");
   const relative = useRelativeTime();
   const router = useRouter();
@@ -54,7 +66,14 @@ export function ProjectsView({ ws, title, icon, canCreate, projects }: { ws: str
             icon={<FolderKanban />}
             title={t("emptyTitle")}
             description={t("emptyDescription")}
-            action={canCreate ? <Button variant="primary" onClick={() => void setCreating(true)}><Plus />{t("new")}</Button> : null}
+            action={
+              canCreate ? (
+                <Button variant="primary" onClick={() => void setCreating(true)}>
+                  <Plus />
+                  {t("new")}
+                </Button>
+              ) : null
+            }
           />
         ) : (
           <table className="w-full border-collapse text-body">
@@ -68,7 +87,10 @@ export function ProjectsView({ ws, title, icon, canCreate, projects }: { ws: str
                   { k: "colUpdated", icon: null, cls: "hidden lg:table-cell pr-5" },
                 ].map((c) => (
                   <th key={c.k} className={`font-medium text-fg ${c.cls}`}>
-                    <span className="inline-flex items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-icon">{c.icon}{t(c.k as "colName")}</span>
+                    <span className="inline-flex items-center gap-1.5 [&_svg]:size-3.5 [&_svg]:text-icon">
+                      {c.icon}
+                      {t(c.k as "colName")}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -81,12 +103,24 @@ export function ProjectsView({ ws, title, icon, canCreate, projects }: { ws: str
                   className="h-[var(--row-height)] cursor-default border-b border-border transition-colors hover:bg-surface-hover"
                 >
                   <td className="pl-5">
-                    <Link href={`/${ws}/p/${p.identifier}/items` as never} className="inline-flex items-center gap-2.5 focus-ring rounded-[6px]" onClick={(e) => e.stopPropagation()}>
+                    <Link
+                      href={`/${ws}/p/${p.identifier}/items` as never}
+                      className="inline-flex items-center gap-2.5 rounded-[6px] focus-ring"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <ProjectBadge name={p.name} color={p.color} size={22} />
                       <span className="font-medium text-fg">{p.name}</span>
-                      <span className="tabular text-small text-fg-muted">{p.identifier}</span>
-                      {p.private ? <Tooltip content={t("private")}><Lock className="size-3.5 text-icon" /></Tooltip> : null}
-                      {p.archived ? <span className="rounded-[6px] bg-neutral-150 px-1.5 text-caption font-medium text-fg-muted">{t("archived")}</span> : null}
+                      <span className="text-small text-fg-muted tabular">{p.identifier}</span>
+                      {p.private ? (
+                        <Tooltip content={t("private")}>
+                          <Lock className="size-3.5 text-icon" />
+                        </Tooltip>
+                      ) : null}
+                      {p.archived ? (
+                        <span className="rounded-[6px] bg-neutral-150 px-1.5 text-caption font-medium text-fg-muted">
+                          {t("archived")}
+                        </span>
+                      ) : null}
                     </Link>
                   </td>
                   <td className="hidden md:table-cell">
@@ -97,16 +131,24 @@ export function ProjectsView({ ws, title, icon, canCreate, projects }: { ws: str
                       </span>
                     ) : null}
                   </td>
-                  <td className="tabular hidden text-fg-secondary sm:table-cell">{p.open}</td>
-                  <td className="tabular hidden text-fg-secondary md:table-cell">{p.members}</td>
-                  <td className="tabular hidden pr-5 text-fg-muted lg:table-cell">{relative(p.updatedAt)}</td>
+                  <td className="hidden text-fg-secondary tabular sm:table-cell">{p.open}</td>
+                  <td className="hidden text-fg-secondary tabular md:table-cell">{p.members}</td>
+                  <td className="hidden pr-5 text-fg-muted tabular lg:table-cell">
+                    {relative(p.updatedAt)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
-      {canCreate ? <CreateProjectDialog ws={ws} open={creating} onOpenChange={(o) => void setCreating(o ? true : null)} /> : null}
+      {canCreate ? (
+        <CreateProjectDialog
+          ws={ws}
+          open={creating}
+          onOpenChange={(o) => void setCreating(o ? true : null)}
+        />
+      ) : null}
     </>
   );
 }

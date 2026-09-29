@@ -12,7 +12,12 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
   const projects = await listSidebarProjects(ctx);
   const props = {
     workspace: { slug: ctx.workspace.slug, name: ctx.workspace.name },
-    user: { id: ctx.actor.userId, name: ctx.actor.name, email: ctx.actor.email, image: ctx.actor.image },
+    user: {
+      id: ctx.actor.userId,
+      name: ctx.actor.name,
+      email: ctx.actor.email,
+      image: ctx.actor.image,
+    },
     projects,
     canCreateProject: canWorkspace(ctx.policyActor, "project.create"),
   };

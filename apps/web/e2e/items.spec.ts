@@ -29,7 +29,9 @@ test("paste several lines to create several items", async ({ page }) => {
     const el = document.activeElement as HTMLInputElement;
     const data = new DataTransfer();
     data.setData("text/plain", `- first ${t}\n- second ${t}\n- third ${t}`);
-    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    el.dispatchEvent(
+      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+    );
   }, tag);
   await expect(page.getByText("Pasted 3 lines")).toBeVisible();
   await page.getByRole("button", { name: "Create 3 items" }).click();
@@ -53,7 +55,12 @@ test("change priority inline with the keyboard; it survives a reload", async ({ 
   await expect(row.getByRole("button", { name: "Priority: High" })).toBeVisible();
   await page.waitForLoadState("networkidle"); // let the optimistic save land
   await page.reload();
-  await expect(page.getByTestId("item-row").filter({ hasText: title }).getByRole("button", { name: "Priority: High" })).toBeVisible();
+  await expect(
+    page
+      .getByTestId("item-row")
+      .filter({ hasText: title })
+      .getByRole("button", { name: "Priority: High" }),
+  ).toBeVisible();
 });
 
 async function createItem(page: Page, title: string) {
@@ -145,7 +152,12 @@ test("drag a card to another column on the board", async ({ page }) => {
   await expect(inProgress.getByTestId("board-card").filter({ hasText: title })).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.reload();
-  await expect(page.getByRole("region", { name: "In progress" }).getByTestId("board-card").filter({ hasText: title })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "In progress" })
+      .getByTestId("board-card")
+      .filter({ hasText: title }),
+  ).toBeVisible();
   await page.getByRole("radio", { name: "List" }).click();
   await page.waitForTimeout(1200); // let the debounced layout preference save
 });
@@ -157,7 +169,9 @@ test("attach a file to an item and download it", async ({ page }) => {
   const peek = page.getByTestId("peek");
   await expect(peek).toBeVisible();
   const name = `notes-${uniq()}.txt`;
-  await peek.getByTestId("attachment-input").setInputFiles({ name, mimeType: "text/plain", buffer: Buffer.from("hello from e2e") });
+  await peek
+    .getByTestId("attachment-input")
+    .setInputFiles({ name, mimeType: "text/plain", buffer: Buffer.from("hello from e2e") });
   const link = peek.getByRole("link", { name: new RegExp(name) });
   await expect(link).toBeVisible();
   const href = await link.getAttribute("href");

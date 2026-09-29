@@ -14,10 +14,18 @@ export function PriorityIcon({
   className?: string;
   label?: string;
 }) {
-  const a11y = label ? { role: "img" as const, "aria-label": label } : { "aria-hidden": true as const };
+  const a11y = label
+    ? { role: "img" as const, "aria-label": label }
+    : { "aria-hidden": true as const };
   if (priority === "URGENT") {
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" className={cn("shrink-0", className)} {...a11y}>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 16 16"
+        className={cn("shrink-0", className)}
+        {...a11y}
+      >
         <rect x="1.5" y="1.5" width="13" height="13" rx="3.5" fill="var(--color-danger)" />
         <path d="M8 4.6v4.2" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
         <circle cx="8" cy="11.2" r="1.05" fill="white" />
@@ -26,9 +34,23 @@ export function PriorityIcon({
   }
   if (priority === "NONE") {
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" className={cn("shrink-0", className)} {...a11y}>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 16 16"
+        className={cn("shrink-0", className)}
+        {...a11y}
+      >
         {[2.5, 6.75, 11].map((x) => (
-          <rect key={x} x={x} y="7.25" width="2.5" height="1.5" rx="0.75" fill="var(--color-neutral-400)" />
+          <rect
+            key={x}
+            x={x}
+            y="7.25"
+            width="2.5"
+            height="1.5"
+            rx="0.75"
+            fill="var(--color-neutral-400)"
+          />
         ))}
       </svg>
     );
@@ -40,7 +62,13 @@ export function PriorityIcon({
     { x: 11, h: 11 },
   ];
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" className={cn("shrink-0", className)} {...a11y}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      className={cn("shrink-0", className)}
+      {...a11y}
+    >
       {bars.map((b, i) => (
         <rect
           key={b.x}

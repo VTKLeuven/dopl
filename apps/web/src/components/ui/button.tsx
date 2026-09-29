@@ -5,9 +5,9 @@ import { Spinner } from "./spinner";
 
 export const buttonVariants = cva(
   [
-    "relative inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap font-medium",
+    "relative inline-flex shrink-0 items-center justify-center gap-1.5 font-medium whitespace-nowrap select-none",
     "transition-[background-color,border-color,color,box-shadow] duration-[var(--dur-fast)] ease-out",
-    "disabled:pointer-events-none disabled:opacity-50 focus-ring",
+    "focus-ring disabled:pointer-events-none disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
   ],
   {
@@ -17,7 +17,8 @@ export const buttonVariants = cva(
           "bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-active [&_svg]:text-on-primary/80",
         secondary:
           "border border-border-strong bg-surface text-fg shadow-xs hover:bg-surface-hover active:bg-neutral-150 [&_svg]:text-icon",
-        ghost: "text-fg-secondary hover:bg-neutral-150 hover:text-fg active:bg-neutral-200 [&_svg]:text-icon",
+        ghost:
+          "text-fg-secondary hover:bg-neutral-150 hover:text-fg active:bg-neutral-200 [&_svg]:text-icon",
         danger: "bg-danger text-white hover:bg-danger-hover [&_svg]:text-white/85",
         "danger-ghost": "text-danger-text hover:bg-danger-bg",
         link: "h-auto px-0 text-link underline-offset-4 hover:underline",
@@ -39,8 +40,7 @@ export const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ComponentProps<"button">,
-    VariantProps<typeof buttonVariants> {
+  extends React.ComponentProps<"button">, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   loading?: boolean;
 }

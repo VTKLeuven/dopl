@@ -26,8 +26,12 @@ export async function findValidInvite(token: string): Promise<ValidInvite | null
       workspace: { select: { id: true, name: true, slug: true } },
     },
   });
-  if (!invite || invite.revokedAt || invite.acceptedAt || invite.expiresAt < new Date()) return null;
-  const user = await db.user.findUnique({ where: { email: invite.email }, select: { id: true, name: true } });
+  if (!invite || invite.revokedAt || invite.acceptedAt || invite.expiresAt < new Date())
+    return null;
+  const user = await db.user.findUnique({
+    where: { email: invite.email },
+    select: { id: true, name: true },
+  });
   if (!user) return null;
   return { ...invite, userId: user.id, userName: user.name };
 }

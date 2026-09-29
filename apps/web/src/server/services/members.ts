@@ -1,6 +1,10 @@
 import "server-only";
 import { canWorkspace, ForbiddenError } from "@dopl/shared/policy";
-import { InviteMembersSchema, ChangeRoleSchema, type InviteMembersInput } from "@dopl/shared/schemas/members";
+import {
+  InviteMembersSchema,
+  ChangeRoleSchema,
+  type InviteMembersInput,
+} from "@dopl/shared/schemas/members";
 import { generateToken, hashToken } from "@dopl/shared/crypto";
 import { INVITE_TTL_MS } from "@dopl/shared/defaults";
 import { keyAfter } from "@dopl/shared/sort-keys";
@@ -62,7 +66,10 @@ export async function inviteMembers(ctx: WorkspaceCtx, raw: InviteMembersInput) 
     for (const email of input.emails) {
       const user =
         (await tx.user.findUnique({ where: { email }, select: { id: true, kind: true } })) ??
-        (await tx.user.create({ data: { email, name: email.split("@")[0] ?? email }, select: { id: true, kind: true } }));
+        (await tx.user.create({
+          data: { email, name: email.split("@")[0] ?? email },
+          select: { id: true, kind: true },
+        }));
       if (user.kind !== "HUMAN") {
         skipped.push(email);
         continue;
@@ -77,7 +84,12 @@ export async function inviteMembers(ctx: WorkspaceCtx, raw: InviteMembersInput) 
       }
       await tx.workspaceMember.upsert({
         where: { workspaceId_userId: { workspaceId: ctx.workspace.id, userId: user.id } },
-        create: { workspaceId: ctx.workspace.id, userId: user.id, role: input.role, status: "INVITED" },
+        create: {
+          workspaceId: ctx.workspace.id,
+          userId: user.id,
+          role: input.role,
+          status: "INVITED",
+        },
         update: { role: input.role, status: "INVITED", deactivatedAt: null },
       });
       // Revoke older pending invites for this address; the new link replaces them.
@@ -103,9 +115,23 @@ export async function inviteMembers(ctx: WorkspaceCtx, raw: InviteMembersInput) 
           update: {},
         });
       }
-      const invite = await issueInvite(tx, ctx, { email, role: input.role, projectIds: projects.map((p) => p.id) });
-      await audit(tx, ctx, { action: "member.invited", targetType: "WorkspaceInvite", targetId: invite.id, metadata: { email, role: input.role } });
-      activity({ entityType: "MEMBER", entityId: user.id, verb: "invited", meta: { email, role: input.role } });
+      const invite = await issueInvite(tx, ctx, {
+        email,
+        role: input.role,
+        projectIds: projects.map((p) => p.id),
+      });
+      await audit(tx, ctx, {
+        action: "member.invited",
+        targetType: "WorkspaceInvite",
+        targetId: invite.id,
+        metadata: { email, role: input.role },
+      });
+      activity({
+        entityType: "MEMBER",
+        entityId: user.id,
+        verb: "invited",
+        meta: { email, role: input.role },
+      });
       invited++;
     }
     return { invited, skipped };
@@ -121,15 +147,34 @@ export async function changeMemberRole(ctx: WorkspaceCtx, raw: unknown) {
       select: { id: true, role: true, userId: true },
     });
     if (!member) throw new NotFoundError();
-    if ((role === "OWNER" || member.role === "OWNER") && ctx.role !== "OWNER") throw new ForbiddenError();
+    if ((role === "OWNER" || member.role === "OWNER") && ctx.role !== "OWNER")
+      throw new ForbiddenError();
     if (member.role === "OWNER" && role !== "OWNER") {
-      const owners = await tx.workspaceMember.count({ where: { workspaceId: ctx.workspace.id, role: "OWNER", status: "ACTIVE" } });
+      const owners = await tx.workspaceMember.count({
+        where: { workspaceId: ctx.workspace.id, role: "OWNER", status: "ACTIVE" },
+      });
       if (owners <= 1) throw new ConflictError("last_owner");
     }
     await tx.workspaceMember.update({ where: { id: member.id }, data: { role } });
-    await audit(tx, ctx, { action: "member.role_changed", targetType: "WorkspaceMember", targetId: member.id, metadata: { from: member.role, to: role } });
-    activity({ entityType: "MEMBER", entityId: member.userId, verb: "updated", field: "role", fromValue: member.role, toValue: role });
-    emit({ topic: `workspace:${ctx.workspace.id}`, type: "member.updated", payload: { userId: member.userId } });
+    await audit(tx, ctx, {
+      action: "member.role_changed",
+      targetType: "WorkspaceMember",
+      targetId: member.id,
+      metadata: { from: member.role, to: role },
+    });
+    activity({
+      entityType: "MEMBER",
+      entityId: member.userId,
+      verb: "updated",
+      field: "role",
+      fromValue: member.role,
+      toValue: role,
+    });
+    emit({
+      topic: `workspace:${ctx.workspace.id}`,
+      type: "member.updated",
+      payload: { userId: member.userId },
+    });
   });
 }
 
@@ -145,18 +190,30 @@ export async function setMemberActive(ctx: WorkspaceCtx, memberId: string, activ
     if (member.role === "OWNER" && ctx.role !== "OWNER") throw new ForbiddenError();
     await tx.workspaceMember.update({
       where: { id: member.id },
-      data: active ? { status: "ACTIVE", deactivatedAt: null } : { status: "DEACTIVATED", deactivatedAt: new Date() },
+      data: active
+        ? { status: "ACTIVE", deactivatedAt: null }
+        : { status: "DEACTIVATED", deactivatedAt: new Date() },
     });
     if (!active) await tx.session.deleteMany({ where: { userId: member.userId } });
-    await audit(tx, ctx, { action: active ? "member.reactivated" : "member.deactivated", targetType: "WorkspaceMember", targetId: member.id });
-    activity({ entityType: "MEMBER", entityId: member.userId, verb: active ? "reactivated" : "deactivated" });
+    await audit(tx, ctx, {
+      action: active ? "member.reactivated" : "member.deactivated",
+      targetType: "WorkspaceMember",
+      targetId: member.id,
+    });
+    activity({
+      entityType: "MEMBER",
+      entityId: member.userId,
+      verb: active ? "reactivated" : "deactivated",
+    });
   });
 }
 
 export async function revokeInvite(ctx: WorkspaceCtx, inviteId: string) {
   assertAdmin(ctx);
   return withMutation(ctx, async ({ tx }) => {
-    const invite = await tx.workspaceInvite.findFirst({ where: { id: inviteId, workspaceId: ctx.workspace.id, acceptedAt: null } });
+    const invite = await tx.workspaceInvite.findFirst({
+      where: { id: inviteId, workspaceId: ctx.workspace.id, acceptedAt: null },
+    });
     if (!invite) throw new NotFoundError();
     await tx.workspaceInvite.update({ where: { id: invite.id }, data: { revokedAt: new Date() } });
     const user = await tx.user.findUnique({ where: { email: invite.email }, select: { id: true } });
@@ -166,17 +223,33 @@ export async function revokeInvite(ctx: WorkspaceCtx, inviteId: string) {
         data: { status: "DEACTIVATED", deactivatedAt: new Date() },
       });
     }
-    await audit(tx, ctx, { action: "member.invite_revoked", targetType: "WorkspaceInvite", targetId: invite.id, metadata: { email: invite.email } });
+    await audit(tx, ctx, {
+      action: "member.invite_revoked",
+      targetType: "WorkspaceInvite",
+      targetId: invite.id,
+      metadata: { email: invite.email },
+    });
   });
 }
 
 export async function resendInvite(ctx: WorkspaceCtx, inviteId: string) {
   assertAdmin(ctx);
   return withMutation(ctx, async ({ tx }) => {
-    const invite = await tx.workspaceInvite.findFirst({ where: { id: inviteId, workspaceId: ctx.workspace.id, acceptedAt: null } });
+    const invite = await tx.workspaceInvite.findFirst({
+      where: { id: inviteId, workspaceId: ctx.workspace.id, acceptedAt: null },
+    });
     if (!invite) throw new NotFoundError();
     await tx.workspaceInvite.update({ where: { id: invite.id }, data: { revokedAt: new Date() } });
-    const next = await issueInvite(tx, ctx, { email: invite.email, role: invite.role, projectIds: invite.projectIds });
-    await audit(tx, ctx, { action: "member.invite_resent", targetType: "WorkspaceInvite", targetId: next.id, metadata: { email: invite.email } });
+    const next = await issueInvite(tx, ctx, {
+      email: invite.email,
+      role: invite.role,
+      projectIds: invite.projectIds,
+    });
+    await audit(tx, ctx, {
+      action: "member.invite_resent",
+      targetType: "WorkspaceInvite",
+      targetId: next.id,
+      metadata: { email: invite.email },
+    });
   });
 }

@@ -17,7 +17,16 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label, FieldError, FieldHint, Textarea } from "@/components/ui/input";
-import { Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +45,13 @@ interface Props {
   workspaceName: string;
   currentUserId: string;
   isOwner: boolean;
-  members: Array<{ id: string; role: Role; status: "ACTIVE" | "INVITED" | "DEACTIVATED"; joinedAt: string; user: { id: string; name: string; email: string; image: string | null } }>;
+  members: Array<{
+    id: string;
+    role: Role;
+    status: "ACTIVE" | "INVITED" | "DEACTIVATED";
+    joinedAt: string;
+    user: { id: string; name: string; email: string; image: string | null };
+  }>;
   invites: Array<{ id: string; email: string; role: Role; expiresAt: string }>;
   projects: Array<{ id: string; name: string; identifier: string; color: string | null }>;
 }
@@ -51,7 +66,8 @@ export function MembersView(props: Props) {
   const act = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) =>
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) toast.error(res.message === "last_owner" ? t("lastOwner") : res.error ?? "error");
+      if (!res.ok)
+        toast.error(res.message === "last_owner" ? t("lastOwner") : (res.error ?? "error"));
     });
 
   return (
@@ -80,14 +96,24 @@ export function MembersView(props: Props) {
               const self = m.user.id === props.currentUserId;
               const canEditOwner = props.isOwner || m.role !== "OWNER";
               return (
-                <tr key={m.id} className={cn("h-[var(--row-height)] border-b border-border last:border-0", m.status === "DEACTIVATED" && "opacity-60")}>
+                <tr
+                  key={m.id}
+                  className={cn(
+                    "h-[var(--row-height)] border-b border-border last:border-0",
+                    m.status === "DEACTIVATED" && "opacity-60",
+                  )}
+                >
                   <td className="pl-4">
                     <div className="flex items-center gap-2.5">
                       <Avatar user={m.user} size="md" />
                       <div className="min-w-0">
                         <p className="truncate font-medium">
                           {m.user.name}
-                          {self ? <span className="ml-1.5 text-small font-normal text-fg-muted">({t("you")})</span> : null}
+                          {self ? (
+                            <span className="ml-1.5 text-small font-normal text-fg-muted">
+                              ({t("you")})
+                            </span>
+                          ) : null}
                         </p>
                         <p className="truncate text-small text-fg-muted">{m.user.email}</p>
                       </div>
@@ -102,12 +128,19 @@ export function MembersView(props: Props) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-72">
-                        <DropdownMenuRadioGroup value={m.role} onValueChange={(role) => act(() => changeRoleAction(props.ws, { memberId: m.id, role }))}>
+                        <DropdownMenuRadioGroup
+                          value={m.role}
+                          onValueChange={(role) =>
+                            act(() => changeRoleAction(props.ws, { memberId: m.id, role }))
+                          }
+                        >
                           {ROLES.filter((r) => props.isOwner || r !== "OWNER").map((r) => (
                             <DropdownMenuRadioItem key={r} value={r} className="h-auto py-1.5">
                               <span className="flex flex-col">
                                 <span className="font-medium">{tr(r)}</span>
-                                <span className="text-small text-fg-muted">{t(`roleHints.${r}`)}</span>
+                                <span className="text-small text-fg-muted">
+                                  {t(`roleHints.${r}`)}
+                                </span>
                               </span>
                             </DropdownMenuRadioItem>
                           ))}
@@ -116,22 +149,48 @@ export function MembersView(props: Props) {
                     </DropdownMenu>
                   </td>
                   <td className="hidden sm:table-cell">
-                    <span className={cn("rounded-[6px] px-1.5 py-0.5 text-caption font-medium", m.status === "ACTIVE" ? "bg-success-bg text-success-text" : m.status === "INVITED" ? "bg-info-bg text-info-text" : "bg-neutral-150 text-fg-muted")}>
+                    <span
+                      className={cn(
+                        "rounded-[6px] px-1.5 py-0.5 text-caption font-medium",
+                        m.status === "ACTIVE"
+                          ? "bg-success-bg text-success-text"
+                          : m.status === "INVITED"
+                            ? "bg-info-bg text-info-text"
+                            : "bg-neutral-150 text-fg-muted",
+                      )}
+                    >
                       {t(`status.${m.status}`)}
                     </span>
                   </td>
-                  <td className="tabular hidden text-fg-muted md:table-cell">{m.status === "INVITED" ? "—" : relative(m.joinedAt)}</td>
+                  <td className="hidden text-fg-muted tabular md:table-cell">
+                    {m.status === "INVITED" ? "—" : relative(m.joinedAt)}
+                  </td>
                   <td className="pr-2 text-right">
                     {!self && canEditOwner ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon-sm" aria-label="More"><Ellipsis /></Button>
+                          <Button variant="ghost" size="icon-sm" aria-label="More">
+                            <Ellipsis />
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {m.status === "DEACTIVATED" ? (
-                            <DropdownMenuItem onSelect={() => act(() => setMemberActiveAction(props.ws, m.id, true))}>{t("reactivate")}</DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                act(() => setMemberActiveAction(props.ws, m.id, true))
+                              }
+                            >
+                              {t("reactivate")}
+                            </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem destructive onSelect={() => act(() => setMemberActiveAction(props.ws, m.id, false))}>{t("deactivate")}</DropdownMenuItem>
+                            <DropdownMenuItem
+                              destructive
+                              onSelect={() =>
+                                act(() => setMemberActiveAction(props.ws, m.id, false))
+                              }
+                            >
+                              {t("deactivate")}
+                            </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -146,16 +205,30 @@ export function MembersView(props: Props) {
 
       {props.invites.length > 0 ? (
         <>
-          <h3 className="mb-3 mt-8 text-body font-semibold">{t("pending")}</h3>
+          <h3 className="mt-8 mb-3 text-body font-semibold">{t("pending")}</h3>
           <ul className="divide-y divide-border rounded-card border border-border">
             {props.invites.map((i) => (
               <li key={i.id} className="flex items-center gap-3 px-4 py-3">
                 <Mail className="size-4 text-icon" />
                 <span className="min-w-0 flex-1 truncate">{i.email}</span>
                 <span className="text-small text-fg-muted">{tr(i.role)}</span>
-                <span className="tabular hidden text-small text-fg-muted sm:inline">{t("expires", { time: relative(i.expiresAt) })}</span>
-                <Button size="xs" variant="ghost" onClick={() => act(() => resendInviteAction(props.ws, i.id))}>{t("resendInvite")}</Button>
-                <Button size="xs" variant="danger-ghost" onClick={() => act(() => revokeInviteAction(props.ws, i.id))}>{t("revokeInvite")}</Button>
+                <span className="hidden text-small text-fg-muted tabular sm:inline">
+                  {t("expires", { time: relative(i.expiresAt) })}
+                </span>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => act(() => resendInviteAction(props.ws, i.id))}
+                >
+                  {t("resendInvite")}
+                </Button>
+                <Button
+                  size="xs"
+                  variant="danger-ghost"
+                  onClick={() => act(() => revokeInviteAction(props.ws, i.id))}
+                >
+                  {t("revokeInvite")}
+                </Button>
               </li>
             ))}
           </ul>
@@ -167,7 +240,14 @@ export function MembersView(props: Props) {
   );
 }
 
-function InviteDialog({ ws, workspaceName, projects, isOwner, open, onOpenChange }: Props & { open: boolean; onOpenChange: (o: boolean) => void }) {
+function InviteDialog({
+  ws,
+  workspaceName,
+  projects,
+  isOwner,
+  open,
+  onOpenChange,
+}: Props & { open: boolean; onOpenChange: (o: boolean) => void }) {
   const t = useTranslations("settings.members");
   const tc = useTranslations("common");
   const tr = useTranslations("auth.roles");
@@ -196,12 +276,21 @@ function InviteDialog({ ws, workspaceName, projects, isOwner, open, onOpenChange
         <form onSubmit={submit} className="flex min-h-0 flex-col">
           <DialogHeader>
             <DialogTitle>{t("inviteTitle")}</DialogTitle>
-            <DialogDescription>{t("inviteDescription", { workspace: workspaceName })}</DialogDescription>
+            <DialogDescription>
+              {t("inviteDescription", { workspace: workspaceName })}
+            </DialogDescription>
           </DialogHeader>
           <DialogBody className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-emails">{t("emails")}</Label>
-              <Textarea id="inv-emails" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder={t("emailsPlaceholder")} className="min-h-20" autoFocus />
+              <Textarea
+                id="inv-emails"
+                value={emails}
+                onChange={(e) => setEmails(e.target.value)}
+                placeholder={t("emailsPlaceholder")}
+                className="min-h-20"
+                autoFocus
+              />
               {error ? <FieldError>{error}</FieldError> : <FieldHint>{t("emailsHint")}</FieldHint>}
             </div>
             <div className="flex flex-col gap-1.5">
@@ -213,7 +302,12 @@ function InviteDialog({ ws, workspaceName, projects, isOwner, open, onOpenChange
                     key={r}
                     onClick={() => setRole(r)}
                     aria-pressed={role === r}
-                    className={cn("flex flex-col items-start rounded-control border px-3 py-2 text-left focus-ring", role === r ? "border-sky-600 bg-sky-50" : "border-border-strong hover:bg-surface-hover")}
+                    className={cn(
+                      "flex flex-col items-start rounded-control border px-3 py-2 text-left focus-ring",
+                      role === r
+                        ? "border-sky-600 bg-sky-50"
+                        : "border-border-strong hover:bg-surface-hover",
+                    )}
                   >
                     <span className="text-body font-medium">{tr(r)}</span>
                     <span className="text-small text-fg-muted">{t(`roleHints.${r}`)}</span>
@@ -226,14 +320,21 @@ function InviteDialog({ ws, workspaceName, projects, isOwner, open, onOpenChange
                 <span className="text-body font-medium">{t("projects")}</span>
                 <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-control border border-border p-1.5">
                   {projects.map((p) => (
-                    <label key={p.id} className="flex h-8 items-center gap-2.5 rounded-[8px] px-2 hover:bg-surface-hover">
+                    <label
+                      key={p.id}
+                      className="flex h-8 items-center gap-2.5 rounded-[8px] px-2 hover:bg-surface-hover"
+                    >
                       <Checkbox
                         checked={projectIds.includes(p.id)}
-                        onCheckedChange={(v) => setProjectIds((ids) => (v === true ? [...ids, p.id] : ids.filter((id) => id !== p.id)))}
+                        onCheckedChange={(v) =>
+                          setProjectIds((ids) =>
+                            v === true ? [...ids, p.id] : ids.filter((id) => id !== p.id),
+                          )
+                        }
                       />
                       <ProjectBadge name={p.name} color={p.color} />
                       <span className="text-body">{p.name}</span>
-                      <span className="tabular text-small text-fg-muted">{p.identifier}</span>
+                      <span className="text-small text-fg-muted tabular">{p.identifier}</span>
                     </label>
                   ))}
                 </div>

@@ -45,7 +45,15 @@ export function StateIcon({
     case "TRIAGE":
       return (
         <svg {...common} fill="none">
-          <circle cx="8" cy="8" r="6.25" stroke={c} strokeWidth="1.5" strokeDasharray="1 2.2" strokeLinecap="round" />
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            stroke={c}
+            strokeWidth="1.5"
+            strokeDasharray="1 2.2"
+            strokeLinecap="round"
+          />
           <circle cx="8" cy="8" r="2" fill={c} />
         </svg>
       );
@@ -71,7 +79,10 @@ export function StateIcon({
       return (
         <svg {...common} fill="none">
           <circle cx="8" cy="8" r="6.25" stroke={c} strokeWidth="1.5" />
-          <path d={`M8 8 L8 ${8 - r} A${r} ${r} 0 ${large} 1 ${x.toFixed(3)} ${y.toFixed(3)} Z`} fill={c} />
+          <path
+            d={`M8 8 L8 ${8 - r} A${r} ${r} 0 ${large} 1 ${x.toFixed(3)} ${y.toFixed(3)} Z`}
+            fill={c}
+          />
         </svg>
       );
     }
@@ -79,14 +90,25 @@ export function StateIcon({
       return (
         <svg {...common} fill="none">
           <circle cx="8" cy="8" r="7" fill={c} />
-          <path d="M5.1 8.2 7.1 10.1 10.9 6.1" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M5.1 8.2 7.1 10.1 10.9 6.1"
+            stroke="white"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       );
     case "CANCELLED":
       return (
         <svg {...common} fill="none">
           <circle cx="8" cy="8" r="7" fill={c} fillOpacity="0.85" />
-          <path d="m5.6 5.6 4.8 4.8m0-4.8-4.8 4.8" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
+          <path
+            d="m5.6 5.6 4.8 4.8m0-4.8-4.8 4.8"
+            stroke="white"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
         </svg>
       );
   }

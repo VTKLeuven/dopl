@@ -15,5 +15,5 @@
 - **Spikes on Postgres 17.11 + pgvector:**
   - The initial migration applies cleanly.
   - `COLLATE "C"` sort keys, CHECK constraints, the append-only audit trigger and `search.embeddings` (HNSW) cause no migration drift.
-  - An HNSW index inside the Prisma-managed schema *does* drift, which led to D-017.
+  - An HNSW index inside the Prisma-managed schema _does_ drift, which led to D-017.
 - No application code yet. Waiting for approval.

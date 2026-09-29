@@ -13,7 +13,7 @@ export function Checkbox({ className, ...props }: React.ComponentProps<typeof C.
         "transition-colors duration-[var(--dur-fast)] ease-out hover:border-neutral-400",
         "data-[state=checked]:border-sky-600 data-[state=checked]:bg-sky-600",
         "data-[state=indeterminate]:border-sky-600 data-[state=indeterminate]:bg-sky-600",
-        "disabled:cursor-not-allowed disabled:opacity-50 focus-ring",
+        "focus-ring disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}

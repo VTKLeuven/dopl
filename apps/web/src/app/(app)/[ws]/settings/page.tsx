@@ -14,5 +14,7 @@ export default function SettingsIndex({ params }: PageProps<"/[ws]/settings">) {
 async function Go({ params }: { params: PageProps<"/[ws]/settings">["params"] }): Promise<null> {
   const { ws } = await params;
   const ctx = await requireWorkspaceCtx(ws);
-  redirect(`/${ws}/settings/${canWorkspace(ctx.policyActor, "workspace.settings") ? "general" : "account"}` as never);
+  redirect(
+    `/${ws}/settings/${canWorkspace(ctx.policyActor, "workspace.settings") ? "general" : "account"}` as never,
+  );
 }

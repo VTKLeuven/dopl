@@ -21,8 +21,18 @@ export async function updateWorkspace(ctx: WorkspaceCtx, raw: unknown) {
   const input = UpdateWorkspaceSchema.parse(raw);
   return withMutation(ctx, async ({ tx, activity, emit }) => {
     await tx.workspace.update({ where: { id: ctx.workspace.id }, data: input });
-    await audit(tx, ctx, { action: "workspace.updated", targetType: "Workspace", targetId: ctx.workspace.id, metadata: input });
-    activity({ entityType: "WORKSPACE", entityId: ctx.workspace.id, verb: "updated", toValue: input });
+    await audit(tx, ctx, {
+      action: "workspace.updated",
+      targetType: "Workspace",
+      targetId: ctx.workspace.id,
+      metadata: input,
+    });
+    activity({
+      entityType: "WORKSPACE",
+      entityId: ctx.workspace.id,
+      verb: "updated",
+      toValue: input,
+    });
     emit({ topic: `workspace:${ctx.workspace.id}`, type: "workspace.updated", payload: {} });
   });
 }

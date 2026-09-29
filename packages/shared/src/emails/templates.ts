@@ -28,7 +28,13 @@ interface Rendered {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-function layout(opts: { heading: string; body: string; cta?: { label: string; url: string }; footnote?: string; appUrl: string }) {
+function layout(opts: {
+  heading: string;
+  body: string;
+  cta?: { label: string; url: string };
+  footnote?: string;
+  appUrl: string;
+}) {
   const button = opts.cta
     ? `<a href="${esc(opts.cta.url)}" style="display:inline-block;background:#16161A;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;line-height:20px;padding:10px 16px;border-radius:10px">${esc(opts.cta.label)}</a>`
     : "";
@@ -58,7 +64,8 @@ export function renderEmail<K extends EmailTemplateKey>(
           heading: `Join ${d.workspaceName} on Dopl`,
           body: `${esc(d.inviterName)} invited you as <strong>${esc(d.role)}</strong>. Accept the invite to choose how you sign in.`,
           cta: { label: "Accept invite", url: d.url },
-          footnote: "This link expires in 7 days. If you weren't expecting this, you can ignore it.",
+          footnote:
+            "This link expires in 7 days. If you weren't expecting this, you can ignore it.",
         }),
         text: `${d.inviterName} invited you to ${d.workspaceName} on Dopl as ${d.role}.\n\nAccept: ${d.url}\n\nThis link expires in 7 days.`,
       };

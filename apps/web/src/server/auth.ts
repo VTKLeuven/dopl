@@ -49,7 +49,12 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       if (!(await isEligibleEmail(user.email))) return;
       await db.$transaction((tx) =>
-        queueEmail(tx, { template: "auth.reset_password", to: user.email, data: { url }, userId: user.id }),
+        queueEmail(tx, {
+          template: "auth.reset_password",
+          to: user.email,
+          data: { url },
+          userId: user.id,
+        }),
       );
     },
   },
@@ -123,7 +128,12 @@ export const auth = betterAuth({
         const eligible = await isEligibleEmail(email);
         if (!eligible) return; // silent: same response for unknown addresses
         await db.$transaction((tx) =>
-          queueEmail(tx, { template: "auth.magic_link", to: email, data: { url }, userId: eligible.userId }),
+          queueEmail(tx, {
+            template: "auth.magic_link",
+            to: email,
+            data: { url },
+            userId: eligible.userId,
+          }),
         );
       },
     }),

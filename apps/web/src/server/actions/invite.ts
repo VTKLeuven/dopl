@@ -13,7 +13,10 @@ const AcceptWithPasswordSchema = z.object({
   password: z.string().min(10).max(128),
 });
 
-export type AcceptInviteResult = { ok: false; error: "invalid_invite" | "invalid_input" | "sign_in_failed" };
+export type AcceptInviteResult = {
+  ok: false;
+  error: "invalid_invite" | "invalid_input" | "sign_in_failed";
+};
 
 /**
  * Accept an invite by choosing a password. The invite link proves control of
@@ -39,13 +42,21 @@ export async function acceptInviteWithPassword(input: unknown): Promise<AcceptIn
       await tx.account.update({ where: { id: existing.id }, data: { password: hash } });
     } else {
       await tx.account.create({
-        data: { userId: invite.userId, providerId: "credential", accountId: invite.userId, password: hash },
+        data: {
+          userId: invite.userId,
+          providerId: "credential",
+          accountId: invite.userId,
+          password: hash,
+        },
       });
     }
   });
 
   try {
-    await auth.api.signInEmail({ body: { email: invite.email, password }, headers: await headers() });
+    await auth.api.signInEmail({
+      body: { email: invite.email, password },
+      headers: await headers(),
+    });
   } catch {
     return { ok: false, error: "sign_in_failed" };
   }

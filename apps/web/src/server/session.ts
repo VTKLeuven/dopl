@@ -20,7 +20,10 @@ export interface Actor {
 export const getActor = cache(async (): Promise<Actor | null> => {
   const session = await getSession();
   if (!session) return null;
-  const u = session.user as typeof session.user & { kind?: string; twoFactorEnabled?: boolean | null };
+  const u = session.user as typeof session.user & {
+    kind?: string;
+    twoFactorEnabled?: boolean | null;
+  };
   return {
     userId: u.id,
     name: u.name,
@@ -53,7 +56,9 @@ export const getWorkspaceCtx = cache(async (slug: string): Promise<WorkspaceCtx 
     select: {
       role: true,
       canApproveAgentActions: true,
-      workspace: { select: { id: true, slug: true, name: true, timezone: true, weekStartsOn: true } },
+      workspace: {
+        select: { id: true, slug: true, name: true, timezone: true, weekStartsOn: true },
+      },
     },
   });
   if (!member) return null;

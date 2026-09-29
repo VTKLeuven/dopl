@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Same geometry as <Sidebar> so nothing shifts when it streams in. */
 export function SidebarSkeleton() {
   return (
-    <div className="flex h-full flex-col px-3 pb-3 pt-4" aria-hidden>
+    <div className="flex h-full flex-col px-3 pt-4 pb-3" aria-hidden>
       <div className="flex h-8 items-center gap-2 px-1.5">
         <DoplMark size={24} />
         <span className="text-title font-bold tracking-[-0.02em] text-fg">Dopl</span>

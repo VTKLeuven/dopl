@@ -37,10 +37,16 @@ async function getJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function useProjectItems(ws: string, projectId: string, mode: CompletedMode, initial?: ItemsData) {
+export function useProjectItems(
+  ws: string,
+  projectId: string,
+  mode: CompletedMode,
+  initial?: ItemsData,
+) {
   return useQuery({
     queryKey: keys.itemsMode(projectId, mode),
-    queryFn: () => getJson<ItemsData>(`/api/v1/${ws}/projects/${projectId}/items?completed=${mode}`),
+    queryFn: () =>
+      getJson<ItemsData>(`/api/v1/${ws}/projects/${projectId}/items?completed=${mode}`),
     initialData: initial,
     placeholderData: (prev) => prev,
   });
@@ -74,7 +80,10 @@ export interface SearchHit {
 export function useItemSearch(ws: string, q: string, projectId?: string, enabled = true) {
   return useQuery({
     queryKey: keys.search(q, projectId),
-    queryFn: () => getJson<SearchHit[]>(`/api/v1/${ws}/search/items?q=${encodeURIComponent(q)}${projectId ? `&projectId=${projectId}` : ""}`),
+    queryFn: () =>
+      getJson<SearchHit[]>(
+        `/api/v1/${ws}/search/items?q=${encodeURIComponent(q)}${projectId ? `&projectId=${projectId}` : ""}`,
+      ),
     enabled,
     staleTime: 10_000,
     placeholderData: (prev) => prev,
@@ -83,7 +92,11 @@ export function useItemSearch(ws: string, q: string, projectId?: string, enabled
 
 /* ─────────────── optimistic helpers ─────────────── */
 
-function patchRow(row: WorkItemRow, patch: Omit<UpdateWorkItemInput, "id">, meta?: ProjectMeta): WorkItemRow {
+function patchRow(
+  row: WorkItemRow,
+  patch: Omit<UpdateWorkItemInput, "id">,
+  meta?: ProjectMeta,
+): WorkItemRow {
   const next = { ...row, updatedAt: new Date().toISOString() };
   if (patch.title !== undefined) next.title = patch.title;
   if (patch.priority !== undefined) next.priority = patch.priority;
@@ -99,7 +112,8 @@ function patchRow(row: WorkItemRow, patch: Omit<UpdateWorkItemInput, "id">, meta
     const s = meta?.states.find((x) => x.id === patch.stateId);
     if (s) {
       next.stateGroup = s.group;
-      next.completedAt = s.group === "COMPLETED" ? (row.completedAt ?? new Date().toISOString()) : null;
+      next.completedAt =
+        s.group === "COMPLETED" ? (row.completedAt ?? new Date().toISOString()) : null;
     }
   }
   return next;
@@ -107,12 +121,21 @@ function patchRow(row: WorkItemRow, patch: Omit<UpdateWorkItemInput, "id">, meta
 
 type Snapshot = Array<[readonly unknown[], unknown]>;
 
-function patchCaches(qc: QueryClient, projectId: string, ids: string[], patch: Omit<UpdateWorkItemInput, "id">): Snapshot {
+function patchCaches(
+  qc: QueryClient,
+  projectId: string,
+  ids: string[],
+  patch: Omit<UpdateWorkItemInput, "id">,
+): Snapshot {
   const meta = qc.getQueryData<ProjectMeta>(keys.meta(projectId));
   const snapshot: Snapshot = [];
   for (const [key, data] of qc.getQueriesData<ItemsData>({ queryKey: keys.items(projectId) })) {
     snapshot.push([key, data]);
-    if (data) qc.setQueryData<ItemsData>(key, { ...data, rows: data.rows.map((r) => (ids.includes(r.id) ? patchRow(r, patch, meta) : r)) });
+    if (data)
+      qc.setQueryData<ItemsData>(key, {
+        ...data,
+        rows: data.rows.map((r) => (ids.includes(r.id) ? patchRow(r, patch, meta) : r)),
+      });
   }
   for (const [key, data] of qc.getQueriesData<WorkItemDetail>({ queryKey: ["item"] })) {
     if (!data) continue;
@@ -156,7 +179,8 @@ export function useUpdateItem(ws: string, projectId: string) {
     onSettled: (_data, _err, input) => {
       void qc.invalidateQueries({ queryKey: keys.items(projectId), refetchType: "none" });
       for (const [key, data] of qc.getQueriesData<WorkItemDetail>({ queryKey: ["item"] })) {
-        if (data && (data.id === input.id || data.children.some((c) => c.id === input.id))) void qc.invalidateQueries({ queryKey: key });
+        if (data && (data.id === input.id || data.children.some((c) => c.id === input.id)))
+          void qc.invalidateQueries({ queryKey: key });
       }
     },
   });
@@ -166,8 +190,10 @@ export function useBulkUpdate(ws: string, projectId: string) {
   const qc = useQueryClient();
   const t = useTranslations("items");
   return useMutation({
-    mutationFn: async (input: { ids: string[]; patch: Omit<UpdateWorkItemInput, "id" | "title" | "description"> }) =>
-      unwrap(await bulkUpdateWorkItemsAction(ws, input)),
+    mutationFn: async (input: {
+      ids: string[];
+      patch: Omit<UpdateWorkItemInput, "id" | "title" | "description">;
+    }) => unwrap(await bulkUpdateWorkItemsAction(ws, input)),
     onMutate: async ({ ids, patch }) => {
       await qc.cancelQueries({ queryKey: keys.items(projectId) });
       return { snapshot: patchCaches(qc, projectId, ids, patch) };
@@ -176,7 +202,8 @@ export function useBulkUpdate(ws: string, projectId: string) {
       if (context) restore(qc, context.snapshot);
       toast.error(errorMessage(t, err));
     },
-    onSettled: () => void qc.invalidateQueries({ queryKey: keys.items(projectId), refetchType: "none" }),
+    onSettled: () =>
+      void qc.invalidateQueries({ queryKey: keys.items(projectId), refetchType: "none" }),
   });
 }
 
@@ -184,15 +211,28 @@ export function useMoveItem(ws: string, projectId: string) {
   const qc = useQueryClient();
   const t = useTranslations("items");
   return useMutation({
-    mutationFn: async (input: { id: string; beforeId: string | null; afterId: string | null; optimisticKey: string }) =>
-      unwrap(await moveWorkItemAction(ws, { id: input.id, beforeId: input.beforeId, afterId: input.afterId })),
+    mutationFn: async (input: {
+      id: string;
+      beforeId: string | null;
+      afterId: string | null;
+      optimisticKey: string;
+    }) =>
+      unwrap(
+        await moveWorkItemAction(ws, {
+          id: input.id,
+          beforeId: input.beforeId,
+          afterId: input.afterId,
+        }),
+      ),
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: keys.items(projectId) });
       const snapshot: Snapshot = [];
       for (const [key, data] of qc.getQueriesData<ItemsData>({ queryKey: keys.items(projectId) })) {
         snapshot.push([key, data]);
         if (data) {
-          const rows = data.rows.map((r) => (r.id === input.id ? { ...r, sortKey: input.optimisticKey } : r));
+          const rows = data.rows.map((r) =>
+            r.id === input.id ? { ...r, sortKey: input.optimisticKey } : r,
+          );
           rows.sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0));
           qc.setQueryData<ItemsData>(key, { ...data, rows });
         }
@@ -205,9 +245,13 @@ export function useMoveItem(ws: string, projectId: string) {
     },
     onSuccess: (data) => {
       // Adopt the server's key (it may differ if neighbours changed meanwhile).
-      for (const [key, cached] of qc.getQueriesData<ItemsData>({ queryKey: keys.items(projectId) })) {
+      for (const [key, cached] of qc.getQueriesData<ItemsData>({
+        queryKey: keys.items(projectId),
+      })) {
         if (!cached) continue;
-        const rows = cached.rows.map((r) => (r.id === data.id ? { ...r, sortKey: data.sortKey } : r));
+        const rows = cached.rows.map((r) =>
+          r.id === data.id ? { ...r, sortKey: data.sortKey } : r,
+        );
         rows.sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0));
         qc.setQueryData<ItemsData>(key, { ...cached, rows });
       }
@@ -221,10 +265,14 @@ export function useCreateItems(ws: string, projectId: string) {
   return useMutation({
     mutationFn: async (input: { titles: string[]; shared: Record<string, unknown> }) => {
       if (input.titles.length === 1) {
-        const created = unwrap(await createWorkItemAction(ws, { projectId, title: input.titles[0], ...input.shared }));
+        const created = unwrap(
+          await createWorkItemAction(ws, { projectId, title: input.titles[0], ...input.shared }),
+        );
         return [created];
       }
-      return unwrap(await createWorkItemsAction(ws, { projectId, titles: input.titles, ...input.shared }));
+      return unwrap(
+        await createWorkItemsAction(ws, { projectId, titles: input.titles, ...input.shared }),
+      );
     },
     onError: (err) => toast.error(errorMessage(t, err)),
     onSettled: () => qc.invalidateQueries({ queryKey: keys.items(projectId) }),
@@ -246,7 +294,11 @@ export function useDeleteItems(ws: string, projectId: string) {
       const snapshot: Snapshot = [];
       for (const [key, data] of qc.getQueriesData<ItemsData>({ queryKey: keys.items(projectId) })) {
         snapshot.push([key, data]);
-        if (data) qc.setQueryData<ItemsData>(key, { ...data, rows: data.rows.filter((r) => !ids.includes(r.id)) });
+        if (data)
+          qc.setQueryData<ItemsData>(key, {
+            ...data,
+            rows: data.rows.filter((r) => !ids.includes(r.id)),
+          });
       }
       return { snapshot };
     },

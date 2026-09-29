@@ -31,27 +31,46 @@ export function PageHeader({
         className,
       )}
     >
-      <Button variant="ghost" size="icon-sm" className="-ml-1 md:hidden" aria-label={t("openMenu")} onClick={openMobileNav}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="-ml-1 md:hidden"
+        aria-label={t("openMenu")}
+        onClick={openMobileNav}
+      >
         <Menu />
       </Button>
       <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;
           const content = (
-            <span className={cn("inline-flex min-w-0 items-center gap-2", "[&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:text-icon")}>
+            <span
+              className={cn(
+                "inline-flex min-w-0 items-center gap-2",
+                "[&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:text-icon",
+              )}
+            >
               {c.icon}
               <span className="truncate">{c.label}</span>
             </span>
           );
           return (
             <span key={i} className="flex min-w-0 items-center gap-1.5">
-              {i > 0 ? <ChevronRight className="size-4 shrink-0 text-fg-placeholder" aria-hidden /> : null}
+              {i > 0 ? (
+                <ChevronRight className="size-4 shrink-0 text-fg-placeholder" aria-hidden />
+              ) : null}
               {c.href && !last ? (
-                <Link href={c.href as never} className="min-w-0 rounded-[6px] text-nav text-fg-muted hover:text-fg focus-ring">
+                <Link
+                  href={c.href as never}
+                  className="min-w-0 rounded-[6px] text-nav text-fg-muted focus-ring hover:text-fg"
+                >
                   {content}
                 </Link>
               ) : (
-                <span aria-current={last ? "page" : undefined} className={cn("min-w-0 text-nav", last ? "font-medium text-fg" : "text-fg-muted")}>
+                <span
+                  aria-current={last ? "page" : undefined}
+                  className={cn("min-w-0 text-nav", last ? "font-medium text-fg" : "text-fg-muted")}
+                >
                   {content}
                 </span>
               )}

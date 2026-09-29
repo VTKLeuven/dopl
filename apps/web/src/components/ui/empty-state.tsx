@@ -17,7 +17,13 @@ export function EmptyState({
   compact?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center text-center", compact ? "gap-2 py-8" : "gap-3 py-16", className)}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center text-center",
+        compact ? "gap-2 py-8" : "gap-3 py-16",
+        className,
+      )}
+    >
       {icon ? (
         <div className="relative mb-1 flex size-12 items-center justify-center rounded-card border border-border bg-surface shadow-card [&_svg]:size-5 [&_svg]:text-sky-700">
           <span aria-hidden className="absolute -inset-3 -z-10 rounded-[20px] bg-sky-50/70" />

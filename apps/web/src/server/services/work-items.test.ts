@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { NotFoundError } from "../action-result";
 import { db } from "../db";
 import { makeMember, makeProject, makeWorkspace } from "../testing/fixtures";
-import { createWorkItem, createWorkItems, moveWorkItem, setDeleted, updateWorkItem } from "./work-items";
+import {
+  createWorkItem,
+  createWorkItems,
+  moveWorkItem,
+  setDeleted,
+  updateWorkItem,
+} from "./work-items";
 
 async function setup() {
   const ws = await makeWorkspace();
@@ -20,24 +26,43 @@ describe("work items service", () => {
     const item = await db.workItem.findUniqueOrThrow({ where: { id: a.id } });
     expect(item.stateGroup).toBe("BACKLOG"); // project default state
     expect(await db.activity.count({ where: { workItemId: a.id, verb: "created" } })).toBe(1);
-    expect(await db.realtimeEvent.count({ where: { topic: `project:${project.id}`, type: "workItem.created" } })).toBe(2);
-    expect(await db.workItemSubscriber.count({ where: { workItemId: a.id, userId: admin.actor.userId } })).toBe(1);
+    expect(
+      await db.realtimeEvent.count({
+        where: { topic: `project:${project.id}`, type: "workItem.created" },
+      }),
+    ).toBe(2);
+    expect(
+      await db.workItemSubscriber.count({
+        where: { workItemId: a.id, userId: admin.actor.userId },
+      }),
+    ).toBe(1);
   });
 
   it("pastes lines as items in line order", async () => {
     const { admin, project } = await setup();
-    const created = await createWorkItems(admin, { projectId: project.id, titles: ["one", "two", "three"] });
+    const created = await createWorkItems(admin, {
+      projectId: project.id,
+      titles: ["one", "two", "three"],
+    });
     expect(created.map((c) => c.title)).toEqual(["one", "two", "three"]);
     const seqs = created.map((c) => c.sequence ?? 0);
     expect(seqs[1]).toBe((seqs[0] ?? 0) + 1);
-    const ordered = await db.workItem.findMany({ where: { projectId: project.id }, orderBy: { sortKey: "asc" }, select: { title: true } });
+    const ordered = await db.workItem.findMany({
+      where: { projectId: project.id },
+      orderBy: { sortKey: "asc" },
+      select: { title: true },
+    });
     expect(ordered.map((o) => o.title)).toEqual(["one", "two", "three"]);
   });
 
   it("keeps stateGroup, completedAt and parent counters consistent", async () => {
     const { admin, project } = await setup();
     const parent = await createWorkItem(admin, { projectId: project.id, title: "Parent" });
-    const child = await createWorkItem(admin, { projectId: project.id, title: "Child", parentId: parent.id });
+    const child = await createWorkItem(admin, {
+      projectId: project.id,
+      title: "Child",
+      parentId: parent.id,
+    });
     let p = await db.workItem.findUniqueOrThrow({ where: { id: parent.id } });
     expect([p.childCount, p.childDoneCount]).toEqual([1, 0]);
 
@@ -64,15 +89,27 @@ describe("work items service", () => {
     const { admin, project } = await setup();
     const a = await createWorkItem(admin, { projectId: project.id, title: "A" });
     const b = await createWorkItem(admin, { projectId: project.id, title: "B", parentId: a.id });
-    await expect(updateWorkItem(admin, { id: a.id, parentId: b.id })).rejects.toThrow("parent_cycle");
-    await expect(updateWorkItem(admin, { id: a.id, startDate: "2026-10-10", dueDate: "2026-10-01" })).rejects.toThrow("start_after_due");
+    await expect(updateWorkItem(admin, { id: a.id, parentId: b.id })).rejects.toThrow(
+      "parent_cycle",
+    );
+    await expect(
+      updateWorkItem(admin, { id: a.id, startDate: "2026-10-10", dueDate: "2026-10-01" }),
+    ).rejects.toThrow("start_after_due");
   });
 
   it("records per-field activity with state names", async () => {
     const { admin, project } = await setup();
     const a = await createWorkItem(admin, { projectId: project.id, title: "A" });
-    await updateWorkItem(admin, { id: a.id, priority: "HIGH", stateId: project.byName("Todo").id, title: "A2" });
-    const rows = await db.activity.findMany({ where: { workItemId: a.id, verb: "updated" }, orderBy: { createdAt: "asc" } });
+    await updateWorkItem(admin, {
+      id: a.id,
+      priority: "HIGH",
+      stateId: project.byName("Todo").id,
+      title: "A2",
+    });
+    const rows = await db.activity.findMany({
+      where: { workItemId: a.id, verb: "updated" },
+      orderBy: { createdAt: "asc" },
+    });
     expect(rows.map((r) => r.field).sort()).toEqual(["priority", "state", "title"]);
     const state = rows.find((r) => r.field === "state");
     expect(state?.meta).toMatchObject({ fromName: "Backlog", toName: "Todo" });
@@ -80,9 +117,16 @@ describe("work items service", () => {
 
   it("moves an item between neighbours", async () => {
     const { admin, project } = await setup();
-    const [x, y, z] = await createWorkItems(admin, { projectId: project.id, titles: ["x", "y", "z"] });
+    const [x, y, z] = await createWorkItems(admin, {
+      projectId: project.id,
+      titles: ["x", "y", "z"],
+    });
     await moveWorkItem(admin, { id: z!.id, beforeId: x!.id, afterId: y!.id });
-    const ordered = await db.workItem.findMany({ where: { projectId: project.id }, orderBy: { sortKey: "asc" }, select: { title: true } });
+    const ordered = await db.workItem.findMany({
+      where: { projectId: project.id },
+      orderBy: { sortKey: "asc" },
+      select: { title: true },
+    });
     expect(ordered.map((o) => o.title)).toEqual(["x", "z", "y"]);
   });
 
@@ -92,6 +136,8 @@ describe("work items service", () => {
     const created = await createWorkItem(member, { projectId: project.id, title: "member ok" });
     expect(created.sequence).toBeGreaterThan(0);
     const guest = await makeMember(ws, "GUEST");
-    await expect(createWorkItem(guest, { projectId: project.id, title: "nope" })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      createWorkItem(guest, { projectId: project.id, title: "nope" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

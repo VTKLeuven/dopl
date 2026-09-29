@@ -85,8 +85,12 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h1 className="text-title-lg font-semibold">{mode === "sso" ? t("ssoTitle") : t("signInTitle")}</h1>
-        <p className="text-body text-fg-muted">{mode === "sso" ? t("ssoHint") : t("signInSubtitle")}</p>
+        <h1 className="text-title-lg font-semibold">
+          {mode === "sso" ? t("ssoTitle") : t("signInTitle")}
+        </h1>
+        <p className="text-body text-fg-muted">
+          {mode === "sso" ? t("ssoHint") : t("signInSubtitle")}
+        </p>
       </div>
 
       {mode === "password" && googleEnabled ? (
@@ -148,19 +152,43 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
 
       <div className="flex flex-col items-start gap-1 border-t border-border pt-4">
         {mode !== "magic" ? (
-          <Button variant="ghost" size="sm" className="-ml-2.5" onClick={() => { setMode("magic"); setError(null); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2.5"
+            onClick={() => {
+              setMode("magic");
+              setError(null);
+            }}
+          >
             <Mail />
             {t("emailMeALink")}
           </Button>
         ) : null}
         {mode !== "sso" ? (
-          <Button variant="ghost" size="sm" className="-ml-2.5" onClick={() => { setMode("sso"); setError(null); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2.5"
+            onClick={() => {
+              setMode("sso");
+              setError(null);
+            }}
+          >
             <KeyRound />
             {t("continueWithSso")}
           </Button>
         ) : null}
         {mode !== "password" ? (
-          <Button variant="ghost" size="sm" className="-ml-2.5" onClick={() => { setMode("password"); setError(null); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2.5"
+            onClick={() => {
+              setMode("password");
+              setError(null);
+            }}
+          >
             <ArrowLeft />
             {t("usePassword")}
           </Button>

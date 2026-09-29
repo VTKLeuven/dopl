@@ -48,7 +48,9 @@ describe("workspace actions", () => {
 });
 
 describe("effective project role", () => {
-  const cases: Array<[WorkspaceRole, PolicyProject["visibility"], ProjectRole | null, ProjectRole | null]> = [
+  const cases: Array<
+    [WorkspaceRole, PolicyProject["visibility"], ProjectRole | null, ProjectRole | null]
+  > = [
     ["OWNER", "PRIVATE", null, "ADMIN"],
     ["ADMIN", "PRIVATE", null, "ADMIN"],
     ["MEMBER", "WORKSPACE", null, "MEMBER"],
@@ -59,9 +61,12 @@ describe("effective project role", () => {
     ["GUEST", "WORKSPACE", "GUEST", "GUEST"],
     ["GUEST", "WORKSPACE", "MEMBER", "GUEST"], // guests are capped at GUEST
   ];
-  it.each(cases)("%s on %s project with membership %s → %s", (ws, visibility, memberRole, expected) => {
-    expect(effectiveProjectRole(actor(ws), project({ visibility, memberRole }))).toBe(expected);
-  });
+  it.each(cases)(
+    "%s on %s project with membership %s → %s",
+    (ws, visibility, memberRole, expected) => {
+      expect(effectiveProjectRole(actor(ws), project({ visibility, memberRole }))).toBe(expected);
+    },
+  );
 });
 
 describe("project actions matrix", () => {
@@ -79,7 +84,15 @@ describe("project actions matrix", () => {
   ];
   const expected: Record<string, ProjectAction[]> = {
     ADMIN: actions,
-    MEMBER: ["project.view", "workItem.create", "workItem.edit", "workItem.delete", "comment.create", "intake.submit", "intake.triage"],
+    MEMBER: [
+      "project.view",
+      "workItem.create",
+      "workItem.edit",
+      "workItem.delete",
+      "comment.create",
+      "intake.submit",
+      "intake.triage",
+    ],
     GUEST: ["intake.submit"],
     GUEST_VIEW: ["project.view", "intake.submit"],
     NONE: [],

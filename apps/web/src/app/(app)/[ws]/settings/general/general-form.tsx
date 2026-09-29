@@ -41,10 +41,16 @@ export function GeneralForm(props: { ws: string; name: string; timezone: string;
             onChange={(e) => setTimezone(e.target.value)}
             className="h-9 rounded-control border border-border-strong bg-surface px-3 text-body shadow-xs focus-ring"
           >
-            {zones.map((z) => <option key={z} value={z}>{z}</option>)}
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {z}
+              </option>
+            ))}
           </select>
         </div>
-        <Button type="submit" variant="primary" className="self-start" loading={pending}>{t("save")}</Button>
+        <Button type="submit" variant="primary" className="self-start" loading={pending}>
+          {t("save")}
+        </Button>
       </SettingsSection>
     </form>
   );

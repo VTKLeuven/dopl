@@ -24,7 +24,10 @@ export function SegmentedControl({
         if (v) onValueChange(v);
       }}
       aria-label={label}
-      className={cn("inline-flex h-8 items-center gap-0.5 rounded-control bg-neutral-150 p-0.5", className)}
+      className={cn(
+        "inline-flex h-8 items-center gap-0.5 rounded-control bg-neutral-150 p-0.5",
+        className,
+      )}
     >
       {children}
     </ToggleGroup.Root>
@@ -39,7 +42,7 @@ export function SegmentedControlItem({
     <ToggleGroup.Item
       className={cn(
         "inline-flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-[8px] px-2 text-small font-medium text-fg-muted",
-        "transition-colors duration-[var(--dur-fast)] ease-out hover:text-fg focus-ring",
+        "focus-ring transition-colors duration-[var(--dur-fast)] ease-out hover:text-fg",
         "data-[state=on]:bg-surface data-[state=on]:text-fg data-[state=on]:shadow-xs",
         "[&_svg]:size-4",
         className,

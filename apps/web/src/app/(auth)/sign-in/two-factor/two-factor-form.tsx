@@ -24,7 +24,10 @@ export function TwoFactorForm() {
     setError(null);
     const res = backup
       ? await authClient.twoFactor.verifyBackupCode({ code: code.trim(), trustDevice: trust })
-      : await authClient.twoFactor.verifyTotp({ code: code.replace(/\s/g, ""), trustDevice: trust });
+      : await authClient.twoFactor.verifyTotp({
+          code: code.replace(/\s/g, ""),
+          trustDevice: trust,
+        });
     if (res.error) {
       setError(res.error.status === 429 ? t("rateLimited") : t("invalidCode"));
       setPending(false);
@@ -51,7 +54,7 @@ export function TwoFactorForm() {
           onChange={(e) => setCode(e.target.value)}
           inputMode={backup ? "text" : "numeric"}
           autoComplete="one-time-code"
-          className="tabular text-title tracking-[0.3em]"
+          className="text-title tracking-[0.3em] tabular"
           autoFocus
           required
         />
@@ -64,7 +67,16 @@ export function TwoFactorForm() {
       <Button type="submit" variant="primary" size="lg" loading={pending}>
         {t("verify")}
       </Button>
-      <Button type="button" variant="ghost" size="sm" className="self-start -ml-2.5" onClick={() => { setBackup((b) => !b); setCode(""); }}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="-ml-2.5 self-start"
+        onClick={() => {
+          setBackup((b) => !b);
+          setCode("");
+        }}
+      >
         {backup ? t("useAuthenticator") : t("useBackupCode")}
       </Button>
     </form>

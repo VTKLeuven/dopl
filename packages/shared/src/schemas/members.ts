@@ -6,9 +6,21 @@ export const InviteMembersSchema = z.object({
   emails: z
     .string()
     .transform((s) =>
-      Array.from(new Set(s.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))),
+      Array.from(
+        new Set(
+          s
+            .split(/[\s,;]+/)
+            .map((e) => e.trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      ),
     )
-    .pipe(z.array(z.email("One of the addresses isn't valid.")).min(1, "Add at least one address.").max(50)),
+    .pipe(
+      z
+        .array(z.email("One of the addresses isn't valid."))
+        .min(1, "Add at least one address.")
+        .max(50),
+    ),
   role: WorkspaceRoleSchema.default("MEMBER"),
   projectIds: z.array(z.uuid()).default([]),
 });

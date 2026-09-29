@@ -24,7 +24,9 @@ const { values } = parseArgs({
 });
 
 if (!values.email || !values.name) {
-  console.error('Usage: pnpm dopl:bootstrap --email you@vtk.be --name "Your Name" [--workspace "VTK IT"] [--slug vtk]');
+  console.error(
+    'Usage: pnpm dopl:bootstrap --email you@vtk.be --name "Your Name" [--workspace "VTK IT"] [--slug vtk]',
+  );
   process.exit(1);
 }
 const email = values.email.trim().toLowerCase();

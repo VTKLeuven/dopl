@@ -34,16 +34,26 @@ export function MyItems({ ws, items }: { ws: string; items: MyItem[] }) {
         if (list.length === 0) return null;
         return (
           <section key={b}>
-            <h2 className={cn("mb-2 flex items-center gap-2 text-body font-semibold", b === "overdue" && "text-danger-text")}>
+            <h2
+              className={cn(
+                "mb-2 flex items-center gap-2 text-body font-semibold",
+                b === "overdue" && "text-danger-text",
+              )}
+            >
               {t(b)}
-              <span className="tabular text-small font-normal text-fg-muted">{list.length}</span>
+              <span className="text-small font-normal text-fg-muted tabular">{list.length}</span>
             </h2>
             <ul className="overflow-hidden rounded-card border border-border">
               {list.map((i) => (
                 <li key={i.id} className="border-b border-border last:border-0">
-                  <Link href={`/${ws}/p/${i.project.identifier}/items?peek=${i.identifier}` as never} className="flex h-[var(--row-height)] items-center gap-2.5 px-4 hover:bg-surface-hover focus-ring">
+                  <Link
+                    href={`/${ws}/p/${i.project.identifier}/items?peek=${i.identifier}` as never}
+                    className="flex h-[var(--row-height)] items-center gap-2.5 px-4 focus-ring hover:bg-surface-hover"
+                  >
                     <PriorityIcon priority={i.priority} />
-                    <span className="tabular w-[76px] shrink-0 text-small font-medium text-fg-muted">{i.identifier}</span>
+                    <span className="w-[76px] shrink-0 text-small font-medium text-fg-muted tabular">
+                      {i.identifier}
+                    </span>
                     <StateIcon group={i.stateGroup} color={i.stateColor} label={i.stateName} />
                     <span className="min-w-0 flex-1 truncate text-body font-medium">{i.title}</span>
                     <span className="hidden items-center gap-1.5 text-small text-fg-muted sm:inline-flex">
@@ -51,7 +61,12 @@ export function MyItems({ ws, items }: { ws: string; items: MyItem[] }) {
                       {i.project.name}
                     </span>
                     {i.dueDate ? (
-                      <span className={cn("tabular inline-flex h-6 items-center gap-1 rounded-[7px] border border-border px-1.5 text-small text-fg-secondary", b === "overdue" && "border-danger-border text-danger-text")}>
+                      <span
+                        className={cn(
+                          "inline-flex h-6 items-center gap-1 rounded-[7px] border border-border px-1.5 text-small text-fg-secondary tabular",
+                          b === "overdue" && "border-danger-border text-danger-text",
+                        )}
+                      >
                         <CalendarDays className="size-3.5" />
                         {format(parseISO(i.dueDate), "d MMM")}
                       </span>

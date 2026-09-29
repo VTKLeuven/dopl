@@ -3,7 +3,9 @@ import { ForbiddenError } from "@dopl/shared/policy";
 import { z } from "zod";
 
 export type ActionError = "invalid_input" | "forbidden" | "not_found" | "conflict" | "server_error";
-export type ActionResult<T = null> = { ok: true; data: T } | { ok: false; error: ActionError; message?: string; fields?: Record<string, string[]> };
+export type ActionResult<T = null> =
+  | { ok: true; data: T }
+  | { ok: false; error: ActionError; message?: string; fields?: Record<string, string[]> };
 
 export class NotFoundError extends Error {}
 export class ConflictError extends Error {}
@@ -18,7 +20,11 @@ export async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
     return ok(await fn());
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return { ok: false, error: "invalid_input", fields: z.flattenError(err).fieldErrors as Record<string, string[]> };
+      return {
+        ok: false,
+        error: "invalid_input",
+        fields: z.flattenError(err).fieldErrors as Record<string, string[]>,
+      };
     }
     if (err instanceof ForbiddenError) return { ok: false, error: "forbidden" };
     if (err instanceof NotFoundError) return { ok: false, error: "not_found" };

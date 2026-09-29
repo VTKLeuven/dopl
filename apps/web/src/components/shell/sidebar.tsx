@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronsUpDown, FolderKanban, House, LogOut, Plus, Search, Settings, UserRound } from "lucide-react";
+import {
+  ChevronsUpDown,
+  FolderKanban,
+  House,
+  LogOut,
+  Plus,
+  Search,
+  Settings,
+  UserRound,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authClient } from "@/lib/auth-client";
 import { DoplMark } from "@/components/icons/dopl-logo";
@@ -51,7 +60,7 @@ function NavItem({
       aria-current={active ? "page" : undefined}
       className={cn(
         "group flex h-9 items-center gap-2.5 rounded-control px-2.5 text-nav font-medium text-fg-nav",
-        "transition-colors duration-[var(--dur-fast)] ease-out focus-ring",
+        "focus-ring transition-colors duration-[var(--dur-fast)] ease-out",
         "[&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:text-icon-strong",
         active ? "bg-sidebar-active text-fg" : "hover:bg-sidebar-hover",
       )}
@@ -63,9 +72,15 @@ function NavItem({
   );
 }
 
-function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+function SectionLabel({
+  children,
+  action,
+}: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="mb-1 mt-5 flex h-6 items-center justify-between px-2.5">
+    <div className="mt-5 mb-1 flex h-6 items-center justify-between px-2.5">
       <span className="text-caption font-medium text-fg-muted">{children}</span>
       {action}
     </div>
@@ -80,7 +95,7 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav aria-label={workspace.name} className="flex h-full flex-col px-3 pb-3 pt-4">
+    <nav aria-label={workspace.name} className="flex h-full flex-col px-3 pt-4 pb-3">
       <div className="flex h-8 items-center gap-2 px-1.5">
         <DoplMark size={24} />
         <span className="text-title font-bold tracking-[-0.02em] text-fg">Dopl</span>
@@ -91,7 +106,7 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
         onClick={openCommandPalette}
         className={cn(
           "mt-4 flex h-[38px] w-full items-center gap-2 rounded-control border border-border-strong bg-surface px-2.5 text-left text-body text-fg-placeholder shadow-xs",
-          "transition-colors duration-[var(--dur-fast)] hover:border-neutral-300 focus-ring",
+          "focus-ring transition-colors duration-[var(--dur-fast)] hover:border-neutral-300",
         )}
       >
         <Search className="size-4 text-icon" aria-hidden />
@@ -100,8 +115,20 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
       </button>
 
       <div className="mt-4 flex flex-col gap-0.5">
-        <NavItem href={`${base}/home`} icon={<House />} label={t("home")} active={isActive(`${base}/home`)} onNavigate={onNavigate} />
-        <NavItem href={`${base}/projects`} icon={<FolderKanban />} label={t("allProjects")} active={pathname === `${base}/projects`} onNavigate={onNavigate} />
+        <NavItem
+          href={`${base}/home`}
+          icon={<House />}
+          label={t("home")}
+          active={isActive(`${base}/home`)}
+          onNavigate={onNavigate}
+        />
+        <NavItem
+          href={`${base}/projects`}
+          icon={<FolderKanban />}
+          label={t("allProjects")}
+          active={pathname === `${base}/projects`}
+          onNavigate={onNavigate}
+        />
       </div>
 
       <SectionLabel
@@ -112,7 +139,7 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
                 type="button"
                 aria-label={t("newProject")}
                 onClick={() => router.push(`${base}/projects?new=true` as never)}
-                className="inline-flex size-6 items-center justify-center rounded-[7px] text-icon hover:bg-sidebar-hover hover:text-fg focus-ring"
+                className="inline-flex size-6 items-center justify-center rounded-[7px] text-icon focus-ring hover:bg-sidebar-hover hover:text-fg"
               >
                 <Plus className="size-4" />
               </button>
@@ -122,7 +149,7 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
       >
         {t("projects")}
       </SectionLabel>
-      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1 scrollbar-thin">
+      <div className="-mx-1 flex min-h-0 flex-1 scrollbar-thin flex-col gap-0.5 overflow-y-auto px-1">
         {projects.length === 0 ? (
           <p className="px-2.5 py-1.5 text-small text-fg-muted">{t("noProjects")}</p>
         ) : (
@@ -136,7 +163,11 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
                 label={p.name}
                 active={isActive(href)}
                 onNavigate={onNavigate}
-                trailing={<span className="tabular text-caption font-medium text-fg-muted opacity-0 transition-opacity group-hover:opacity-100">{p.identifier}</span>}
+                trailing={
+                  <span className="text-caption font-medium text-fg-muted tabular opacity-0 transition-opacity group-hover:opacity-100">
+                    {p.identifier}
+                  </span>
+                }
               />
             );
           })
@@ -145,14 +176,20 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
 
       <SectionLabel>{t("tools")}</SectionLabel>
       <div className="flex flex-col gap-0.5">
-        <NavItem href={`${base}/settings`} icon={<Settings />} label={t("settings")} active={isActive(`${base}/settings`)} onNavigate={onNavigate} />
+        <NavItem
+          href={`${base}/settings`}
+          icon={<Settings />}
+          label={t("settings")}
+          active={isActive(`${base}/settings`)}
+          onNavigate={onNavigate}
+        />
       </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="mt-3 flex h-11 w-full items-center gap-2.5 rounded-control px-2 text-left transition-colors hover:bg-sidebar-hover focus-ring"
+            className="mt-3 flex h-11 w-full items-center gap-2.5 rounded-control px-2 text-left focus-ring transition-colors hover:bg-sidebar-hover"
           >
             <Avatar user={user} size="md" />
             <span className="min-w-0 flex-1">
@@ -162,7 +199,11 @@ export function Sidebar({ workspace, user, projects, canCreateProject, onNavigat
             <ChevronsUpDown className="size-4 text-icon" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+        <DropdownMenuContent
+          side="top"
+          align="start"
+          className="w-[var(--radix-dropdown-menu-trigger-width)]"
+        >
           <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
           <DropdownMenuItem onSelect={() => router.push(`${base}/settings/account` as never)}>
             <UserRound />

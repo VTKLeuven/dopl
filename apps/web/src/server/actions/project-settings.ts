@@ -5,7 +5,10 @@ import { run } from "../action-result";
 import { requireWorkspaceCtx } from "../session";
 import * as svc from "../services/project-settings";
 
-async function act<T>(ws: string, fn: (ctx: Awaited<ReturnType<typeof requireWorkspaceCtx>>) => Promise<T>) {
+async function act<T>(
+  ws: string,
+  fn: (ctx: Awaited<ReturnType<typeof requireWorkspaceCtx>>) => Promise<T>,
+) {
   const ctx = await requireWorkspaceCtx(ws);
   const res = await run(() => fn(ctx));
   if (res.ok) refresh();

@@ -29,7 +29,9 @@ async function Invite({ params }: { params: PageProps<"/invite/[token]">["params
         </div>
         <h1 className="text-title-lg font-semibold">{t("inviteInvalidTitle")}</h1>
         <p className="text-body text-fg-muted">{t("inviteInvalid")}</p>
-        <Link href="/sign-in" className="text-body text-link hover:underline">{t("backToSignIn")}</Link>
+        <Link href="/sign-in" className="text-body text-link hover:underline">
+          {t("backToSignIn")}
+        </Link>
       </div>
     );
   }

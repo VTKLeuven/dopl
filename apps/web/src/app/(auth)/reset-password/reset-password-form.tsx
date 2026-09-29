@@ -40,7 +40,10 @@ export function ResetPasswordForm() {
   }
 
   const back = (
-    <Link href="/sign-in" className="inline-flex items-center gap-1.5 text-body text-link hover:underline">
+    <Link
+      href="/sign-in"
+      className="inline-flex items-center gap-1.5 text-body text-link hover:underline"
+    >
       <ArrowLeft className="size-4" />
       {t("backToSignIn")}
     </Link>
@@ -72,15 +75,33 @@ export function ResetPasswordForm() {
       <h1 className="text-title-lg font-semibold">{t("resetTitle")}</h1>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="pw">{t("newPassword")}</Label>
-        <Input id="pw" type="password" autoComplete="new-password" minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+        <Input
+          id="pw"
+          type="password"
+          autoComplete="new-password"
+          minLength={10}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoFocus
+        />
         <FieldHint>{t("newPasswordHint")}</FieldHint>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="pw2">{t("confirmPassword")}</Label>
-        <Input id="pw2" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+        <Input
+          id="pw2"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          required
+        />
       </div>
       {error ? <FieldError>{error}</FieldError> : null}
-      <Button type="submit" variant="primary" size="lg" loading={pending}>{t("setPassword")}</Button>
+      <Button type="submit" variant="primary" size="lg" loading={pending}>
+        {t("setPassword")}
+      </Button>
       {back}
     </form>
   ) : (
@@ -91,9 +112,20 @@ export function ResetPasswordForm() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">{t("email")}</Label>
-        <Input id="email" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          placeholder={t("emailPlaceholder")}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoFocus
+        />
       </div>
-      <Button type="submit" variant="primary" size="lg" loading={pending}>{t("sendLink")}</Button>
+      <Button type="submit" variant="primary" size="lg" loading={pending}>
+        {t("sendLink")}
+      </Button>
       {back}
     </form>
   );

@@ -34,7 +34,18 @@ async function Projects({ params }: { params: PageProps<"/[ws]/projects">["param
       archivedAt: true,
       updatedAt: true,
       lead: { select: { id: true, name: true, image: true } },
-      _count: { select: { members: true, workItems: { where: { deletedAt: null, archivedAt: null, stateGroup: { in: ["BACKLOG", "UNSTARTED", "STARTED"] } } } } },
+      _count: {
+        select: {
+          members: true,
+          workItems: {
+            where: {
+              deletedAt: null,
+              archivedAt: null,
+              stateGroup: { in: ["BACKLOG", "UNSTARTED", "STARTED"] },
+            },
+          },
+        },
+      },
     },
   });
   return (

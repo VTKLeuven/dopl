@@ -33,6 +33,17 @@ async function ProjectItems({ params }: { params: PageProps<"/[ws]/p/[ident]/ite
   });
   const parsed = DisplayOptionsSchema.safeParse(pref?.displayOptions ?? {});
   const options = parsed.success ? parsed.data : defaultDisplayOptions;
-  const [items, meta] = await Promise.all([listProjectItems(access, options.completed), getProjectMeta(ctx, access)]);
-  return <ProjectItemsView ws={ws} projectId={access.project.id} initialItems={items} initialMeta={meta} initialOptions={options} />;
+  const [items, meta] = await Promise.all([
+    listProjectItems(access, options.completed),
+    getProjectMeta(ctx, access),
+  ]);
+  return (
+    <ProjectItemsView
+      ws={ws}
+      projectId={access.project.id}
+      initialItems={items}
+      initialMeta={meta}
+      initialOptions={options}
+    />
+  );
 }

@@ -68,13 +68,23 @@ function Profile({ user }: { user: Props["user"] }) {
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="acc-name">{t("name")}</Label>
-          <Input id="acc-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+          <Input
+            id="acc-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="acc-email">{t("email")}</Label>
           <Input id="acc-email" value={user.email} readOnly />
         </div>
-        <Button type="submit" className="self-start" loading={pending} disabled={!name.trim() || name === user.name}>
+        <Button
+          type="submit"
+          className="self-start"
+          loading={pending}
+          disabled={!name.trim() || name === user.name}
+        >
           {t("saveProfile")}
         </Button>
       </form>
@@ -141,15 +151,32 @@ function TwoFactor({ enabled, ws }: { enabled: boolean; ws: string }) {
 
   if (step === "password" || step === "disable") {
     return (
-      <form className="flex max-w-sm flex-col gap-3" onSubmit={step === "password" ? start : disable}>
+      <form
+        className="flex max-w-sm flex-col gap-3"
+        onSubmit={step === "password" ? start : disable}
+      >
         <Label htmlFor="tf-pw">{t("currentPassword")}</Label>
-        <Input id="tf-pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+        <Input
+          id="tf-pw"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoFocus
+        />
         {error ? <FieldError>{error}</FieldError> : null}
         <div className="flex gap-2">
-          <Button type="submit" variant={step === "disable" ? "danger" : "primary"} loading={pending} disabled={!password}>
+          <Button
+            type="submit"
+            variant={step === "disable" ? "danger" : "primary"}
+            loading={pending}
+            disabled={!password}
+          >
             {step === "disable" ? t("disable") : t("continue")}
           </Button>
-          <Button type="button" variant="ghost" onClick={() => setStep("idle")}>{tc("cancel")}</Button>
+          <Button type="button" variant="ghost" onClick={() => setStep("idle")}>
+            {tc("cancel")}
+          </Button>
         </div>
       </form>
     );
@@ -168,25 +195,46 @@ function TwoFactor({ enabled, ws }: { enabled: boolean; ws: string }) {
           <div className="flex flex-col gap-2">
             <p className="text-body font-medium">{t("scanTitle")}</p>
             <p className="text-small text-fg-muted">{t("scanHint")}</p>
-            <code className="w-fit rounded-chip border border-border bg-surface-muted px-2 py-1 font-mono text-small tracking-wide">{secret}</code>
+            <code className="w-fit rounded-chip border border-border bg-surface-muted px-2 py-1 font-mono text-small tracking-wide">
+              {secret}
+            </code>
           </div>
         </div>
         <div className="flex flex-col gap-2">
           <p className="text-body font-medium">{t("backupTitle")}</p>
           <p className="text-small text-fg-muted">{t("backupHint")}</p>
           <div className="grid w-fit grid-cols-2 gap-x-6 gap-y-1 rounded-card border border-border bg-surface-muted px-4 py-3 font-mono text-small">
-            {backupCodes.map((c) => <span key={c}>{c}</span>)}
+            {backupCodes.map((c) => (
+              <span key={c}>{c}</span>
+            ))}
           </div>
-          <Button size="sm" className="self-start" onClick={() => void navigator.clipboard.writeText(backupCodes.join("\n"))}>
+          <Button
+            size="sm"
+            className="self-start"
+            onClick={() => void navigator.clipboard.writeText(backupCodes.join("\n"))}
+          >
             <Copy />
             {t("copyCodes")}
           </Button>
         </div>
         <form className="flex max-w-sm flex-col gap-2" onSubmit={verify}>
           <Label htmlFor="tf-code">{t("verifyTitle")}</Label>
-          <Input id="tf-code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} className="tabular tracking-[0.3em]" />
+          <Input
+            id="tf-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="tracking-[0.3em] tabular"
+          />
           {error ? <FieldError>{error}</FieldError> : null}
-          <Button type="submit" variant="primary" className="self-start" loading={pending} disabled={code.replace(/\s/g, "").length < 6}>
+          <Button
+            type="submit"
+            variant="primary"
+            className="self-start"
+            loading={pending}
+            disabled={code.replace(/\s/g, "").length < 6}
+          >
             {t("verifyAndEnable")}
           </Button>
         </form>
@@ -200,12 +248,16 @@ function TwoFactor({ enabled, ws }: { enabled: boolean; ws: string }) {
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
         {t("twoFactorOn")}
       </p>
-      <Button variant="danger-ghost" size="sm" onClick={() => setStep("disable")}>{t("disable")}</Button>
+      <Button variant="danger-ghost" size="sm" onClick={() => setStep("disable")}>
+        {t("disable")}
+      </Button>
     </div>
   ) : (
     <div className="flex items-start justify-between gap-4">
       <p className="text-body text-fg-muted">{t("twoFactorOff")}</p>
-      <Button variant="primary" size="sm" onClick={() => setStep("password")}>{t("enable")}</Button>
+      <Button variant="primary" size="sm" onClick={() => setStep("password")}>
+        {t("enable")}
+      </Button>
     </div>
   );
 }
@@ -223,8 +275,26 @@ function Sessions() {
 
   const device = (ua?: string | null) => {
     if (!ua) return t("unknownDevice");
-    const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
-    const os = /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Linux/.test(ua) ? "Linux" : "";
+    const browser = /Edg\//.test(ua)
+      ? "Edge"
+      : /Chrome\//.test(ua)
+        ? "Chrome"
+        : /Firefox\//.test(ua)
+          ? "Firefox"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "Browser";
+    const os = /Mac OS X/.test(ua)
+      ? "macOS"
+      : /Windows/.test(ua)
+        ? "Windows"
+        : /Android/.test(ua)
+          ? "Android"
+          : /iPhone|iPad/.test(ua)
+            ? "iOS"
+            : /Linux/.test(ua)
+              ? "Linux"
+              : "";
     return os ? `${browser} · ${os}` : browser;
   };
 
@@ -239,15 +309,26 @@ function Sessions() {
               <div className="min-w-0 flex-1">
                 <p className="text-body font-medium">
                   {device(s.userAgent)}
-                  {isCurrent ? <span className="ml-2 rounded-[6px] bg-success-bg px-1.5 py-0.5 text-caption font-medium text-success-text">{t("thisDevice")}</span> : null}
+                  {isCurrent ? (
+                    <span className="ml-2 rounded-[6px] bg-success-bg px-1.5 py-0.5 text-caption font-medium text-success-text">
+                      {t("thisDevice")}
+                    </span>
+                  ) : null}
                 </p>
-                <p className="tabular text-small text-fg-muted">
+                <p className="text-small text-fg-muted tabular">
                   {s.ipAddress ? `${s.ipAddress} · ` : ""}
                   {t("lastActive", { time: relative(s.updatedAt) })}
                 </p>
               </div>
               {!isCurrent ? (
-                <Button size="xs" variant="ghost" onClick={async () => { await authClient.revokeSession({ token: s.token }); await reload(); }}>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={async () => {
+                    await authClient.revokeSession({ token: s.token });
+                    await reload();
+                  }}
+                >
                   {t("revoke")}
                 </Button>
               ) : null}
@@ -256,7 +337,14 @@ function Sessions() {
         })}
       </ul>
       {sessions.length > 1 ? (
-        <Button size="sm" className="self-start" onClick={async () => { await authClient.revokeOtherSessions(); await reload(); }}>
+        <Button
+          size="sm"
+          className="self-start"
+          onClick={async () => {
+            await authClient.revokeOtherSessions();
+            await reload();
+          }}
+        >
           {t("revokeOthers")}
         </Button>
       ) : null}

@@ -7,7 +7,15 @@ import { readFileSync } from "node:fs";
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const external = Object.keys(pkg.dependencies).filter((d) => !d.startsWith("@dopl/"));
 // @dopl/db's own runtime deps must stay external too.
-external.push("@prisma/client", "@prisma/adapter-pg", "pg", "dotenv", "zod", "fractional-indexing", "pino-pretty");
+external.push(
+  "@prisma/client",
+  "@prisma/adapter-pg",
+  "pg",
+  "dotenv",
+  "zod",
+  "fractional-indexing",
+  "pino-pretty",
+);
 
 await build({
   entryPoints: ["src/main.ts"],

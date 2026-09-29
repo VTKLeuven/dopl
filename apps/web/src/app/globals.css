@@ -310,7 +310,7 @@
 @utility reveal-on-row-hover {
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
-  :where(.group\/row:hover, .group\/row[data-focused], [data-state="open"]) & ,
+  :where(.group\/row:hover, .group\/row[data-focused], [data-state="open"]) &,
   &:focus-visible,
   &[data-state="open"] {
     opacity: 1;

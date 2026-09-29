@@ -44,15 +44,29 @@ async function nextSequence(tx: TransactionClient, projectId: string): Promise<n
   return Number(seq);
 }
 
-async function resolveState(tx: TransactionClient, projectId: string, stateId: string | null | undefined) {
+async function resolveState(
+  tx: TransactionClient,
+  projectId: string,
+  stateId: string | null | undefined,
+) {
   if (stateId) {
-    const s = await tx.workflowState.findFirst({ where: { id: stateId, projectId }, select: { id: true, group: true, name: true } });
+    const s = await tx.workflowState.findFirst({
+      where: { id: stateId, projectId },
+      select: { id: true, group: true, name: true },
+    });
     if (!s || s.group === "TRIAGE") throw new ConflictError("invalid_state");
     return s;
   }
   const fallback =
-    (await tx.workflowState.findFirst({ where: { projectId, isDefault: true }, select: { id: true, group: true, name: true } })) ??
-    (await tx.workflowState.findFirst({ where: { projectId, group: "BACKLOG" }, orderBy: { sortKey: "asc" }, select: { id: true, group: true, name: true } }));
+    (await tx.workflowState.findFirst({
+      where: { projectId, isDefault: true },
+      select: { id: true, group: true, name: true },
+    })) ??
+    (await tx.workflowState.findFirst({
+      where: { projectId, group: "BACKLOG" },
+      orderBy: { sortKey: "asc" },
+      select: { id: true, group: true, name: true },
+    }));
   if (!fallback) throw new ConflictError("no_states");
   return fallback;
 }
@@ -60,40 +74,73 @@ async function resolveState(tx: TransactionClient, projectId: string, stateId: s
 async function validAssignees(tx: TransactionClient, ctx: WorkspaceCtx, ids: string[]) {
   if (ids.length === 0) return [];
   const members = await tx.workspaceMember.findMany({
-    where: { workspaceId: ctx.workspace.id, userId: { in: ids }, status: "ACTIVE", role: { not: "GUEST" } },
+    where: {
+      workspaceId: ctx.workspace.id,
+      userId: { in: ids },
+      status: "ACTIVE",
+      role: { not: "GUEST" },
+    },
     select: { userId: true, user: { select: { name: true } } },
   });
   if (members.length !== new Set(ids).size) throw new ConflictError("invalid_assignee");
   return members.map((m) => ({ id: m.userId, name: m.user.name }));
 }
 
-async function validLabels(tx: TransactionClient, ctx: WorkspaceCtx, projectId: string, ids: string[]) {
+async function validLabels(
+  tx: TransactionClient,
+  ctx: WorkspaceCtx,
+  projectId: string,
+  ids: string[],
+) {
   if (ids.length === 0) return [];
   const labels = await tx.label.findMany({
-    where: { id: { in: ids }, workspaceId: ctx.workspace.id, OR: [{ projectId }, { projectId: null }] },
+    where: {
+      id: { in: ids },
+      workspaceId: ctx.workspace.id,
+      OR: [{ projectId }, { projectId: null }],
+    },
     select: { id: true, name: true, color: true },
   });
   if (labels.length !== new Set(ids).size) throw new ConflictError("invalid_label");
   return labels;
 }
 
-async function validType(tx: TransactionClient, ctx: WorkspaceCtx, projectId: string, typeId: string | null | undefined) {
+async function validType(
+  tx: TransactionClient,
+  ctx: WorkspaceCtx,
+  projectId: string,
+  typeId: string | null | undefined,
+) {
   if (typeId === null) return null;
   if (typeId) {
     const t = await tx.workItemType.findFirst({
-      where: { id: typeId, workspaceId: ctx.workspace.id, OR: [{ projectId }, { projectId: null }] },
+      where: {
+        id: typeId,
+        workspaceId: ctx.workspace.id,
+        OR: [{ projectId }, { projectId: null }],
+      },
       select: { id: true, name: true },
     });
     if (!t) throw new ConflictError("invalid_type");
     return t;
   }
   return tx.workItemType.findFirst({
-    where: { workspaceId: ctx.workspace.id, isDefault: true, OR: [{ projectId }, { projectId: null }] },
+    where: {
+      workspaceId: ctx.workspace.id,
+      isDefault: true,
+      OR: [{ projectId }, { projectId: null }],
+    },
     select: { id: true, name: true },
   });
 }
 
-async function subscribe(tx: TransactionClient, ctx: WorkspaceCtx, workItemId: string, userId: string, reason: "CREATOR" | "ASSIGNEE" | "MENTIONED" | "COMMENTER" | "MANUAL") {
+async function subscribe(
+  tx: TransactionClient,
+  ctx: WorkspaceCtx,
+  workItemId: string,
+  userId: string,
+  reason: "CREATOR" | "ASSIGNEE" | "MENTIONED" | "COMMENTER" | "MANUAL",
+) {
   await tx.workItemSubscriber.upsert({
     where: { workItemId_userId: { workItemId, userId } },
     create: { workItemId, userId, workspaceId: ctx.workspace.id, reason },
@@ -104,7 +151,13 @@ async function subscribe(tx: TransactionClient, ctx: WorkspaceCtx, workItemId: s
 async function notify(
   tx: TransactionClient,
   ctx: WorkspaceCtx,
-  args: { recipientIds: string[]; type: "MENTION" | "ASSIGNED" | "COMMENT" | "WORK_ITEM_UPDATED"; workItemId: string; projectId: string; data: Prisma.InputJsonValue },
+  args: {
+    recipientIds: string[];
+    type: "MENTION" | "ASSIGNED" | "COMMENT" | "WORK_ITEM_UPDATED";
+    workItemId: string;
+    projectId: string;
+    data: Prisma.InputJsonValue;
+  },
 ) {
   const recipients = args.recipientIds.filter((id) => id !== ctx.actor.userId);
   if (recipients.length === 0) return;
@@ -159,12 +212,19 @@ async function createOne(
   const labels = await validLabels(tx, ctx, projectId, input.labelIds);
   const type = await validType(tx, ctx, projectId, input.typeId);
   if (input.parentId) {
-    const parent = await tx.workItem.findFirst({ where: { id: input.parentId, projectId, deletedAt: null }, select: { id: true } });
+    const parent = await tx.workItem.findFirst({
+      where: { id: input.parentId, projectId, deletedAt: null },
+      select: { id: true },
+    });
     if (!parent) throw new ConflictError("invalid_parent");
   }
   const first = opts.sortKey
     ? null
-    : await tx.workItem.findFirst({ where: { projectId }, orderBy: { sortKey: "asc" }, select: { sortKey: true } });
+    : await tx.workItem.findFirst({
+        where: { projectId },
+        orderBy: { sortKey: "asc" },
+        select: { sortKey: true },
+      });
   const sequence = await nextSequence(tx, projectId);
   const description = input.description ? sanitizeDoc(input.description) : null;
   const now = new Date();
@@ -191,8 +251,18 @@ async function createOne(
       createdById: ctx.actor.userId,
       startedAt: state.group === "STARTED" ? now : null,
       completedAt: state.group === "COMPLETED" ? now : null,
-      assignees: { createMany: { data: assignees.map((a) => ({ userId: a.id, workspaceId: ctx.workspace.id, assignedById: ctx.actor.userId })) } },
-      labels: { createMany: { data: labels.map((l) => ({ labelId: l.id, workspaceId: ctx.workspace.id })) } },
+      assignees: {
+        createMany: {
+          data: assignees.map((a) => ({
+            userId: a.id,
+            workspaceId: ctx.workspace.id,
+            assignedById: ctx.actor.userId,
+          })),
+        },
+      },
+      labels: {
+        createMany: { data: labels.map((l) => ({ labelId: l.id, workspaceId: ctx.workspace.id })) },
+      },
     },
     select: { id: true, sequence: true, projectId: true, title: true },
   });
@@ -200,7 +270,10 @@ async function createOne(
   if (input.parentId) {
     await tx.workItem.update({
       where: { id: input.parentId },
-      data: { childCount: { increment: 1 }, ...(isDone(state.group) ? { childDoneCount: { increment: 1 } } : {}) },
+      data: {
+        childCount: { increment: 1 },
+        ...(isDone(state.group) ? { childDoneCount: { increment: 1 } } : {}),
+      },
     });
   }
   await subscribe(tx, ctx, item.id, ctx.actor.userId, "CREATOR");
@@ -209,10 +282,29 @@ async function createOne(
   for (const u of mentioned) await subscribe(tx, ctx, item.id, u, "MENTIONED");
 
   const identifier = `${access.project.identifier}-${sequence}`;
-  await notify(tx, ctx, { recipientIds: assignees.map((a) => a.id), type: "ASSIGNED", workItemId: item.id, projectId, data: { identifier, title: item.title } });
-  await notify(tx, ctx, { recipientIds: mentioned, type: "MENTION", workItemId: item.id, projectId, data: { identifier, title: item.title } });
+  await notify(tx, ctx, {
+    recipientIds: assignees.map((a) => a.id),
+    type: "ASSIGNED",
+    workItemId: item.id,
+    projectId,
+    data: { identifier, title: item.title },
+  });
+  await notify(tx, ctx, {
+    recipientIds: mentioned,
+    type: "MENTION",
+    workItemId: item.id,
+    projectId,
+    data: { identifier, title: item.title },
+  });
 
-  m.activity({ entityType: "WORK_ITEM", entityId: item.id, workItemId: item.id, projectId, verb: "created", meta: { identifier, title: item.title } });
+  m.activity({
+    entityType: "WORK_ITEM",
+    entityId: item.id,
+    workItemId: item.id,
+    projectId,
+    verb: "created",
+    meta: { identifier, title: item.title },
+  });
   emitItem(m, projectId, "workItem.created", { id: item.id });
   return { ...item, identifier };
 }
@@ -233,11 +325,19 @@ export async function createWorkItems(ctx: WorkspaceCtx, raw: unknown) {
   return withMutation(ctx, async (m) => {
     // Keys in line order above the current first item: line 1 lands on top,
     // and sequences ascend in the same order.
-    const first = await m.tx.workItem.findFirst({ where: { projectId: input.projectId }, orderBy: { sortKey: "asc" }, select: { sortKey: true } });
+    const first = await m.tx.workItem.findFirst({
+      where: { projectId: input.projectId },
+      orderBy: { sortKey: "asc" },
+      select: { sortKey: true },
+    });
     const keys = keysBetween(null, first?.sortKey ?? null, titles.length);
     const created = [];
     for (const [i, title] of titles.entries()) {
-      created.push(await createOne(m, access, CreateWorkItemSchema.parse({ ...shared, title }), { sortKey: keys[i] }));
+      created.push(
+        await createOne(m, access, CreateWorkItemSchema.parse({ ...shared, title }), {
+          sortKey: keys[i],
+        }),
+      );
     }
     return created;
   });
@@ -256,9 +356,24 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
   const projectId = item.projectId;
   const data: Prisma.WorkItemUncheckedUpdateInput = {};
   const changed: string[] = [];
-  const act = (field: string, fromValue: Prisma.InputJsonValue | null, toValue: Prisma.InputJsonValue | null, meta?: Prisma.InputJsonValue) => {
+  const act = (
+    field: string,
+    fromValue: Prisma.InputJsonValue | null,
+    toValue: Prisma.InputJsonValue | null,
+    meta?: Prisma.InputJsonValue,
+  ) => {
     changed.push(field);
-    m.activity({ entityType: "WORK_ITEM", entityId: item.id, workItemId: item.id, projectId, verb: "updated", field, fromValue, toValue, meta });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: item.id,
+      workItemId: item.id,
+      projectId,
+      verb: "updated",
+      field,
+      fromValue,
+      toValue,
+      meta,
+    });
   };
 
   if (input.title !== undefined && input.title !== item.title) {
@@ -273,9 +388,22 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     const before = new Set(extractMentions(item.description as PMNode | null));
     const newMentions = extractMentions(doc).filter((u) => !before.has(u));
     for (const u of newMentions) await subscribe(tx, ctx, item.id, u, "MENTIONED");
-    await notify(tx, ctx, { recipientIds: newMentions, type: "MENTION", workItemId: item.id, projectId, data: { title: item.title } });
+    await notify(tx, ctx, {
+      recipientIds: newMentions,
+      type: "MENTION",
+      workItemId: item.id,
+      projectId,
+      data: { title: item.title },
+    });
     // One activity per editing session is noise; record only that it changed.
-    m.activity({ entityType: "WORK_ITEM", entityId: item.id, workItemId: item.id, projectId, verb: "updated", field: "description" });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: item.id,
+      workItemId: item.id,
+      projectId,
+      verb: "updated",
+      field: "description",
+    });
   }
   if (input.stateId !== undefined && input.stateId !== item.stateId) {
     const next = await resolveState(tx, projectId, input.stateId);
@@ -283,9 +411,17 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     data.stateGroup = next.group;
     if (next.group === "STARTED" && !item.startedAt) data.startedAt = new Date();
     data.completedAt = next.group === "COMPLETED" ? (item.completedAt ?? new Date()) : null;
-    act("state", item.stateId, next.id, { fromName: item.state.name, toName: next.name, fromGroup: item.state.group, toGroup: next.group });
+    act("state", item.stateId, next.id, {
+      fromName: item.state.name,
+      toName: next.name,
+      fromGroup: item.state.group,
+      toGroup: next.group,
+    });
     if (item.parentId && isDone(item.stateGroup) !== isDone(next.group)) {
-      await tx.workItem.update({ where: { id: item.parentId }, data: { childDoneCount: { increment: isDone(next.group) ? 1 : -1 } } });
+      await tx.workItem.update({
+        where: { id: item.parentId },
+        data: { childDoneCount: { increment: isDone(next.group) ? 1 : -1 } },
+      });
     }
   }
   if (input.priority !== undefined && input.priority !== item.priority) {
@@ -318,14 +454,26 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
       let cursor: string | null = input.parentId;
       for (let depth = 0; cursor && depth < 50; depth++) {
         if (cursor === item.id) throw new ConflictError("parent_cycle");
-        const p: { parentId: string | null; projectId: string } | null = await tx.workItem.findUnique({ where: { id: cursor }, select: { parentId: true, projectId: true } });
+        const p: { parentId: string | null; projectId: string } | null =
+          await tx.workItem.findUnique({
+            where: { id: cursor },
+            select: { parentId: true, projectId: true },
+          });
         if (!p || p.projectId !== projectId) throw new ConflictError("invalid_parent");
         cursor = p.parentId;
       }
     }
     const done = isDone(item.stateGroup) ? 1 : 0;
-    if (item.parentId) await tx.workItem.update({ where: { id: item.parentId }, data: { childCount: { decrement: 1 }, childDoneCount: { decrement: done } } });
-    if (input.parentId) await tx.workItem.update({ where: { id: input.parentId }, data: { childCount: { increment: 1 }, childDoneCount: { increment: done } } });
+    if (item.parentId)
+      await tx.workItem.update({
+        where: { id: item.parentId },
+        data: { childCount: { decrement: 1 }, childDoneCount: { decrement: done } },
+      });
+    if (input.parentId)
+      await tx.workItem.update({
+        where: { id: input.parentId },
+        data: { childCount: { increment: 1 }, childDoneCount: { increment: done } },
+      });
     data.parentId = input.parentId;
     act("parent", item.parentId, input.parentId);
   }
@@ -336,11 +484,27 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     const removed = [...before].filter((id) => !after.has(id));
     if (added.length || removed.length) {
       const addedUsers = await validAssignees(tx, ctx, added);
-      if (removed.length) await tx.workItemAssignee.deleteMany({ where: { workItemId: item.id, userId: { in: removed } } });
+      if (removed.length)
+        await tx.workItemAssignee.deleteMany({
+          where: { workItemId: item.id, userId: { in: removed } },
+        });
       if (addedUsers.length) {
-        await tx.workItemAssignee.createMany({ data: addedUsers.map((u) => ({ workItemId: item.id, userId: u.id, workspaceId: ctx.workspace.id, assignedById: ctx.actor.userId })) });
+        await tx.workItemAssignee.createMany({
+          data: addedUsers.map((u) => ({
+            workItemId: item.id,
+            userId: u.id,
+            workspaceId: ctx.workspace.id,
+            assignedById: ctx.actor.userId,
+          })),
+        });
         for (const u of addedUsers) await subscribe(tx, ctx, item.id, u.id, "ASSIGNEE");
-        await notify(tx, ctx, { recipientIds: addedUsers.map((u) => u.id), type: "ASSIGNED", workItemId: item.id, projectId, data: { title: item.title } });
+        await notify(tx, ctx, {
+          recipientIds: addedUsers.map((u) => u.id),
+          type: "ASSIGNED",
+          workItemId: item.id,
+          projectId,
+          data: { title: item.title },
+        });
       }
       act("assignees", [...before], [...after], { added, removed });
     }
@@ -352,8 +516,18 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     const removed = [...before].filter((id) => !after.has(id));
     if (added.length || removed.length) {
       const addedLabels = await validLabels(tx, ctx, projectId, added);
-      if (removed.length) await tx.workItemLabel.deleteMany({ where: { workItemId: item.id, labelId: { in: removed } } });
-      if (addedLabels.length) await tx.workItemLabel.createMany({ data: addedLabels.map((l) => ({ workItemId: item.id, labelId: l.id, workspaceId: ctx.workspace.id })) });
+      if (removed.length)
+        await tx.workItemLabel.deleteMany({
+          where: { workItemId: item.id, labelId: { in: removed } },
+        });
+      if (addedLabels.length)
+        await tx.workItemLabel.createMany({
+          data: addedLabels.map((l) => ({
+            workItemId: item.id,
+            labelId: l.id,
+            workspaceId: ctx.workspace.id,
+          })),
+        });
       act("labels", [...before], [...after], { added, removed });
     }
   }
@@ -370,7 +544,8 @@ export async function bulkUpdateWorkItems(ctx: WorkspaceCtx, raw: unknown) {
   const { ids, patch } = BulkUpdateSchema.parse(raw);
   return withMutation(ctx, async (m) => {
     const results = [];
-    for (const id of ids) results.push(await applyUpdate(m, UpdateWorkItemSchema.parse({ id, ...patch })));
+    for (const id of ids)
+      results.push(await applyUpdate(m, UpdateWorkItemSchema.parse({ id, ...patch })));
     return { updated: results.length };
   });
 }
@@ -382,7 +557,10 @@ export async function moveWorkItem(ctx: WorkspaceCtx, raw: unknown) {
   return withMutation(ctx, async (m) => {
     const { item } = await loadItemForWrite(m.tx, ctx, input.id);
     const neighbours = await m.tx.workItem.findMany({
-      where: { id: { in: [input.beforeId, input.afterId].filter((x): x is string => Boolean(x)) }, projectId: item.projectId },
+      where: {
+        id: { in: [input.beforeId, input.afterId].filter((x): x is string => Boolean(x)) },
+        projectId: item.projectId,
+      },
       select: { id: true, sortKey: true },
     });
     const before = neighbours.find((n) => n.id === input.beforeId)?.sortKey ?? null;
@@ -405,8 +583,17 @@ export async function moveWorkItem(ctx: WorkspaceCtx, raw: unknown) {
 export async function setArchived(ctx: WorkspaceCtx, id: string, archived: boolean) {
   return withMutation(ctx, async (m) => {
     const { item } = await loadItemForWrite(m.tx, ctx, id);
-    await m.tx.workItem.update({ where: { id }, data: { archivedAt: archived ? new Date() : null } });
-    m.activity({ entityType: "WORK_ITEM", entityId: id, workItemId: id, projectId: item.projectId, verb: archived ? "archived" : "unarchived" });
+    await m.tx.workItem.update({
+      where: { id },
+      data: { archivedAt: archived ? new Date() : null },
+    });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: id,
+      workItemId: id,
+      projectId: item.projectId,
+      verb: archived ? "archived" : "unarchived",
+    });
     emitItem(m, item.projectId, "workItem.updated", { id, fields: ["archivedAt"] });
     return { id };
   });
@@ -414,7 +601,10 @@ export async function setArchived(ctx: WorkspaceCtx, id: string, archived: boole
 
 export async function setDeleted(ctx: WorkspaceCtx, id: string, deleted: boolean) {
   return withMutation(ctx, async (m) => {
-    const item = await m.tx.workItem.findFirst({ where: { id, workspaceId: ctx.workspace.id }, select: { id: true, projectId: true, parentId: true, stateGroup: true, deletedAt: true } });
+    const item = await m.tx.workItem.findFirst({
+      where: { id, workspaceId: ctx.workspace.id },
+      select: { id: true, projectId: true, parentId: true, stateGroup: true, deletedAt: true },
+    });
     if (!item) throw new NotFoundError();
     const access = await projectAccessById(ctx, item.projectId);
     if (!access.can("workItem.delete")) throw new ForbiddenError();
@@ -422,9 +612,21 @@ export async function setDeleted(ctx: WorkspaceCtx, id: string, deleted: boolean
     await m.tx.workItem.update({ where: { id }, data: { deletedAt: deleted ? new Date() : null } });
     if (item.parentId) {
       const d = deleted ? -1 : 1;
-      await m.tx.workItem.update({ where: { id: item.parentId }, data: { childCount: { increment: d }, ...(isDone(item.stateGroup) ? { childDoneCount: { increment: d } } : {}) } });
+      await m.tx.workItem.update({
+        where: { id: item.parentId },
+        data: {
+          childCount: { increment: d },
+          ...(isDone(item.stateGroup) ? { childDoneCount: { increment: d } } : {}),
+        },
+      });
     }
-    m.activity({ entityType: "WORK_ITEM", entityId: id, workItemId: id, projectId: item.projectId, verb: deleted ? "deleted" : "restored" });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: id,
+      workItemId: id,
+      projectId: item.projectId,
+      verb: deleted ? "deleted" : "restored",
+    });
     emitItem(m, item.projectId, deleted ? "workItem.deleted" : "workItem.created", { id });
     return { id };
   });
@@ -437,7 +639,10 @@ export async function addRelation(ctx: WorkspaceCtx, raw: unknown) {
   if (input.id === input.targetId) throw new ConflictError("self_relation");
   return withMutation(ctx, async (m) => {
     const { item } = await loadItemForWrite(m.tx, ctx, input.id);
-    const target = await m.tx.workItem.findFirst({ where: { id: input.targetId, workspaceId: ctx.workspace.id, deletedAt: null }, select: { id: true, projectId: true } });
+    const target = await m.tx.workItem.findFirst({
+      where: { id: input.targetId, workspaceId: ctx.workspace.id, deletedAt: null },
+      select: { id: true, projectId: true },
+    });
     if (!target) throw new NotFoundError();
     await projectAccessById(ctx, target.projectId);
     // Canonical storage: BLOCKED_BY is stored as target BLOCKS source; RELATES_TO once, ordered.
@@ -451,11 +656,25 @@ export async function addRelation(ctx: WorkspaceCtx, raw: unknown) {
     } else if (input.type === "DUPLICATE_OF") type = "DUPLICATE_OF";
     await m.tx.workItemRelation.upsert({
       where: { sourceId_targetId_type: { sourceId, targetId, type } },
-      create: { workspaceId: ctx.workspace.id, sourceId, targetId, type, createdById: ctx.actor.userId },
+      create: {
+        workspaceId: ctx.workspace.id,
+        sourceId,
+        targetId,
+        type,
+        createdById: ctx.actor.userId,
+      },
       update: {},
     });
     for (const id of [item.id, target.id]) {
-      m.activity({ entityType: "WORK_ITEM", entityId: id, workItemId: id, projectId: id === item.id ? item.projectId : target.projectId, verb: "linked", field: "relation", toValue: { type: input.type, other: id === item.id ? target.id : item.id } });
+      m.activity({
+        entityType: "WORK_ITEM",
+        entityId: id,
+        workItemId: id,
+        projectId: id === item.id ? item.projectId : target.projectId,
+        verb: "linked",
+        field: "relation",
+        toValue: { type: input.type, other: id === item.id ? target.id : item.id },
+      });
     }
     emitItem(m, item.projectId, "workItem.updated", { id: item.id, fields: ["relations"] });
     return { ok: true };
@@ -464,11 +683,21 @@ export async function addRelation(ctx: WorkspaceCtx, raw: unknown) {
 
 export async function removeRelation(ctx: WorkspaceCtx, relationId: string) {
   return withMutation(ctx, async (m) => {
-    const rel = await m.tx.workItemRelation.findFirst({ where: { id: relationId, workspaceId: ctx.workspace.id } });
+    const rel = await m.tx.workItemRelation.findFirst({
+      where: { id: relationId, workspaceId: ctx.workspace.id },
+    });
     if (!rel) throw new NotFoundError();
     const { item } = await loadItemForWrite(m.tx, ctx, rel.sourceId);
     await m.tx.workItemRelation.delete({ where: { id: rel.id } });
-    m.activity({ entityType: "WORK_ITEM", entityId: rel.sourceId, workItemId: rel.sourceId, projectId: item.projectId, verb: "unlinked", field: "relation", fromValue: { type: rel.type, other: rel.targetId } });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: rel.sourceId,
+      workItemId: rel.sourceId,
+      projectId: item.projectId,
+      verb: "unlinked",
+      field: "relation",
+      fromValue: { type: rel.type, other: rel.targetId },
+    });
     emitItem(m, item.projectId, "workItem.updated", { id: rel.sourceId, fields: ["relations"] });
     return { ok: true };
   });
@@ -479,10 +708,24 @@ export async function addLink(ctx: WorkspaceCtx, raw: unknown) {
   return withMutation(ctx, async (m) => {
     const { item } = await loadItemForWrite(m.tx, ctx, input.id);
     const link = await m.tx.workItemLink.create({
-      data: { workspaceId: ctx.workspace.id, workItemId: item.id, url: input.url, title: input.title ?? null, createdById: ctx.actor.userId },
+      data: {
+        workspaceId: ctx.workspace.id,
+        workItemId: item.id,
+        url: input.url,
+        title: input.title ?? null,
+        createdById: ctx.actor.userId,
+      },
       select: { id: true },
     });
-    m.activity({ entityType: "WORK_ITEM", entityId: item.id, workItemId: item.id, projectId: item.projectId, verb: "linked", field: "link", toValue: { url: input.url } });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: item.id,
+      workItemId: item.id,
+      projectId: item.projectId,
+      verb: "linked",
+      field: "link",
+      toValue: { url: input.url },
+    });
     emitItem(m, item.projectId, "workItem.updated", { id: item.id, fields: ["links"] });
     return link;
   });
@@ -490,11 +733,21 @@ export async function addLink(ctx: WorkspaceCtx, raw: unknown) {
 
 export async function removeLink(ctx: WorkspaceCtx, linkId: string) {
   return withMutation(ctx, async (m) => {
-    const link = await m.tx.workItemLink.findFirst({ where: { id: linkId, workspaceId: ctx.workspace.id } });
+    const link = await m.tx.workItemLink.findFirst({
+      where: { id: linkId, workspaceId: ctx.workspace.id },
+    });
     if (!link) throw new NotFoundError();
     const { item } = await loadItemForWrite(m.tx, ctx, link.workItemId);
     await m.tx.workItemLink.delete({ where: { id: link.id } });
-    m.activity({ entityType: "WORK_ITEM", entityId: item.id, workItemId: item.id, projectId: item.projectId, verb: "unlinked", field: "link", fromValue: { url: link.url } });
+    m.activity({
+      entityType: "WORK_ITEM",
+      entityId: item.id,
+      workItemId: item.id,
+      projectId: item.projectId,
+      verb: "unlinked",
+      field: "link",
+      fromValue: { url: link.url },
+    });
     emitItem(m, item.projectId, "workItem.updated", { id: item.id, fields: ["links"] });
     return { ok: true };
   });
@@ -502,12 +755,21 @@ export async function removeLink(ctx: WorkspaceCtx, linkId: string) {
 
 export async function setSubscribed(ctx: WorkspaceCtx, id: string, subscribed: boolean) {
   return withMutation(ctx, async (m) => {
-    const item = await m.tx.workItem.findFirst({ where: { id, workspaceId: ctx.workspace.id, deletedAt: null }, select: { id: true, projectId: true } });
+    const item = await m.tx.workItem.findFirst({
+      where: { id, workspaceId: ctx.workspace.id, deletedAt: null },
+      select: { id: true, projectId: true },
+    });
     if (!item) throw new NotFoundError();
     await projectAccessById(ctx, item.projectId);
     await m.tx.workItemSubscriber.upsert({
       where: { workItemId_userId: { workItemId: id, userId: ctx.actor.userId } },
-      create: { workItemId: id, userId: ctx.actor.userId, workspaceId: ctx.workspace.id, reason: "MANUAL", muted: !subscribed },
+      create: {
+        workItemId: id,
+        userId: ctx.actor.userId,
+        workspaceId: ctx.workspace.id,
+        reason: "MANUAL",
+        muted: !subscribed,
+      },
       update: { muted: !subscribed },
     });
     return { subscribed };

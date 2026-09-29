@@ -37,7 +37,8 @@ export function suggestIdentifier(name: string): string {
     .toUpperCase()
     .split(/\s+/)
     .filter(Boolean);
-  let id = words.length > 1 ? words.map((w) => w.slice(0, 3)).join("") : (words[0] ?? "").slice(0, 5);
+  let id =
+    words.length > 1 ? words.map((w) => w.slice(0, 3)).join("") : (words[0] ?? "").slice(0, 5);
   id = id.replace(/[^A-Z0-9]/g, "").slice(0, 10);
   if (!/^[A-Z]/.test(id)) id = `P${id}`;
   return id.length >= 2 ? id : `${id}X`.slice(0, 2);

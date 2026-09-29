@@ -4,7 +4,14 @@ export const PrioritySchema = z.enum(["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"]
 export type Priority = z.infer<typeof PrioritySchema>;
 export const priorities: Priority[] = ["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"];
 
-export const StateGroupSchema = z.enum(["TRIAGE", "BACKLOG", "UNSTARTED", "STARTED", "COMPLETED", "CANCELLED"]);
+export const StateGroupSchema = z.enum([
+  "TRIAGE",
+  "BACKLOG",
+  "UNSTARTED",
+  "STARTED",
+  "COMPLETED",
+  "CANCELLED",
+]);
 export type StateGroup = z.infer<typeof StateGroupSchema>;
 export const OPEN_GROUPS: StateGroup[] = ["BACKLOG", "UNSTARTED", "STARTED"];
 export const DONE_GROUPS: StateGroup[] = ["COMPLETED", "CANCELLED"];
@@ -16,7 +23,10 @@ export const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-
  * Rich text is ProseMirror/Tiptap JSON. We validate the envelope here and the
  * node/mark allowlist in the server sanitizer (D-019).
  */
-export const RichTextSchema = z.looseObject({ type: z.literal("doc"), content: z.array(z.unknown()).optional() });
+export const RichTextSchema = z.looseObject({
+  type: z.literal("doc"),
+  content: z.array(z.unknown()).optional(),
+});
 export type RichText = z.infer<typeof RichTextSchema>;
 
 export const TitleSchema = z.string().trim().min(1, "Give it a title.").max(300);
@@ -39,7 +49,10 @@ export const CreateWorkItemSchema = z.object({
 });
 export type CreateWorkItemInput = z.input<typeof CreateWorkItemSchema>;
 
-export const CreateManyWorkItemsSchema = CreateWorkItemSchema.omit({ title: true, clientId: true }).extend({
+export const CreateManyWorkItemsSchema = CreateWorkItemSchema.omit({
+  title: true,
+  clientId: true,
+}).extend({
   titles: z.array(TitleSchema).min(1).max(100),
 });
 
@@ -72,9 +85,17 @@ export const BulkUpdateSchema = z.object({
 });
 
 export const RelationTypeSchema = z.enum(["BLOCKS", "BLOCKED_BY", "RELATES_TO", "DUPLICATE_OF"]);
-export const AddRelationSchema = z.object({ id: z.uuid(), type: RelationTypeSchema, targetId: z.uuid() });
+export const AddRelationSchema = z.object({
+  id: z.uuid(),
+  type: RelationTypeSchema,
+  targetId: z.uuid(),
+});
 
-export const AddLinkSchema = z.object({ id: z.uuid(), url: z.url().max(2000), title: z.string().trim().max(200).optional() });
+export const AddLinkSchema = z.object({
+  id: z.uuid(),
+  url: z.url().max(2000),
+  title: z.string().trim().max(200).optional(),
+});
 
 export const CommentSchema = z.object({
   workItemId: z.uuid(),
@@ -84,8 +105,16 @@ export const CommentSchema = z.object({
 export const EditCommentSchema = z.object({ id: z.uuid(), body: RichTextSchema });
 export const ReactionSchema = z.object({ commentId: z.uuid(), emoji: z.string().min(1).max(16) });
 
-export function formatIdentifier(projectIdentifier: string, sequence: number | null, intakeNumber?: number | null) {
-  return sequence != null ? `${projectIdentifier}-${sequence}` : intakeNumber != null ? `Intake #${intakeNumber}` : projectIdentifier;
+export function formatIdentifier(
+  projectIdentifier: string,
+  sequence: number | null,
+  intakeNumber?: number | null,
+) {
+  return sequence != null
+    ? `${projectIdentifier}-${sequence}`
+    : intakeNumber != null
+      ? `Intake #${intakeNumber}`
+      : projectIdentifier;
 }
 
 /** "INFRA-42" → { identifier: "INFRA", sequence: 42 } */

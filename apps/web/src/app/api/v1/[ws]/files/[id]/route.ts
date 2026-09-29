@@ -20,7 +20,11 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/v1/[ws]/
   const contentType = inline ? a.mimeType : "application/octet-stream";
   const disposition = inline ? "inline" : "attachment";
   const store = blobStore();
-  const url = await store.signedUrl(a.storageKey, { filename: a.filename, disposition, contentType });
+  const url = await store.signedUrl(a.storageKey, {
+    filename: a.filename,
+    disposition,
+    contentType,
+  });
   if (url) return Response.redirect(url, 302);
   const stream = await store.stream(a.storageKey);
   if (!stream) return new Response("Not found", { status: 404 });
@@ -29,7 +33,8 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/v1/[ws]/
       "Content-Type": contentType,
       "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(a.filename)}`,
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+      "Content-Security-Policy":
+        "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
       "Cache-Control": "private, max-age=300",
     },
   });

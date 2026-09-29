@@ -1,6 +1,6 @@
 # Dopl: architecture
 
-> Status: Phase 0 plan. The *why* behind each choice lives in `docs/DECISIONS.md` (D-xxx references). The data model is in `docs/DATA_MODEL.md`.
+> Status: Phase 0 plan. The _why_ behind each choice lives in `docs/DECISIONS.md` (D-xxx references). The data model is in `docs/DATA_MODEL.md`.
 
 ## 1. Overview
 
@@ -52,6 +52,7 @@ flowchart LR
 ```
 
 **Trust zones:**
+
 - **Internet:** the whole app is public at `https://dopl.vtk.be` (D-051). Contacts only ever use `/f/*`, `/s/*`, `/embed.js` and `/api/public/*`.
 - **Members and guests:** everything else, behind invite-only sign-in (D-050).
 - **Worker:** the only process holding Google and SSH credentials (D-027).
@@ -120,25 +121,26 @@ dopl/
 ```
 
 **Dependency rules** (enforced by ESLint `no-restricted-imports` and package `exports`):
+
 - `shared` depends on nothing internal. `db` depends on `shared` for types only. `web` and `worker` depend on both.
 - React components never import `@dopl/db`. Only `server/**` and the worker do.
 - Nothing imports `server/data` or `server/services` without a `Ctx`. The type system forces the policy check to have happened: `Ctx` is only produced by `requireActor()` and `requireWorkspace()`.
 
 **URLs:**
 
-| Route | Page |
-|---|---|
-| `/{ws}/home` | My Work |
-| `/{ws}/inbox` | Inbox |
-| `/{ws}/p/{IDENT}/{list\|board\|calendar\|table\|timeline}` | Project views |
-| `/{ws}/p/{IDENT}/intake` | Intake queue |
-| `/{ws}/v/{viewId}` | Saved views |
-| `/{ws}/i/{IDENT-123}` | Full work-item page |
-| `/{ws}/notes` | Notes |
-| `/{ws}/messages/{channel}` | Messages |
-| `/{ws}/mail/{mailbox}/{view}` | Shared mailbox |
-| `/{ws}/analytics` | Analytics |
-| `/{ws}/settings/…` | Settings |
+| Route                                                      | Page                |
+| ---------------------------------------------------------- | ------------------- |
+| `/{ws}/home`                                               | My Work             |
+| `/{ws}/inbox`                                              | Inbox               |
+| `/{ws}/p/{IDENT}/{list\|board\|calendar\|table\|timeline}` | Project views       |
+| `/{ws}/p/{IDENT}/intake`                                   | Intake queue        |
+| `/{ws}/v/{viewId}`                                         | Saved views         |
+| `/{ws}/i/{IDENT-123}`                                      | Full work-item page |
+| `/{ws}/notes`                                              | Notes               |
+| `/{ws}/messages/{channel}`                                 | Messages            |
+| `/{ws}/mail/{mailbox}/{view}`                              | Shared mailbox      |
+| `/{ws}/analytics`                                          | Analytics           |
+| `/{ws}/settings/…`                                         | Settings            |
 
 The **peek panel** is URL state (`?peek=INFRA-42`, via nuqs) rendered client-side on top of any view. It opens instantly from cached list data, loads the rest, and gives every view a shareable link.
 
@@ -203,6 +205,7 @@ sequenceDiagram
 ```
 
 **Every mutation, without exception, does four things:**
+
 1. validates its input with zod
 2. calls the policy
 3. writes an `Activity` row
@@ -248,27 +251,27 @@ sequenceDiagram
 
 ## 5. Background jobs (pg-boss)
 
-| Queue | Trigger | Notes |
-|---|---|---|
-| `notifications.fanout` | enqueued by services | Resolves recipients (subscribers, mentions, assignees, approvers), applies preferences, inserts `notifications` and emits `user:<id>` events |
-| `email.send` | outbox row | SMTP send with retries/backoff; dead-letter after 5 attempts |
-| `email.digest` | schedule, every 10 min | Batches unread notifications per user preference |
-| `intake.postprocess` | after a public submit | Spam signals, attachment promotion (quarantine → ready), confirmation email |
-| `gmail.pubsub` | long-running consumer | Streaming pull; each message → `gmail.sync` (singleton per mailbox) |
-| `gmail.sync` | Pub/Sub, poll, manual | `history.list` → batched `messages.get(full)` → upsert; 404 → `gmail.resync` |
-| `gmail.backfill` / `gmail.resync` | connect / gap | Resumable via `backfillPageToken` |
-| `gmail.watch-renew` | schedule, daily | `users.watch` per active mailbox |
-| `gmail.poll` | schedule, every 5 min | Safety net if Pub/Sub is quiet |
-| `gmail.fetch-attachment` | web request | Download → blob store → NOTIFY result |
-| `gmail.send` (Phase 7b) | reply action | RFC 822 with `In-Reply-To`/`References`, `threadId` |
-| `webhook.deliver` | domain events (D-052) | Discord embed; 60 s coalescing per entity; honours 429 `retry_after`; auto-disables after 10 failures |
-| `agent.run` | mention / DM / assignment | Starts the Hermes run, consumes SSE, persists steps (§8) |
-| `agent.exec` | approved or allowlisted command | SSH via Warpgate, streams output |
-| `embeddings.index` | note/item saved (debounced) | Calls the AI server's embeddings endpoint, upserts `search.embeddings` |
-| `snooze.wake` | schedule, every minute | Snoozed intake, threads and notifications come back; notifies |
-| `notes.review` | schedule, daily | Picks the daily resurfacing set per user |
-| `analytics.snapshot` | schedule, nightly | `project_daily_stats` |
-| `maintenance.purge` | schedule, nightly | Hard-delete soft-deleted rows > 30 d; prune `realtime_events` > 24 h, `presences`, `rate_limit_counters` |
+| Queue                             | Trigger                         | Notes                                                                                                                                        |
+| --------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notifications.fanout`            | enqueued by services            | Resolves recipients (subscribers, mentions, assignees, approvers), applies preferences, inserts `notifications` and emits `user:<id>` events |
+| `email.send`                      | outbox row                      | SMTP send with retries/backoff; dead-letter after 5 attempts                                                                                 |
+| `email.digest`                    | schedule, every 10 min          | Batches unread notifications per user preference                                                                                             |
+| `intake.postprocess`              | after a public submit           | Spam signals, attachment promotion (quarantine → ready), confirmation email                                                                  |
+| `gmail.pubsub`                    | long-running consumer           | Streaming pull; each message → `gmail.sync` (singleton per mailbox)                                                                          |
+| `gmail.sync`                      | Pub/Sub, poll, manual           | `history.list` → batched `messages.get(full)` → upsert; 404 → `gmail.resync`                                                                 |
+| `gmail.backfill` / `gmail.resync` | connect / gap                   | Resumable via `backfillPageToken`                                                                                                            |
+| `gmail.watch-renew`               | schedule, daily                 | `users.watch` per active mailbox                                                                                                             |
+| `gmail.poll`                      | schedule, every 5 min           | Safety net if Pub/Sub is quiet                                                                                                               |
+| `gmail.fetch-attachment`          | web request                     | Download → blob store → NOTIFY result                                                                                                        |
+| `gmail.send` (Phase 7b)           | reply action                    | RFC 822 with `In-Reply-To`/`References`, `threadId`                                                                                          |
+| `webhook.deliver`                 | domain events (D-052)           | Discord embed; 60 s coalescing per entity; honours 429 `retry_after`; auto-disables after 10 failures                                        |
+| `agent.run`                       | mention / DM / assignment       | Starts the Hermes run, consumes SSE, persists steps (§8)                                                                                     |
+| `agent.exec`                      | approved or allowlisted command | SSH via Warpgate, streams output                                                                                                             |
+| `embeddings.index`                | note/item saved (debounced)     | Calls the AI server's embeddings endpoint, upserts `search.embeddings`                                                                       |
+| `snooze.wake`                     | schedule, every minute          | Snoozed intake, threads and notifications come back; notifies                                                                                |
+| `notes.review`                    | schedule, daily                 | Picks the daily resurfacing set per user                                                                                                     |
+| `analytics.snapshot`              | schedule, nightly               | `project_daily_stats`                                                                                                                        |
+| `maintenance.purge`               | schedule, nightly               | Hard-delete soft-deleted rows > 30 d; prune `realtime_events` > 24 h, `presences`, `rate_limit_counters`                                     |
 
 Jobs are idempotent: upserts keyed on natural ids, singleton keys and "already done?" checks. Web enqueues jobs inside the mutation's transaction using pg-boss's `db` option with the Prisma transaction's connection. If that proves awkward, a `job_outbox` pattern is the fallback. Either way, a job exists if and only if the change committed.
 
@@ -314,28 +317,28 @@ sequenceDiagram
 
 All accounts are **invite-only** (D-050). The invite pre-creates the user, so every method runs with sign-up disabled and links to that user by verified email.
 
-| Actor | How | Session |
-|---|---|---|
-| Member | Google, email + password (TOTP 2FA; required for password-based admins), SSO via OIDC/SAML (`@better-auth/sso`), or magic link | Better Auth DB session, secure httpOnly cookie, 5-min cookie cache |
-| Guest | Magic link by default; the other methods can be allowed | same |
-| Contact | Per-submission token in the confirmation email | Short-lived signed cookie scoped to `/s/*` |
-| Agent | MCP bearer token (`api_tokens`, hashed) + per-run token | stateless |
+| Actor   | How                                                                                                                            | Session                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Member  | Google, email + password (TOTP 2FA; required for password-based admins), SSO via OIDC/SAML (`@better-auth/sso`), or magic link | Better Auth DB session, secure httpOnly cookie, 5-min cookie cache |
+| Guest   | Magic link by default; the other methods can be allowed                                                                        | same                                                               |
+| Contact | Per-submission token in the confirmation email                                                                                 | Short-lived signed cookie scoped to `/s/*`                         |
+| Agent   | MCP bearer token (`api_tokens`, hashed) + per-run token                                                                        | stateless                                                          |
 
 **Authorization:** `@dopl/shared/policy` holds pure functions such as `can(actor, action, resource)`. They're unit-tested exhaustively and are also used by the worker. `apps/web/src/server/policy` loads the needed memberships once per request (cached with React `cache()`) and exposes `authorize(ctx, action, resource)`, which throws `Forbidden`. UI checks exist only to hide buttons.
 
-| Capability | Owner | Admin | Member | Guest |
-|---|:-:|:-:|:-:|:-:|
-| Workspace settings, members, mailboxes, agent config, hosts, allowlists | ✓ | ✓ | – | – |
-| Create projects | ✓ | ✓ | ✓ | – |
-| Project settings (states, labels, forms, members) | ✓ | ✓ | project Admin | – |
-| Read/write work items in accessible projects | ✓ | ✓ | ✓ | – |
-| Submit intake in-app; see and comment (PUBLIC) on **own** submissions | ✓ | ✓ | ✓ | ✓ |
-| Read-only project browsing | ✓ | ✓ | ✓ | if `guestsCanViewProject` |
-| Triage intake | ✓ | ✓ | ✓ | – |
-| Use shared mailbox | ✓ | ✓ | if mailbox member | – |
-| Approve agent infra actions | ✓ | ✓ | if `canApproveAgentActions` (Q-8) | – |
-| Pause agent (kill switch) | ✓ | ✓ | ✓ (stop own-triggered runs; global pause Admin+) | – |
-| View/export audit log | ✓ | ✓ | – | – |
+| Capability                                                              | Owner | Admin |                      Member                      |           Guest           |
+| ----------------------------------------------------------------------- | :---: | :---: | :----------------------------------------------: | :-----------------------: |
+| Workspace settings, members, mailboxes, agent config, hosts, allowlists |   ✓   |   ✓   |                        –                         |             –             |
+| Create projects                                                         |   ✓   |   ✓   |                        ✓                         |             –             |
+| Project settings (states, labels, forms, members)                       |   ✓   |   ✓   |                  project Admin                   |             –             |
+| Read/write work items in accessible projects                            |   ✓   |   ✓   |                        ✓                         |             –             |
+| Submit intake in-app; see and comment (PUBLIC) on **own** submissions   |   ✓   |   ✓   |                        ✓                         |             ✓             |
+| Read-only project browsing                                              |   ✓   |   ✓   |                        ✓                         | if `guestsCanViewProject` |
+| Triage intake                                                           |   ✓   |   ✓   |                        ✓                         |             –             |
+| Use shared mailbox                                                      |   ✓   |   ✓   |                if mailbox member                 |             –             |
+| Approve agent infra actions                                             |   ✓   |   ✓   |        if `canApproveAgentActions` (Q-8)         |             –             |
+| Pause agent (kill switch)                                               |   ✓   |   ✓   | ✓ (stop own-triggered runs; global pause Admin+) |             –             |
+| View/export audit log                                                   |   ✓   |   ✓   |                        –                         |             –             |
 
 Guests are **never** shown INTERNAL comments, other people's submissions, members' emails or activity from internal fields. The status-page and guest serializers are separate functions with explicit allowlists of fields, not "hide some fields" filters.
 
@@ -373,13 +376,13 @@ flowchart LR
 ```ts
 export interface AgentRuntime {
   readonly kind: "HERMES";
-  capabilities(): Promise<RuntimeCapabilities>;           // GET /v1/capabilities
+  capabilities(): Promise<RuntimeCapabilities>; // GET /v1/capabilities
   startRun(input: {
-    runId: string;               // AgentRun.id → Idempotency-Key
-    sessionId: string;           // e.g. dopl:workItem:<id>
-    sessionKey: string;          // stable memory scope
-    instructions: string;        // system prompt incl. run_token + rules
-    input: string;               // the user's request + trusted context
+    runId: string; // AgentRun.id → Idempotency-Key
+    sessionId: string; // e.g. dopl:workItem:<id>
+    sessionKey: string; // stable memory scope
+    instructions: string; // system prompt incl. run_token + rules
+    input: string; // the user's request + trusted context
   }): Promise<{ runtimeRunId: string }>;
   events(runtimeRunId: string, signal: AbortSignal): AsyncIterable<RuntimeEvent>;
   resolveApproval(runtimeRunId: string, requestId: string, choice: "once" | "deny"): Promise<void>;
@@ -392,7 +395,13 @@ export type RuntimeEvent =
   | { type: "message.interim"; text: string }
   | { type: "tool.started"; tool: string; preview: string }
   | { type: "tool.completed"; tool: string; error: boolean; preview: string; durationSec: number }
-  | { type: "approval.requested"; requestId: string; command?: string; description?: string; choices: string[] }
+  | {
+      type: "approval.requested";
+      requestId: string;
+      command?: string;
+      description?: string;
+      choices: string[];
+    }
   | { type: "approval.cancelled"; requestId: string; reason: string }
   | { type: "run.completed"; output: string; usage?: unknown }
   | { type: "run.failed" | "run.cancelled" | "run.interrupted"; error?: string };
@@ -444,16 +453,16 @@ sequenceDiagram
 
 ### 8.4 Safety controls (all enforced server-side)
 
-| Control | Where |
-|---|---|
-| Human approval for every infrastructure change: exact command + target host shown, approver and time logged | `infra_exec` → `agent_approvals` + `audit_logs` (D-031) |
-| Read-only allowlist (anchored regex over the full command; compound commands never match implicitly) | `agent_command_rules` (ALLOW_READONLY / DENY), per host or global |
-| Host allowlist; dedicated low-privilege SSH user/key via Warpgate (session recording); no root keys | `agent_hosts` + worker-only key (D-027) |
-| No secrets in prompts: prompts are built from ids and trusted text only; command output is shown to the agent but redacted with secret patterns before storage/display | worker prompt builder + output redactor |
-| Prompt-injection boundary: untrusted content never auto-sent; taint-on-read; tainted run ⇒ every action approved | D-033 |
-| Kill switch: Stop on a run (→ `/v1/runs/{id}/stop`, cancel pending approvals, kill SSH channel); global Pause (Workspace.agentPausedAt) refuses new runs and every `infra_exec` | web + worker + MCP |
-| Full audit trail, exportable (CSV/JSON) | `audit_logs` (append-only trigger) + `agent_runs/steps` |
-| Hermes hardening (documented in the ops guide): API server bound to a private interface, strong `API_SERVER_KEY`, terminal toolset disabled, `approvals.mode: manual`, Dopl MCP server entry with `timeout: 900` | Hermes config |
+| Control                                                                                                                                                                                                          | Where                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Human approval for every infrastructure change: exact command + target host shown, approver and time logged                                                                                                      | `infra_exec` → `agent_approvals` + `audit_logs` (D-031)           |
+| Read-only allowlist (anchored regex over the full command; compound commands never match implicitly)                                                                                                             | `agent_command_rules` (ALLOW_READONLY / DENY), per host or global |
+| Host allowlist; dedicated low-privilege SSH user/key via Warpgate (session recording); no root keys                                                                                                              | `agent_hosts` + worker-only key (D-027)                           |
+| No secrets in prompts: prompts are built from ids and trusted text only; command output is shown to the agent but redacted with secret patterns before storage/display                                           | worker prompt builder + output redactor                           |
+| Prompt-injection boundary: untrusted content never auto-sent; taint-on-read; tainted run ⇒ every action approved                                                                                                 | D-033                                                             |
+| Kill switch: Stop on a run (→ `/v1/runs/{id}/stop`, cancel pending approvals, kill SSH channel); global Pause (Workspace.agentPausedAt) refuses new runs and every `infra_exec`                                  | web + worker + MCP                                                |
+| Full audit trail, exportable (CSV/JSON)                                                                                                                                                                          | `audit_logs` (append-only trigger) + `agent_runs/steps`           |
+| Hermes hardening (documented in the ops guide): API server bound to a private interface, strong `API_SERVER_KEY`, terminal toolset disabled, `approvals.mode: manual`, Dopl MCP server entry with `timeout: 900` | Hermes config                                                     |
 
 ## 9. Shared mailbox (Gmail)
 
@@ -491,11 +500,13 @@ sequenceDiagram
   - (b) keep the group and add a dedicated user mailbox (e.g. `it-inbox@`) as a member that receives all mail, then connect that mailbox.
 
   With (b), replies should "send as" the group address (Gmail send-as alias), and the ops guide shows how to set that up.
+
 - **Security:** see D-028. Attachments are fetched lazily and cached (D-027). Remote images are blocked by default.
 
 ## 10. Files
 
 Everything goes through the `BlobStore` interface (D-037):
+
 1. The client requests an upload: `POST` a server action or `/api/public/.../upload` with `{filename, size, mime}`.
 2. The policy and the limits are checked.
 3. An `Attachment(PENDING)` row is created, and a presigned PUT is returned. The `local` driver uses a signed upload route instead.
@@ -545,15 +556,15 @@ flowchart TB
 
 ## 14. Security model summary
 
-| Threat | Mitigation |
-|---|---|
-| Cross-tenant or cross-project data access | `Ctx`-scoped data layer; single policy module; guest/contact serializers with explicit field allowlists; tests per role |
-| Stolen session | httpOnly/Secure/SameSite=Lax cookies; short cookie cache; sessions revocable from settings; audit on sign-in |
-| CSRF | Server actions' origin check; route handlers verify `Origin` on state-changing requests; public endpoints are token-less but rate-limited and idempotent |
-| XSS via rich text | Tiptap JSON with node/mark allowlist (zod); server rendering via static renderer; no `dangerouslySetInnerHTML` outside the sandboxed email iframe |
-| Malicious email HTML | Sanitize at ingest + sandboxed iframe + CSP + remote images blocked (D-028) |
-| Public form abuse | Honeypot, timing, rate limits, Turnstile, attachment limits, quarantine, contact blocking |
-| Prompt injection → infrastructure damage | Untrusted never auto-sent; taint-on-read; tainted ⇒ approve everything; Dopl-side enforcement; host allowlist; DENY rules; kill switch (D-031, D-033) |
-| Credential exposure | Env-only secrets; worker-only Google and SSH keys; tokens stored hashed; output redaction |
-| Repudiation | Append-only `audit_logs` (trigger) for auth, roles, settings, mailbox, agent approvals and commands; exportable |
-| Supply chain | Lockfile, `pnpm audit` in CI, Renovate with grouped updates, pinned majors (Prisma 7!) |
+| Threat                                    | Mitigation                                                                                                                                               |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cross-tenant or cross-project data access | `Ctx`-scoped data layer; single policy module; guest/contact serializers with explicit field allowlists; tests per role                                  |
+| Stolen session                            | httpOnly/Secure/SameSite=Lax cookies; short cookie cache; sessions revocable from settings; audit on sign-in                                             |
+| CSRF                                      | Server actions' origin check; route handlers verify `Origin` on state-changing requests; public endpoints are token-less but rate-limited and idempotent |
+| XSS via rich text                         | Tiptap JSON with node/mark allowlist (zod); server rendering via static renderer; no `dangerouslySetInnerHTML` outside the sandboxed email iframe        |
+| Malicious email HTML                      | Sanitize at ingest + sandboxed iframe + CSP + remote images blocked (D-028)                                                                              |
+| Public form abuse                         | Honeypot, timing, rate limits, Turnstile, attachment limits, quarantine, contact blocking                                                                |
+| Prompt injection → infrastructure damage  | Untrusted never auto-sent; taint-on-read; tainted ⇒ approve everything; Dopl-side enforcement; host allowlist; DENY rules; kill switch (D-031, D-033)    |
+| Credential exposure                       | Env-only secrets; worker-only Google and SSH keys; tokens stored hashed; output redaction                                                                |
+| Repudiation                               | Append-only `audit_logs` (trigger) for auth, roles, settings, mailbox, agent approvals and commands; exportable                                          |
+| Supply chain                              | Lockfile, `pnpm audit` in CI, Renovate with grouped updates, pinned majors (Prisma 7!)                                                                   |

@@ -15,7 +15,10 @@ test("sidebar navigation to a project renders the shell instantly", async ({ pag
     await page.click('nav a[href="/vtk/p/INFRA/items"]');
     await page.waitForURL((url) => url.pathname === "/vtk/p/INFRA/items");
     // Shell: sidebar stays, the active item updates, the panel shows its skeleton.
-    await expect(page.locator('nav a[href="/vtk/p/INFRA/items"]')).toHaveAttribute("aria-current", "page");
+    await expect(page.locator('nav a[href="/vtk/p/INFRA/items"]')).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await expect(page.locator(content)).toHaveCount(0);
   });
   await expect(page.locator(content).first()).toBeVisible();
@@ -27,7 +30,10 @@ test("project to project navigation keeps the shell", async ({ page }) => {
   await instant(page, async () => {
     await page.click('nav a[href="/vtk/p/NET/items"]');
     await page.waitForURL((url) => url.pathname === "/vtk/p/NET/items");
-    await expect(page.locator('nav a[href="/vtk/p/NET/items"]')).toHaveAttribute("aria-current", "page");
+    await expect(page.locator('nav a[href="/vtk/p/NET/items"]')).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
   await expect(page.locator(content).first()).toContainText("NET-");
 });

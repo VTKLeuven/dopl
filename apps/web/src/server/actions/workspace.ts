@@ -21,7 +21,11 @@ export async function updateWorkspaceAction(ws: string, input: unknown) {
 const SsoProviderSchema = z.object({
   providerId: z.string().regex(/^[a-z0-9-]{2,40}$/, "Lowercase letters, digits and dashes."),
   issuer: z.url(),
-  domain: z.string().trim().toLowerCase().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "Enter a domain like vtk.be."),
+  domain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "Enter a domain like vtk.be."),
   clientId: z.string().min(1),
   clientSecret: z.string().min(1),
 });
@@ -42,7 +46,12 @@ export async function addSsoProviderAction(ws: string, input: unknown) {
       headers: await headers(),
     });
     await withMutation(ctx, async ({ tx }) => {
-      await audit(tx, ctx, { action: "auth.sso_provider_added", targetType: "SsoProvider", targetId: p.providerId, metadata: { issuer: p.issuer, domain: p.domain } });
+      await audit(tx, ctx, {
+        action: "auth.sso_provider_added",
+        targetType: "SsoProvider",
+        targetId: p.providerId,
+        metadata: { issuer: p.issuer, domain: p.domain },
+      });
     });
   });
   if (res.ok) refresh();
@@ -55,7 +64,11 @@ export async function removeSsoProviderAction(ws: string, providerId: string) {
     if (!canWorkspace(ctx.policyActor, "workspace.auth.manage")) throw new ForbiddenError();
     await withMutation(ctx, async ({ tx }) => {
       await tx.ssoProvider.deleteMany({ where: { providerId } });
-      await audit(tx, ctx, { action: "auth.sso_provider_removed", targetType: "SsoProvider", targetId: providerId });
+      await audit(tx, ctx, {
+        action: "auth.sso_provider_removed",
+        targetType: "SsoProvider",
+        targetId: providerId,
+      });
     });
   });
   if (res.ok) refresh();

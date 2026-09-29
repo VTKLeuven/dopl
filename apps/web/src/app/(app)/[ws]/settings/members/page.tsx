@@ -33,7 +33,12 @@ async function Members({ params }: { params: PageProps<"/[ws]/settings/members">
       },
     }),
     db.workspaceInvite.findMany({
-      where: { workspaceId: ctx.workspace.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        workspaceId: ctx.workspace.id,
+        acceptedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: "desc" },
       select: { id: true, email: true, role: true, expiresAt: true },
     }),

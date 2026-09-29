@@ -18,7 +18,14 @@ export function ProgressRing({
   const c = 2 * Math.PI * r;
   const pct = total > 0 ? Math.min(1, value / total) : 0;
   return (
-    <svg viewBox="0 0 14 14" width={size} height={size} className={cn("-rotate-90", className)} role="img" aria-label={label ?? `${value}/${total}`}>
+    <svg
+      viewBox="0 0 14 14"
+      width={size}
+      height={size}
+      className={cn("-rotate-90", className)}
+      role="img"
+      aria-label={label ?? `${value}/${total}`}
+    >
       <circle cx="7" cy="7" r={r} fill="none" strokeWidth="2" className="stroke-neutral-200" />
       <circle
         cx="7"

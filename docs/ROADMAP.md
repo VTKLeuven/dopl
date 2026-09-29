@@ -1,6 +1,7 @@
 # Dopl: roadmap
 
 Phases follow §6 of the brief. **Every phase ends with a definition of done:**
+
 - `pnpm typecheck`, `pnpm lint` and `pnpm test` all pass. CI is green, including the migration-drift check.
 - Playwright smoke tests cover the phase's main flows.
 - Screenshots of every new screen are reviewed against `docs/design/spott-reference.png` and saved to `docs/screenshots/phase-N/`.
@@ -17,7 +18,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - [x] `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/DESIGN_SYSTEM.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/OPEN_QUESTIONS.md`
 - [x] Full `packages/db/prisma/schema.prisma`, validated with Prisma 7.10 and migrated on Postgres 17.11 + pgvector. Spikes confirmed:
   - no drift from `COLLATE "C"`, CHECK constraints, the audit trigger or `search.embeddings`
-  - HNSW inside `public` *does* drift, hence D-017
+  - HNSW inside `public` _does_ drift, hence D-017
 - [x] Your approval + answers to Q-1…Q-4 (2026-09-29), plus two new requirements: Discord webhooks (D-052) and email+password/SSO sign-in (D-050)
 
 ---
@@ -25,6 +26,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 ## Phase 1: Core
 
 ### 1.1 Monorepo scaffold
+
 - The pnpm workspace (`apps/web`, `apps/worker`, `packages/db`, `packages/shared`) with pinned `packageManager` and Node 24 `engines`, and TypeScript 6 strict configs with project references.
 - `apps/web` from `create-next-app@16.3`, which writes the Next-managed `AGENTS.md`/`CLAUDE.md` block. The `next.config.ts` flags are per D-005.
 - `packages/db`:
@@ -37,11 +39,13 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - GitHub Actions: install → typecheck → lint → unit/integration tests → `prisma migrate diff` must be empty → build → e2e smoke → build and push images on `main`.
 
 **Acceptance:**
+
 - A clean clone works with `pnpm i && pnpm db:up && pnpm db:migrate && pnpm db:seed && pnpm dev`, documented in `CLAUDE.md`.
 - CI is green. The drift check fails CI when the schema and migrations disagree; this is tested once with a deliberate change.
 - A test proves fractional keys order correctly in the database, including keys like `Zz` and `a0`.
 
 ### 1.2 Design system foundation
+
 - Tokens in `globals.css` per `DESIGN_SYSTEM.md` §3 and §9. Inter and JetBrains Mono via `next/font`.
 - Favicon, apple-touch and PWA icons generated from `assets/brand/dopl-mark.png`. The Dopl logo component.
 - Re-themed primitives:
@@ -53,22 +57,26 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - `/dev/ui` shows every component in every state.
 
 **Acceptance:**
+
 - Every §5 component that Phase 1 needs appears on `/dev/ui` in all listed states. Playwright visual baselines are committed.
 - No raw hex values outside `globals.css` (lint).
 - axe finds no violations on `/dev/ui`.
 - Screenshots have been compared to the Spott reference and the differences fixed. The comparison notes are in the phase summary.
 
 ### 1.3 App shell
+
 - The canvas, sidebar (logo, search → palette stub, nav, projects, user menu), inset panel, page header (breadcrumb + actions) and toolbar row.
 - Responsive drawer below 768 px.
 - The static shell plus `<Suspense>` skeletons for session data, following D-005.
 - `instant()` tests for Home → Project list and Project → Project.
 
 **Acceptance:**
+
 - Navigating between sidebar destinations shows the new page's shell instantly, with no blank panel and no layout shift. The `instant()` tests pass.
 - The shell matches the reference's measurements (§2 of the design system) within ±2 px, checked with an overlay screenshot.
 
 ### 1.4 Authentication (invite-only, D-050)
+
 - Better Auth with the Prisma adapter, `generateId: false`, cookie cache, `nextCookies()`, secure cookies and strict auth rate limits (D-051).
 - Invites pre-create the user; the `/invite/<token>` acceptance page offers every enabled method. Account linking by verified email.
 - **Google** (`disableSignUp`, optional `hd` hint), **email + password** (`disableSignUp`; the invite link doubles as "set password"), **TOTP 2FA** (required for password-based Owners and Admins), **SSO** (`@better-auth/sso`, generic OIDC, `disableImplicitSignUp`, admin-configured) and **magic link** (`disableSignUp`).
@@ -80,6 +88,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - Audit log entries for sign-in, sign-out, failed domain checks and invites.
 
 **Acceptance:**
+
 - An invited user can accept with Google, a password, SSO (tested against a local mock OIDC IdP) or a magic link, and lands on Home.
 - An **uninvited** user is refused by every method, with a generic message and an audit entry. No user row is created.
 - A password-based Admin is forced through 2FA enrolment.
@@ -87,28 +96,33 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - A production build fails if the e2e provider is enabled.
 
 ### 1.5 Workspace, projects, members, roles
+
 - The policy module in `@dopl/shared`, with unit tests for every role × action in the ARCHITECTURE §7 matrix, and the server `authorize()` wrapper.
 - Workspace settings: general, members (roles, deactivate) and invites (member/guest, with project selection).
 - Projects: create (identifier validation, default states including TRIAGE, labels from the palette, types), settings (states CRUD with reassign-on-delete, labels, types, members and roles, visibility, `guestsCanViewProject`), archive and restore.
 - The `withMutation` helper: Activity plus a `realtime_events` row in every mutation transaction.
 
 **Acceptance:**
+
 - A policy test matrix covers 100% of actions × roles.
 - A guest cannot load any project URL they're not a member of: they get a 404, not a 403, to avoid leaking that it exists. There's an e2e test for this.
 - Renaming a project identifier keeps old `#OLD-12` references resolving.
 
 ### 1.6 Work items
+
 - Services: create (the sequence counter, a `sortKey` at the end of the group), update every field, sub-items (with cycle check and counters), relations (blocks/blocked by/relates/duplicate), links, attachments (BlobStore `local` + `s3` drivers, presign, confirm), subscribers (auto rules), archive/restore, soft delete/undo.
 - The create dialog: all fields, prefilled from the current view's filters, `⌘⇧Enter` create-and-continue, and pasting N lines offers "Create N items".
 - Copy link and copy identifier.
 
 **Acceptance:**
+
 - Every mutation writes Activity (tested) and a realtime outbox row (tested).
 - Pasting 10 lines creates 10 items in one transaction, with consecutive sequences and one grouped activity batch.
 - An attachment over the size limit is rejected at presign time and again on confirm.
 - Undoing a delete within 5 s restores the item with the same identifier.
 
 ### 1.7 List and board views
+
 - The RSC first page flows into TanStack Query hydration (D-009). Optimistic mutations with rollback.
 - **List:**
   - group by state, priority, assignee, label or type
@@ -123,6 +137,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - Basic shortcut registry: `J`/`K`, `Enter`, `X`, `A`, `S`, `P`, `L`, `D`, `C`, `Esc`, with tooltips showing the keys.
 
 **Acceptance:**
+
 - **Done items are hidden by default** in every project view, with a "Done hidden · N" chip and `⇧H` to toggle. The board shows the Done and Cancelled columns collapsed with counts, and the choice survives a reload (D-053, Plane pain point #3).
 - Changing a property inline updates list, board and peek instantly (optimistic), even with the network throttled to Slow 3G. A server failure rolls back and shows a toast.
 - Dragging a card to another column changes its state and keeps its position after a reload.
@@ -130,20 +145,24 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 - Every shortcut above works and is shown in its tooltip.
 
 ### 1.8 Peek panel and detail page
+
 - Peek (`?peek=`) and the full page (`/{ws}/i/INFRA-42`) share the same layout: title, description (Tiptap with `@` mentions and `#` item refs), properties, sub-items, relations, attachments and the timeline (comments + activity).
 - Comments: create, edit, delete (undo), reactions and mentions. Mentioned users are subscribed; their notifications are stored now and surfaced in Phase 4.
 
 **Acceptance:**
+
 - Peek opens instantly from a list row using cached data, loads the rest, and `J`/`K` moves between items.
 - `#INFRA-4` autocompletes and renders a chip with a hover card. `@ann` autocompletes and stores a mention node.
 - Timeline order is stable, and activity lines read naturally ("Ann changed priority from Low to High · 2h").
 
 ### 1.9 Seed data
+
 - A deterministic seed per DATA_MODEL §9: about 300 items across 5 projects, members, guests, the agent user, labels, relations, comments and activity.
 
 **Acceptance:** `pnpm db:seed` produces identical data on every run, so screenshots are stable.
 
 ### 1.10 Phase 1 wrap-up
+
 - Playwright smoke: sign in → create an item → edit it inline → drag it on the board → open peek → comment → archive and restore.
 - Screenshot review against the reference. CHANGELOG entry. **Stop for review.**
 
@@ -152,11 +171,11 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 ## Phase 2: Views
 
 1. **Table view:** TanStack Table v9 + Virtual, every cell inline-editable, resizable and reorderable columns (saved per view), a pinned first column, keyboard grid navigation, and sort by header click.
-   *Accept:* 10,000 rows scroll at 60 fps and editing a cell never re-renders other rows (React Profiler check).
+   _Accept:_ 10,000 rows scroll at 60 fps and editing a cell never re-renders other rows (React Profiler check).
 2. **Calendar:** month and week views, a due/start date toggle, drag to reschedule (optimistic), and an unscheduled tray you can drag from.
-   *Accept:* rescheduling by keyboard works; items dated outside the grid appear in the "+N" overflow.
+   _Accept:_ rescheduling by keyboard works; items dated outside the grid appear in the "+N" overflow.
 3. **Timeline (Gantt):** bars from start to due date, drag to move and resize (with snapping), dependency arrows from BLOCKS relations with conflict colouring, week/month/quarter zoom, a today line, and a virtualized row list.
-   *Accept:* dragging a bar updates both dates atomically; arrows follow bars while dragging.
+   _Accept:_ dragging a bar updates both dates atomically; arrows follow bars while dragging.
 4. **Display options:** group, sub-group, order, show sub-items, show empty groups, property visibility and density, all persisted in `ViewPreference`.
 5. **Filter builder:** the AST editor (rules, AND/OR, nested groups), quick filters, dynamic values (`me`, `today`…), the compiler with a unit test for every field × operator, and URL state via nuqs.
 6. **Saved views:** personal and shared; project and workspace (cross-project) views; favourites in the sidebar; "Save as view" from any unsaved state; lock views.
@@ -164,7 +183,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 8. **Keyboard:** the full registry, a `?` overlay, and hints in menus and tooltips.
 9. **Bulk actions:** multi-select (`X`, `⇧`-click, `⌘A`), then a floating action bar (state, priority, assignees, labels, type, move project, archive, delete). One batch, one undo.
 10. **Performance pass:** seed 50,000 items and `EXPLAIN ANALYZE` every view query, adding indexes as needed.
-    *Accept:* p95 under 50 ms at 50k items.
+    _Accept:_ p95 under 50 ms at 50k items.
 
 > **Proposed sequencing change (Q-9):** build the realtime transport (SSE + LISTEN/NOTIFY) at the end of Phase 2 instead of Phase 4. The outbox rows exist from Phase 1, so only the transport remains. Multi-user views without live updates feel broken, and the brief lists "realtime updates without refresh" as a core principle. Notifications and chat would stay in Phase 4.
 
@@ -185,6 +204,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 11. **Discord webhooks (D-052):** Settings → Integrations (add webhook, choose events, projects and whether to include content, send a test message, delivery log with redeliver). The worker's `webhook.deliver` job handles coalescing, 429 handling and auto-disable. Events: `work_item.created`, `state_changed`, `completed`, `assigned`, `intake.submitted`, `intake.accepted`.
 
 **Accept:**
+
 - A Discord test message arrives. A new intake submission posts one embed with no mentions resolved, and five quick edits to one item produce one message.
 - A form submitted from an embed on a test HTML page (a different origin) appears in the triage queue.
 - The confirmation email arrives (captured by the test mailer) and its link opens the status page.
@@ -219,6 +239,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
    - unread tracking and typing indicators
 
 **Accept:**
+
 - Two browsers: a change in one appears in the other within 1 s. After killing the network for 30 s and restoring it, missed events are replayed with no full reload.
 - A mention shows up in the Inbox within 1 s, with its badge.
 - Unread counts are correct across tabs.
@@ -240,6 +261,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 10. **5b, after Q-6 (embeddings):** `search.embeddings` indexing, semantic search, "Ask my notes" (the local LLM with citations) and AI tag suggestions.
 
 **Accept:**
+
 - Capturing a note takes less than 100 ms to appear.
 - Toggling a to-do in "My to-dos" updates the note card in place (same node).
 - `#infra/proxmox` shows up under `infra › proxmox` in the tree.
@@ -269,6 +291,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 ## Phase 7: Shared mailbox
 
 **7a: Read and collaborate**
+
 1. An admin setup guide in the docs:
    - GCP project, service account, domain-wide delegation client id and scopes
    - Pub/Sub topic and pull subscription, and the publisher role for `gmail-api-push@system.gserviceaccount.com`
@@ -280,9 +303,11 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 6. Senders become or link to Contacts. Optional Gmail label mirroring.
 
 **7b: Replying**
+
 - Add the `gmail.send` scope, the composer (Tiptap → HTML + text), sending in the thread (`threadId`, `In-Reply-To`, `References`), send-as the mailbox or group alias, and sent status/errors.
 
 **Accept:**
+
 - A new email to the connected mailbox appears in Dopl within 10 s. Pub/Sub latency is typically about 1–5 s.
 - Deleting `historyId` history (simulated 404) triggers a resync with no duplicates.
 - An HTML email containing `<script>` and `onerror` handlers renders inert. A test checks that the iframe sandbox has no `allow-scripts`.
@@ -309,6 +334,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 10. **Ops guide:** Hermes configuration (API server bind/key, terminal toolset disabled, `approvals.mode: manual`, the Dopl MCP entry with `timeout: 900`) and the Warpgate user, key and roles.
 
 **Accept, as red-team tests:**
+
 1. An injected instruction in an email → the agent reads it via `get_email_thread` → even an allowlisted `docker ps` then requires approval.
 2. A command on a host that isn't allowlisted is refused, and no SSH connection is attempted.
 3. A DENY rule blocks a command even after approval.

@@ -18,7 +18,7 @@ export function Textarea({ className, ...props }: React.ComponentProps<"textarea
   return (
     <textarea
       data-slot="textarea"
-      className={cn(inputClasses, "min-h-20 h-auto resize-y py-2 leading-[22px]", className)}
+      className={cn(inputClasses, "h-auto min-h-20 resize-y py-2 leading-[22px]", className)}
       {...props}
     />
   );
@@ -36,6 +36,10 @@ export function FieldHint({ className, ...props }: React.ComponentProps<"p">) {
 
 export function FieldError({ className, ...props }: React.ComponentProps<"p">) {
   return (
-    <p role="alert" className={cn("text-caption font-medium text-danger-text", className)} {...props} />
+    <p
+      role="alert"
+      className={cn("text-caption font-medium text-danger-text", className)}
+      {...props}
+    />
   );
 }

@@ -23,10 +23,33 @@ async function Settings({ params }: { params: PageProps<"/[ws]/p/[ident]/setting
   if (!access.can("project.manage")) notFound();
   const projectId = access.project.id;
   const [states, labels, members, workspaceMembers] = await Promise.all([
-    db.workflowState.findMany({ where: { projectId, group: { not: "TRIAGE" } }, orderBy: { sortKey: "asc" }, select: { id: true, name: true, group: true, color: true, isDefault: true, _count: { select: { workItems: { where: { deletedAt: null } } } } } }),
-    db.label.findMany({ where: { projectId }, orderBy: { sortKey: "asc" }, select: { id: true, name: true, color: true, _count: { select: { workItems: true } } } }),
-    db.projectMember.findMany({ where: { projectId }, select: { role: true, user: { select: { id: true, name: true, email: true, image: true } } }, orderBy: { user: { name: "asc" } } }),
-    db.workspaceMember.findMany({ where: { workspaceId: ctx.workspace.id, status: "ACTIVE", user: { kind: "HUMAN" } }, select: { role: true, user: { select: { id: true, name: true, email: true, image: true } } }, orderBy: { user: { name: "asc" } } }),
+    db.workflowState.findMany({
+      where: { projectId, group: { not: "TRIAGE" } },
+      orderBy: { sortKey: "asc" },
+      select: {
+        id: true,
+        name: true,
+        group: true,
+        color: true,
+        isDefault: true,
+        _count: { select: { workItems: { where: { deletedAt: null } } } },
+      },
+    }),
+    db.label.findMany({
+      where: { projectId },
+      orderBy: { sortKey: "asc" },
+      select: { id: true, name: true, color: true, _count: { select: { workItems: true } } },
+    }),
+    db.projectMember.findMany({
+      where: { projectId },
+      select: { role: true, user: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
+    db.workspaceMember.findMany({
+      where: { workspaceId: ctx.workspace.id, status: "ACTIVE", user: { kind: "HUMAN" } },
+      select: { role: true, user: { select: { id: true, name: true, email: true, image: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
   ]);
   return (
     <ProjectSettings

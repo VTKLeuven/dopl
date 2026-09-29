@@ -19,5 +19,12 @@ async function General({ params }: { params: PageProps<"/[ws]/settings/general">
   const { ws } = await params;
   const ctx = await requireWorkspaceCtx(ws);
   if (!canWorkspace(ctx.policyActor, "workspace.settings")) notFound();
-  return <GeneralForm ws={ws} name={ctx.workspace.name} timezone={ctx.workspace.timezone} slug={ctx.workspace.slug} />;
+  return (
+    <GeneralForm
+      ws={ws}
+      name={ctx.workspace.name}
+      timezone={ctx.workspace.timezone}
+      slug={ctx.workspace.slug}
+    />
+  );
 }

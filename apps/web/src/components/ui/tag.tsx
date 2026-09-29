@@ -38,12 +38,23 @@ export function Tag({
   );
 }
 
-export function TagDot({ color, className }: { color: string | null | undefined; className?: string }) {
-  return <span aria-hidden className={cn("inline-block size-2 shrink-0 rounded-full", tagClass(color).dot, className)} />;
+export function TagDot({
+  color,
+  className,
+}: {
+  color: string | null | undefined;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn("inline-block size-2 shrink-0 rounded-full", tagClass(color).dot, className)}
+    />
+  );
 }
 
 /** "+3" overflow counter used after a few pills. */
 export function Overflow({ count }: { count: number }) {
   if (count <= 0) return null;
-  return <span className="tabular text-small font-medium text-fg-muted">+{count}</span>;
+  return <span className="text-small font-medium text-fg-muted tabular">+{count}</span>;
 }

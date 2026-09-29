@@ -37,19 +37,23 @@ export function Avatar({
   /** Agent only: rotating gradient ring while a run is active. */
   working?: boolean;
 }) {
-  if (user.kind === "AGENT") return <AgentAvatar size={size} className={className} working={working} name={user.name} />;
+  if (user.kind === "AGENT")
+    return <AgentAvatar size={size} className={className} working={working} name={user.name} />;
   const color = tagClasses[colorForString(user.id)];
   return (
     <A.Root
       className={cn(
-        "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold ring-2 ring-surface",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold ring-2 ring-surface select-none",
         sizes[size],
         className,
       )}
       title={user.name}
     >
       {user.image ? <A.Image src={user.image} alt="" className="size-full object-cover" /> : null}
-      <A.Fallback delayMs={user.image ? 400 : 0} className={cn("flex size-full items-center justify-center", color.avatar)}>
+      <A.Fallback
+        delayMs={user.image ? 400 : 0}
+        className={cn("flex size-full items-center justify-center", color.avatar)}
+      >
         {initials(user.name)}
       </A.Fallback>
     </A.Root>
@@ -71,11 +75,18 @@ export function AgentAvatar({
   return (
     <span
       title={name}
-      className={cn("relative inline-flex shrink-0 items-center justify-center rounded-full", sizes[size], className)}
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center rounded-full",
+        sizes[size],
+        className,
+      )}
     >
       <span
         aria-hidden
-        className={cn("absolute inset-0 rounded-full bg-brand-gradient", working && "animate-agent-spin")}
+        className={cn(
+          "absolute inset-0 rounded-full bg-brand-gradient",
+          working && "animate-agent-spin",
+        )}
       />
       <span className="absolute inset-[1.5px] rounded-full bg-surface" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -101,7 +112,7 @@ export function AvatarStack({
         <Avatar key={u.id} user={u} size={size} className={i > 0 ? "-ml-1" : undefined} />
       ))}
       {rest > 0 ? (
-        <span className="tabular ml-1 text-small font-medium text-fg-muted">+{rest}</span>
+        <span className="ml-1 text-small font-medium text-fg-muted tabular">+{rest}</span>
       ) : null}
     </span>
   );

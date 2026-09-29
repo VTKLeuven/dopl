@@ -35,7 +35,14 @@ export function Calendar({
   value: string | null;
   onChange: (value: string | null) => void;
   weekStartsOn?: 0 | 1;
-  labels: { prev: string; next: string; today: string; tomorrow: string; nextWeek: string; clear: string };
+  labels: {
+    prev: string;
+    next: string;
+    today: string;
+    tomorrow: string;
+    nextWeek: string;
+    clear: string;
+  };
 }) {
   const selected = value ? fromISODate(value) : null;
   const [month, setMonth] = useState(() => startOfMonth(selected ?? new Date()));
@@ -56,19 +63,26 @@ export function Calendar({
         {[
           { label: labels.today, date: today },
           { label: labels.tomorrow, date: addDays(today, 1) },
-          { label: labels.nextWeek, date: addDays(startOfWeek(addDays(today, 7), { weekStartsOn }), 0) },
+          {
+            label: labels.nextWeek,
+            date: addDays(startOfWeek(addDays(today, 7), { weekStartsOn }), 0),
+          },
         ].map((q) => (
           <button
             key={q.label}
             type="button"
             onClick={() => onChange(toISODate(q.date))}
-            className="h-7 rounded-chip border border-border px-2 text-small text-fg-secondary hover:bg-surface-hover focus-ring"
+            className="h-7 rounded-chip border border-border px-2 text-small text-fg-secondary focus-ring hover:bg-surface-hover"
           >
             {q.label}
           </button>
         ))}
         {value ? (
-          <button type="button" onClick={() => onChange(null)} className="h-7 rounded-chip px-2 text-small text-danger-text hover:bg-danger-bg focus-ring">
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="h-7 rounded-chip px-2 text-small text-danger-text focus-ring hover:bg-danger-bg"
+          >
             {labels.clear}
           </button>
         ) : null}
@@ -76,17 +90,29 @@ export function Calendar({
       <div className="mb-1 flex items-center justify-between">
         <span className="pl-1 text-body font-medium">{format(month, "MMMM yyyy")}</span>
         <div className="flex">
-          <Button variant="ghost" size="icon-xs" aria-label={labels.prev} onClick={() => setMonth((m) => addMonths(m, -1))}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={labels.prev}
+            onClick={() => setMonth((m) => addMonths(m, -1))}
+          >
             <ChevronLeft />
           </Button>
-          <Button variant="ghost" size="icon-xs" aria-label={labels.next} onClick={() => setMonth((m) => addMonths(m, 1))}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={labels.next}
+            onClick={() => setMonth((m) => addMonths(m, 1))}
+          >
             <ChevronRight />
           </Button>
         </div>
       </div>
       <div className="grid grid-cols-7 text-center" role="grid">
         {weekdays.map((w) => (
-          <span key={w} className="py-1 text-caption font-medium text-fg-muted">{w}</span>
+          <span key={w} className="py-1 text-caption font-medium text-fg-muted">
+            {w}
+          </span>
         ))}
         {days.map((d) => {
           const isSel = selected ? isSameDay(d, selected) : false;
@@ -98,7 +124,7 @@ export function Calendar({
               aria-selected={isSel}
               onClick={() => onChange(toISODate(d))}
               className={cn(
-                "tabular mx-auto flex size-8 items-center justify-center rounded-[8px] text-small focus-ring",
+                "mx-auto flex size-8 items-center justify-center rounded-[8px] text-small tabular focus-ring",
                 !isSameMonth(d, month) && "text-fg-disabled",
                 isToday(d) && !isSel && "font-semibold text-sky-700",
                 isSel ? "bg-sky-600 font-medium text-white" : "hover:bg-neutral-150",

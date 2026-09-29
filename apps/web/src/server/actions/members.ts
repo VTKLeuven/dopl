@@ -3,7 +3,13 @@
 import { refresh } from "next/cache";
 import { run } from "../action-result";
 import { requireWorkspaceCtx } from "../session";
-import { changeMemberRole, inviteMembers, resendInvite, revokeInvite, setMemberActive } from "../services/members";
+import {
+  changeMemberRole,
+  inviteMembers,
+  resendInvite,
+  revokeInvite,
+  setMemberActive,
+} from "../services/members";
 
 export async function inviteMembersAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);

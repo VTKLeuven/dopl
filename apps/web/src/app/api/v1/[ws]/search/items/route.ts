@@ -19,7 +19,10 @@ export async function GET(req: Request, { params }: RouteContext<"/api/v1/[ws]/s
         sequence: { not: null },
         project: { ...accessibleProjectsWhere(ctx), ...(projectId ? { id: projectId } : {}) },
         ...(ident
-          ? { sequence: ident.sequence, project: { ...accessibleProjectsWhere(ctx), identifier: ident.identifier } }
+          ? {
+              sequence: ident.sequence,
+              project: { ...accessibleProjectsWhere(ctx), identifier: ident.identifier },
+            }
           : seqOnly
             ? { OR: [{ sequence: seqOnly }, { title: { contains: q, mode: "insensitive" } }] }
             : q
@@ -28,8 +31,19 @@ export async function GET(req: Request, { params }: RouteContext<"/api/v1/[ws]/s
       },
       orderBy: { updatedAt: "desc" },
       take: 12,
-      select: { id: true, sequence: true, title: true, stateGroup: true, project: { select: { identifier: true } } },
+      select: {
+        id: true,
+        sequence: true,
+        title: true,
+        stateGroup: true,
+        project: { select: { identifier: true } },
+      },
     });
-    return rows.map((r) => ({ id: r.id, identifier: formatIdentifier(r.project.identifier, r.sequence), title: r.title, stateGroup: r.stateGroup }));
+    return rows.map((r) => ({
+      id: r.id,
+      identifier: formatIdentifier(r.project.identifier, r.sequence),
+      title: r.title,
+      stateGroup: r.stateGroup,
+    }));
   });
 }

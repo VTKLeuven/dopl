@@ -15,17 +15,24 @@ export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
           { section: t("workspace") },
           { href: `/${ws}/settings/general`, label: t("general"), icon: <Building2 /> },
           { href: `/${ws}/settings/members`, label: t("members"), icon: <Users /> },
-          { href: `/${ws}/settings/authentication`, label: t("authentication"), icon: <KeyRound /> },
+          {
+            href: `/${ws}/settings/authentication`,
+            label: t("authentication"),
+            icon: <KeyRound />,
+          },
         ]
       : []),
     { section: t("you") },
     { href: `/${ws}/settings/account`, label: t("account"), icon: <ShieldCheck /> },
   ];
   return (
-    <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-4 py-2 md:w-56 md:flex-col md:border-b-0 md:border-r md:px-3 md:py-4">
+    <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-4 py-2 md:w-56 md:flex-col md:border-r md:border-b-0 md:px-3 md:py-4">
       {items.map((item, i) =>
         "section" in item ? (
-          <span key={i} className="hidden px-2.5 pb-1 pt-3 text-caption font-medium text-fg-muted first:pt-0 md:block">
+          <span
+            key={i}
+            className="hidden px-2.5 pt-3 pb-1 text-caption font-medium text-fg-muted first:pt-0 md:block"
+          >
             {item.section}
           </span>
         ) : (

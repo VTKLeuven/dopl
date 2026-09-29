@@ -36,7 +36,10 @@ export interface Mutation {
  * its Activity rows and its realtime outbox rows commit together, and
  * `pg_notify` fires on commit so listeners never see rolled-back changes.
  */
-export async function withMutation<T>(ctx: WorkspaceCtx, fn: (m: Mutation) => Promise<T>): Promise<T> {
+export async function withMutation<T>(
+  ctx: WorkspaceCtx,
+  fn: (m: Mutation) => Promise<T>,
+): Promise<T> {
   return db.$transaction(
     async (tx) => {
       const activities: ActivityInput[] = [];
@@ -86,7 +89,12 @@ export async function withMutation<T>(ctx: WorkspaceCtx, fn: (m: Mutation) => Pr
 export async function audit(
   tx: TransactionClient,
   ctx: WorkspaceCtx,
-  entry: { action: string; targetType?: string; targetId?: string; metadata?: Prisma.InputJsonValue },
+  entry: {
+    action: string;
+    targetType?: string;
+    targetId?: string;
+    metadata?: Prisma.InputJsonValue;
+  },
 ) {
   await tx.auditLog.create({
     data: {

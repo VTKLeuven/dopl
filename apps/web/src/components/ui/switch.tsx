@@ -10,7 +10,7 @@ export function Switch({ className, ...props }: React.ComponentProps<typeof S.Ro
       className={cn(
         "inline-flex h-4 w-7 shrink-0 items-center rounded-full border border-transparent bg-neutral-300 p-px",
         "transition-colors duration-[var(--dur-fast)] ease-out data-[state=checked]:bg-sky-600",
-        "disabled:cursor-not-allowed disabled:opacity-50 focus-ring",
+        "focus-ring disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}

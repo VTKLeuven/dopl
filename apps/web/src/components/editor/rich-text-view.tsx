@@ -31,7 +31,11 @@ function renderText(n: Node): React.ReactNode {
     else if (m.type === "strike") el = <s>{el}</s>;
     else if (m.type === "underline") el = <u>{el}</u>;
     else if (m.type === "code") el = <code>{el}</code>;
-    else if (m.type === "link" && typeof m.attrs?.href === "string" && /^(https?:|mailto:)/.test(m.attrs.href)) {
+    else if (
+      m.type === "link" &&
+      typeof m.attrs?.href === "string" &&
+      /^(https?:|mailto:)/.test(m.attrs.href)
+    ) {
       el = (
         <a href={m.attrs.href} target="_blank" rel="noopener noreferrer nofollow">
           {el}
@@ -50,7 +54,13 @@ function renderNode(n: Node): React.ReactNode {
       return <p>{renderNodes(n.content)}</p>;
     case "heading": {
       const level = Number(n.attrs?.level ?? 2);
-      return level === 1 ? <h1>{renderNodes(n.content)}</h1> : level === 2 ? <h2>{renderNodes(n.content)}</h2> : <h3>{renderNodes(n.content)}</h3>;
+      return level === 1 ? (
+        <h1>{renderNodes(n.content)}</h1>
+      ) : level === 2 ? (
+        <h2>{renderNodes(n.content)}</h2>
+      ) : (
+        <h3>{renderNodes(n.content)}</h3>
+      );
     }
     case "bulletList":
       return <ul>{renderNodes(n.content)}</ul>;
@@ -64,7 +74,12 @@ function renderNode(n: Node): React.ReactNode {
       return (
         <li data-type="taskItem" data-checked={n.attrs?.checked ? "true" : "false"}>
           <label>
-            <input type="checkbox" checked={Boolean(n.attrs?.checked)} readOnly className="accent-sky-600" />
+            <input
+              type="checkbox"
+              checked={Boolean(n.attrs?.checked)}
+              readOnly
+              className="accent-sky-600"
+            />
           </label>
           <div>{renderNodes(n.content)}</div>
         </li>
@@ -84,7 +99,9 @@ function renderNode(n: Node): React.ReactNode {
     case "mention":
       return <span className="mention">@{String(n.attrs?.label ?? "")}</span>;
     case "workItemRef":
-      return <span className="item-ref">{String(n.attrs?.identifier ?? n.attrs?.label ?? "")}</span>;
+      return (
+        <span className="item-ref">{String(n.attrs?.identifier ?? n.attrs?.label ?? "")}</span>
+      );
     default:
       return renderNodes(n.content);
   }

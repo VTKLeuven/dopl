@@ -54,7 +54,10 @@ export function canWorkspace(actor: PolicyActor, action: WorkspaceAction): boole
 }
 
 /** Effective role inside a project, or null when the actor can't see it at all. */
-export function effectiveProjectRole(actor: PolicyActor, project: PolicyProject): ProjectRole | null {
+export function effectiveProjectRole(
+  actor: PolicyActor,
+  project: PolicyProject,
+): ProjectRole | null {
   if (actor.kind === "SYSTEM") return "ADMIN";
   if (isAdmin(actor.workspaceRole)) return "ADMIN";
   if (actor.workspaceRole === "GUEST") return project.memberRole ? "GUEST" : null;
@@ -76,7 +79,11 @@ export type ProjectAction =
   | "intake.submit"
   | "intake.triage";
 
-export function canProject(actor: PolicyActor, project: PolicyProject, action: ProjectAction): boolean {
+export function canProject(
+  actor: PolicyActor,
+  project: PolicyProject,
+  action: ProjectAction,
+): boolean {
   const role = effectiveProjectRole(actor, project);
   if (!role) return false;
   const archived = Boolean(project.archivedAt);
@@ -111,7 +118,8 @@ export function canEditComment(
 export function canApproveAgentAction(actor: PolicyActor): boolean {
   return (
     actor.kind === "HUMAN" &&
-    (isAdmin(actor.workspaceRole) || (actor.workspaceRole === "MEMBER" && Boolean(actor.canApproveAgentActions)))
+    (isAdmin(actor.workspaceRole) ||
+      (actor.workspaceRole === "MEMBER" && Boolean(actor.canApproveAgentActions)))
   );
 }
 

@@ -60,7 +60,10 @@ const projectSelect = (userId: string) =>
     members: { where: { userId }, select: { role: true } },
   }) satisfies Prisma.ProjectSelect;
 
-async function loadAccess(ctx: WorkspaceCtx, where: Prisma.ProjectWhereInput): Promise<ProjectAccess | null> {
+async function loadAccess(
+  ctx: WorkspaceCtx,
+  where: Prisma.ProjectWhereInput,
+): Promise<ProjectAccess | null> {
   const project = await db.project.findFirst({
     where: { ...where, workspaceId: ctx.workspace.id, deletedAt: null },
     select: projectSelect(ctx.actor.userId),
@@ -80,7 +83,10 @@ async function loadAccess(ctx: WorkspaceCtx, where: Prisma.ProjectWhereInput): P
 }
 
 /** Services: project by id with permissions; invisible projects look nonexistent. */
-export async function projectAccessById(ctx: WorkspaceCtx, projectId: string): Promise<ProjectAccess> {
+export async function projectAccessById(
+  ctx: WorkspaceCtx,
+  projectId: string,
+): Promise<ProjectAccess> {
   const access = await loadAccess(ctx, { id: projectId });
   if (!access) throw new NotFoundError();
   return access;
@@ -113,7 +119,24 @@ export async function listSidebarProjects(ctx: WorkspaceCtx) {
     orderBy: { name: "asc" },
   });
   return projects
-    .map((p) => ({ id: p.id, identifier: p.identifier, name: p.name, icon: p.icon, color: p.color, sortKey: p.members[0]?.sortKey ?? null }))
-    .sort((a, b) => (a.sortKey && b.sortKey ? (a.sortKey < b.sortKey ? -1 : 1) : a.sortKey ? -1 : b.sortKey ? 1 : 0));
+    .map((p) => ({
+      id: p.id,
+      identifier: p.identifier,
+      name: p.name,
+      icon: p.icon,
+      color: p.color,
+      sortKey: p.members[0]?.sortKey ?? null,
+    }))
+    .sort((a, b) =>
+      a.sortKey && b.sortKey
+        ? a.sortKey < b.sortKey
+          ? -1
+          : 1
+        : a.sortKey
+          ? -1
+          : b.sortKey
+            ? 1
+            : 0,
+    );
 }
 export type SidebarProject = Awaited<ReturnType<typeof listSidebarProjects>>[number];

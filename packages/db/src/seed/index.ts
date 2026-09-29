@@ -27,7 +27,11 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const DEV_PASSWORD = "dopl-dev-password";
-const db = createDbClient({ connectionString: process.env.DATABASE_URL ?? "", applicationName: "dopl-seed", maxConnections: 2 });
+const db = createDbClient({
+  connectionString: process.env.DATABASE_URL ?? "",
+  applicationName: "dopl-seed",
+  maxConnections: 2,
+});
 
 // mulberry32 — tiny deterministic PRNG
 let seed = 0x2f6b1d3;
@@ -52,7 +56,10 @@ const DAY = 24 * 60 * 60 * 1000;
 const today = new Date();
 today.setUTCHours(0, 0, 0, 0);
 const daysFromToday = (d: number) => new Date(today.getTime() + d * DAY);
-const doc = (text: string) => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
+const doc = (text: string) => ({
+  type: "doc",
+  content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+});
 
 async function main() {
   const workspace =
@@ -63,14 +70,20 @@ async function main() {
     // Dev only (guarded above): rebuild the seeded projects from scratch.
     // Users, passwords and 2FA settings are kept.
     const seeded = projects.map((p) => p.identifier).concat(["E2E"]);
-    const removed = await db.project.deleteMany({ where: { workspaceId: workspace.id, identifier: { in: seeded } } });
+    const removed = await db.project.deleteMany({
+      where: { workspaceId: workspace.id, identifier: { in: seeded } },
+    });
     await db.viewPreference.deleteMany({ where: { workspaceId: workspace.id } });
     console.log(`Reset: removed ${removed.count} seeded project(s).`);
   }
 
-  const existingProjects = await db.project.count({ where: { workspaceId: workspace.id, deletedAt: null } });
+  const existingProjects = await db.project.count({
+    where: { workspaceId: workspace.id, deletedAt: null },
+  });
   if (existingProjects > 0 && !process.argv.includes("--force-add")) {
-    console.log(`Workspace "${workspace.slug}" already has ${existingProjects} project(s); seed skipped (pass --force-add to add anyway).`);
+    console.log(
+      `Workspace "${workspace.slug}" already has ${existingProjects} project(s); seed skipped (pass --force-add to add anyway).`,
+    );
     return;
   }
 
@@ -79,7 +92,14 @@ async function main() {
   if (types.length === 0) {
     const keys = keysBetween(null, null, defaultWorkItemTypes.length);
     await db.workItemType.createMany({
-      data: defaultWorkItemTypes.map((t, i) => ({ workspaceId: workspace.id, name: t.name, icon: t.icon, color: t.color, isDefault: t.isDefault ?? false, sortKey: keys[i]! })),
+      data: defaultWorkItemTypes.map((t, i) => ({
+        workspaceId: workspace.id,
+        name: t.name,
+        icon: t.icon,
+        color: t.color,
+        isDefault: t.isDefault ?? false,
+        sortKey: keys[i]!,
+      })),
     });
     types = await db.workItemType.findMany({ where: { workspaceId: workspace.id } });
   }
@@ -98,11 +118,18 @@ async function main() {
       create: { workspaceId: workspace.id, userId: user.id, role: p.role, status: "ACTIVE" },
       update: { role: p.role, status: "ACTIVE" },
     });
-    const credential = await db.account.findFirst({ where: { userId: user.id, providerId: "credential" } });
+    const credential = await db.account.findFirst({
+      where: { userId: user.id, providerId: "credential" },
+    });
     if (!credential) {
-      await db.account.create({ data: { userId: user.id, providerId: "credential", accountId: user.id, password: hash } });
+      await db.account.create({
+        data: { userId: user.id, providerId: "credential", accountId: user.id, password: hash },
+      });
     }
-    await db.workspaceInvite.updateMany({ where: { workspaceId: workspace.id, email: p.email, acceptedAt: null }, data: { acceptedAt: new Date(), acceptedUserId: user.id } });
+    await db.workspaceInvite.updateMany({
+      where: { workspaceId: workspace.id, email: p.email, acceptedAt: null },
+      data: { acceptedAt: new Date(), acceptedUserId: user.id },
+    });
     users.push({ id: user.id, name: p.name, role: p.role });
   }
   // The AI teammate
@@ -135,25 +162,61 @@ async function main() {
       },
     });
     // Channel, members, states, labels
-    await db.channel.create({ data: { workspaceId: workspace.id, kind: "PROJECT", projectId: project.id, name: spec.name, createdById: lead.id } });
+    await db.channel.create({
+      data: {
+        workspaceId: workspace.id,
+        kind: "PROJECT",
+        projectId: project.id,
+        name: spec.name,
+        createdById: lead.id,
+      },
+    });
     const memberKeys = keysBetween(null, null, projects.length);
     for (const u of team) {
       await db.projectMember.create({
-        data: { projectId: project.id, workspaceId: workspace.id, userId: u.id, role: u.id === lead.id ? "ADMIN" : "MEMBER", sortKey: memberKeys[pi]! },
+        data: {
+          projectId: project.id,
+          workspaceId: workspace.id,
+          userId: u.id,
+          role: u.id === lead.id ? "ADMIN" : "MEMBER",
+          sortKey: memberKeys[pi]!,
+        },
       });
     }
     if (guest && spec.identifier === "HELP") {
-      await db.projectMember.create({ data: { projectId: project.id, workspaceId: workspace.id, userId: guest.id, role: "GUEST", sortKey: memberKeys[pi]! } });
+      await db.projectMember.create({
+        data: {
+          projectId: project.id,
+          workspaceId: workspace.id,
+          userId: guest.id,
+          role: "GUEST",
+          sortKey: memberKeys[pi]!,
+        },
+      });
     }
     const stateKeys = keysBetween(null, null, defaultStates.length);
     await db.workflowState.createMany({
-      data: defaultStates.map((s, i) => ({ projectId: project.id, workspaceId: workspace.id, name: s.name, group: s.group, color: s.color, isDefault: s.isDefault ?? false, sortKey: stateKeys[i]! })),
+      data: defaultStates.map((s, i) => ({
+        projectId: project.id,
+        workspaceId: workspace.id,
+        name: s.name,
+        group: s.group,
+        color: s.color,
+        isDefault: s.isDefault ?? false,
+        sortKey: stateKeys[i]!,
+      })),
     });
     const states = await db.workflowState.findMany({ where: { projectId: project.id } });
     const stateByGroup = (g: string) => states.filter((s) => s.group === g);
     const labelKeys = keysBetween(null, null, spec.labels.length);
     await db.label.createMany({
-      data: spec.labels.map((l, i) => ({ workspaceId: workspace.id, projectId: project.id, name: l.name, color: l.color, sortKey: labelKeys[i]! })),
+      data: spec.labels.map((l, i) => ({
+        workspaceId: workspace.id,
+        projectId: project.id,
+        name: l.name,
+        color: l.color,
+        sortKey: labelKeys[i]!,
+      })),
     });
     const labels = await db.label.findMany({ where: { projectId: project.id } });
 
@@ -182,8 +245,18 @@ async function main() {
       const hasDue = group !== "CANCELLED" && chance(0.6);
       const dueOffset = group === "COMPLETED" ? int(-40, -1) : int(-6, 35);
       const hasStart = hasDue && chance(0.45);
-      const startedAt = ["STARTED", "COMPLETED"].includes(group) ? new Date(createdAt.getTime() + int(0, 6) * DAY) : null;
-      const completedAt = group === "COMPLETED" ? new Date(Math.min(today.getTime() - DAY, (startedAt ?? createdAt).getTime() + int(1, 14) * DAY)) : null;
+      const startedAt = ["STARTED", "COMPLETED"].includes(group)
+        ? new Date(createdAt.getTime() + int(0, 6) * DAY)
+        : null;
+      const completedAt =
+        group === "COMPLETED"
+          ? new Date(
+              Math.min(
+                today.getTime() - DAY,
+                (startedAt ?? createdAt).getTime() + int(1, 14) * DAY,
+              ),
+            )
+          : null;
       const id = uuidv7(createdAt.getTime());
       const title = titles[i]!;
       const type = /bug|error|broken|fail|drops|doesn't|isn't|won't|500/i.test(title)
@@ -205,7 +278,13 @@ async function main() {
         descriptionText: "",
         stateId: state.id,
         stateGroup: state.group,
-        priority: weighted<"URGENT" | "HIGH" | "MEDIUM" | "LOW" | "NONE">([["URGENT", 5], ["HIGH", 18], ["MEDIUM", 32], ["LOW", 25], ["NONE", 20]]),
+        priority: weighted<"URGENT" | "HIGH" | "MEDIUM" | "LOW" | "NONE">([
+          ["URGENT", 5],
+          ["HIGH", 18],
+          ["MEDIUM", 32],
+          ["LOW", 25],
+          ["NONE", 20],
+        ]),
         typeId: type?.id ?? null,
         sortKey: sortKeys[i]!,
         startDate: hasStart ? daysFromToday(dueOffset - int(2, 10)) : null,
@@ -215,7 +294,9 @@ async function main() {
         startedAt,
         completedAt,
         createdAt,
-        updatedAt: new Date(Math.max(createdAt.getTime(), (completedAt ?? startedAt ?? createdAt).getTime())),
+        updatedAt: new Date(
+          Math.max(createdAt.getTime(), (completedAt ?? startedAt ?? createdAt).getTime()),
+        ),
       });
       itemMeta.push({ id, group: state.group, createdAt, stateName: state.name });
     }
@@ -228,18 +309,39 @@ async function main() {
     const itemLabels: Prisma.WorkItemLabelCreateManyInput[] = [];
     const subscribers: Prisma.WorkItemSubscriberCreateManyInput[] = [];
     for (const [i, item] of items.entries()) {
-      const n = weighted<number>([[0, 15], [1, 60], [2, 25]]);
+      const n = weighted<number>([
+        [0, 15],
+        [1, 60],
+        [2, 25],
+      ]);
       const chosen = new Set<string>();
       while (chosen.size < n) chosen.add(pick(team).id);
       for (const uid of chosen) {
         assignees.push({ workItemId: item.id!, userId: uid, workspaceId: workspace.id });
-        subscribers.push({ workItemId: item.id!, userId: uid, workspaceId: workspace.id, reason: "ASSIGNEE" });
+        subscribers.push({
+          workItemId: item.id!,
+          userId: uid,
+          workspaceId: workspace.id,
+          reason: "ASSIGNEE",
+        });
       }
-      if (!chosen.has(item.createdById!)) subscribers.push({ workItemId: item.id!, userId: item.createdById!, workspaceId: workspace.id, reason: "CREATOR" });
-      const ln = weighted<number>([[0, 25], [1, 45], [2, 25], [3, 5]]);
+      if (!chosen.has(item.createdById!))
+        subscribers.push({
+          workItemId: item.id!,
+          userId: item.createdById!,
+          workspaceId: workspace.id,
+          reason: "CREATOR",
+        });
+      const ln = weighted<number>([
+        [0, 25],
+        [1, 45],
+        [2, 25],
+        [3, 5],
+      ]);
       const lset = new Set<string>();
       while (lset.size < Math.min(ln, labels.length)) lset.add(pick(labels).id);
-      for (const lid of lset) itemLabels.push({ workItemId: item.id!, labelId: lid, workspaceId: workspace.id });
+      for (const lid of lset)
+        itemLabels.push({ workItemId: item.id!, labelId: lid, workspaceId: workspace.id });
       void i;
     }
     await db.workItemAssignee.createMany({ data: assignees });
@@ -253,7 +355,8 @@ async function main() {
     for (const parentId of parents) {
       const kids = ids.slice(cursor, cursor + int(2, 4));
       cursor += kids.length;
-      if (kids.length) await db.workItem.updateMany({ where: { id: { in: kids } }, data: { parentId } });
+      if (kids.length)
+        await db.workItem.updateMany({ where: { id: { in: kids } }, data: { parentId } });
     }
     await db.$executeRaw`
       UPDATE work_items p SET
@@ -270,7 +373,14 @@ async function main() {
     for (let r = 0; r < 4; r++) {
       const a = pick(ids);
       const b = pick(ids);
-      if (a !== b) relations.push({ workspaceId: workspace.id, sourceId: a, targetId: b, type: "BLOCKS", createdById: lead.id });
+      if (a !== b)
+        relations.push({
+          workspaceId: workspace.id,
+          sourceId: a,
+          targetId: b,
+          type: "BLOCKS",
+          createdById: lead.id,
+        });
     }
     await db.workItemRelation.createMany({ data: relations, skipDuplicates: true });
 
@@ -280,14 +390,35 @@ async function main() {
     for (const [i, meta] of itemMeta.entries()) {
       const item = items[i]!;
       activities.push({
-        workspaceId: workspace.id, projectId: project.id, workItemId: meta.id, entityType: "WORK_ITEM", entityId: meta.id,
-        verb: "created", meta: { identifier: `${spec.identifier}-${i + 1}`, title: item.title }, actorType: "USER", actorId: item.createdById!, createdAt: meta.createdAt,
+        workspaceId: workspace.id,
+        projectId: project.id,
+        workItemId: meta.id,
+        entityType: "WORK_ITEM",
+        entityId: meta.id,
+        verb: "created",
+        meta: { identifier: `${spec.identifier}-${i + 1}`, title: item.title },
+        actorType: "USER",
+        actorId: item.createdById!,
+        createdAt: meta.createdAt,
       });
       if (meta.group !== "BACKLOG") {
         activities.push({
-          workspaceId: workspace.id, projectId: project.id, workItemId: meta.id, entityType: "WORK_ITEM", entityId: meta.id,
-          verb: "updated", field: "state", meta: { fromName: "Backlog", toName: meta.stateName, fromGroup: "BACKLOG", toGroup: meta.group },
-          actorType: "USER", actorId: pick(team).id, createdAt: new Date(meta.createdAt.getTime() + int(1, 5) * DAY),
+          workspaceId: workspace.id,
+          projectId: project.id,
+          workItemId: meta.id,
+          entityType: "WORK_ITEM",
+          entityId: meta.id,
+          verb: "updated",
+          field: "state",
+          meta: {
+            fromName: "Backlog",
+            toName: meta.stateName,
+            fromGroup: "BACKLOG",
+            toGroup: meta.group,
+          },
+          actorType: "USER",
+          actorId: pick(team).id,
+          createdAt: new Date(meta.createdAt.getTime() + int(1, 5) * DAY),
         });
       }
       if (chance(0.35)) {
@@ -295,8 +426,13 @@ async function main() {
         for (let c = 0; c < n; c++) {
           const text = pick(commentBank);
           comments.push({
-            workspaceId: workspace.id, projectId: project.id, workItemId: meta.id, authorId: pick(team).id,
-            body: doc(text), bodyText: text, createdAt: new Date(meta.createdAt.getTime() + (c + 1) * int(3, 30) * 3600_000),
+            workspaceId: workspace.id,
+            projectId: project.id,
+            workItemId: meta.id,
+            authorId: pick(team).id,
+            body: doc(text),
+            bodyText: text,
+            createdAt: new Date(meta.createdAt.getTime() + (c + 1) * int(3, 30) * 3600_000),
           });
         }
       }

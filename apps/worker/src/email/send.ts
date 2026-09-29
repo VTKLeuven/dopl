@@ -39,7 +39,13 @@ export async function sendOutboundEmail(db: DbClient, id: string): Promise<"sent
     });
     await db.outboundEmail.update({
       where: { id },
-      data: { status: "SENT", sentAt: new Date(), subject: rendered.subject, providerMessageId: info.messageId, error: null },
+      data: {
+        status: "SENT",
+        sentAt: new Date(),
+        subject: rendered.subject,
+        providerMessageId: info.messageId,
+        error: null,
+      },
     });
     return "sent";
   } catch (err) {

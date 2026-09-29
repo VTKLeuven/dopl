@@ -16,7 +16,14 @@ export const metadata = { title: "Home" };
 
 export default function HomePage({ params }: PageProps<"/[ws]/home">) {
   return (
-    <Suspense fallback={<><PageHeaderSkeleton actions={0} /><RowsSkeleton rows={8} /></>}>
+    <Suspense
+      fallback={
+        <>
+          <PageHeaderSkeleton actions={0} />
+          <RowsSkeleton rows={8} />
+        </>
+      }
+    >
       <Home params={params} />
     </Suspense>
   );
@@ -35,10 +42,19 @@ async function Home({ params }: { params: PageProps<"/[ws]/home">["params"] }) {
       assignees: { some: { userId: ctx.actor.userId } },
       project: accessibleProjectsWhere(ctx),
     },
-    orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { priority: "asc" }, { updatedAt: "desc" }],
+    orderBy: [
+      { dueDate: { sort: "asc", nulls: "last" } },
+      { priority: "asc" },
+      { updatedAt: "desc" },
+    ],
     take: 200,
     select: {
-      id: true, sequence: true, title: true, priority: true, dueDate: true, stateGroup: true,
+      id: true,
+      sequence: true,
+      title: true,
+      priority: true,
+      dueDate: true,
+      stateGroup: true,
       state: { select: { name: true, color: true } },
       project: { select: { identifier: true, name: true, color: true } },
     },
@@ -55,7 +71,13 @@ async function Home({ params }: { params: PageProps<"/[ws]/home">["params"] }) {
     stateColor: i.state.color,
     stateName: i.state.name,
     project: i.project,
-    bucket: !i.dueDate ? "noDue" : i.dueDate < today ? "overdue" : i.dueDate <= weekEnd ? "thisWeek" : "later",
+    bucket: !i.dueDate
+      ? "noDue"
+      : i.dueDate < today
+        ? "overdue"
+        : i.dueDate <= weekEnd
+          ? "thisWeek"
+          : "later",
   }));
   const hour = new Date().getHours();
   return (
@@ -64,11 +86,20 @@ async function Home({ params }: { params: PageProps<"/[ws]/home">["params"] }) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[880px] px-5 py-8 md:px-8">
           <h1 className="text-display font-semibold" data-testid="home-greeting">
-            {t("greeting", { part: t(hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"), name: ctx.actor.name.split(" ")[0] ?? ctx.actor.name })}
+            {t("greeting", {
+              part: t(hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"),
+              name: ctx.actor.name.split(" ")[0] ?? ctx.actor.name,
+            })}
           </h1>
-          <p className="mt-1 text-body text-fg-muted">{t("assignedCount", { count: rows.length })}</p>
+          <p className="mt-1 text-body text-fg-muted">
+            {t("assignedCount", { count: rows.length })}
+          </p>
           {rows.length === 0 ? (
-            <EmptyState icon={<CircleCheck />} title={t("emptyTitle")} description={t("emptyDescription")} />
+            <EmptyState
+              icon={<CircleCheck />}
+              title={t("emptyTitle")}
+              description={t("emptyDescription")}
+            />
           ) : (
             <MyItems ws={ws} items={rows} />
           )}

@@ -9,11 +9,28 @@ import { cn } from "@/lib/cn";
 import { tagClasses } from "@/lib/palette";
 import { createProjectAction } from "@/server/actions/projects";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Input, Label, FieldError, FieldHint, Textarea } from "@/components/ui/input";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 
-export function CreateProjectDialog({ ws, open, onOpenChange }: { ws: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function CreateProjectDialog({
+  ws,
+  open,
+  onOpenChange,
+}: {
+  ws: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const t = useTranslations("projects");
   const tc = useTranslations("common");
   const router = useRouter();
@@ -33,14 +50,21 @@ export function CreateProjectDialog({ ws, open, onOpenChange }: { ws: string; op
     e.preventDefault();
     setErrors({});
     startTransition(async () => {
-      const res = await createProjectAction(ws, { name, identifier: effectiveIdentifier, color, visibility, description });
+      const res = await createProjectAction(ws, {
+        name,
+        identifier: effectiveIdentifier,
+        color,
+        visibility,
+        description,
+      });
       if (res.ok) {
         // Navigate first; closing the dialog would rewrite ?new and race the push.
         router.push(`/${ws}/p/${res.data.identifier}/items` as never);
         return;
       }
       if (res.error === "conflict") setErrors({ identifier: t("identifierTaken") });
-      else if (res.fields) setErrors(Object.fromEntries(Object.entries(res.fields).map(([k, v]) => [k, v[0] ?? ""])));
+      else if (res.fields)
+        setErrors(Object.fromEntries(Object.entries(res.fields).map(([k, v]) => [k, v[0] ?? ""])));
     });
   }
 
@@ -56,7 +80,14 @@ export function CreateProjectDialog({ ws, open, onOpenChange }: { ws: string; op
             <div className="grid grid-cols-[1fr_140px] gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="p-name">{t("name")}</Label>
-                <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} autoFocus aria-invalid={Boolean(errors.name)} />
+                <Input
+                  id="p-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("namePlaceholder")}
+                  autoFocus
+                  aria-invalid={Boolean(errors.name)}
+                />
                 {errors.name ? <FieldError>{errors.name}</FieldError> : null}
               </div>
               <div className="flex flex-col gap-1.5">
@@ -66,14 +97,23 @@ export function CreateProjectDialog({ ws, open, onOpenChange }: { ws: string; op
                   value={effectiveIdentifier}
                   onChange={(e) => {
                     setIdentifierTouched(true);
-                    setIdentifier(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10));
+                    setIdentifier(
+                      e.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, "")
+                        .slice(0, 10),
+                    );
                   }}
-                  className="tabular uppercase"
+                  className="uppercase tabular"
                   aria-invalid={Boolean(errors.identifier)}
                 />
               </div>
             </div>
-            {errors.identifier ? <FieldError>{errors.identifier}</FieldError> : <FieldHint>{t("identifierHint", { example })}</FieldHint>}
+            {errors.identifier ? (
+              <FieldError>{errors.identifier}</FieldError>
+            ) : (
+              <FieldHint>{t("identifierHint", { example })}</FieldHint>
+            )}
             <div className="flex flex-col gap-1.5">
               <span className="text-body font-medium">{t("color")}</span>
               <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("color")}>
@@ -86,7 +126,7 @@ export function CreateProjectDialog({ ws, open, onOpenChange }: { ws: string; op
                     aria-label={c}
                     onClick={() => setColor(c)}
                     className={cn(
-                      "flex size-7 items-center justify-center rounded-[8px] border transition-shadow focus-ring",
+                      "flex size-7 items-center justify-center rounded-[8px] border focus-ring transition-shadow",
                       tagClasses[c].pill,
                       color === c && "ring-2 ring-focus ring-offset-1",
                     )}
@@ -98,21 +138,41 @@ export function CreateProjectDialog({ ws, open, onOpenChange }: { ws: string; op
             </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-body font-medium">{t("visibility")}</span>
-              <SegmentedControl value={visibility} onValueChange={(v) => setVisibility(v as "WORKSPACE" | "PRIVATE")} label={t("visibility")} className="self-start">
-                <SegmentedControlItem value="WORKSPACE">{t("visibilityWorkspace")}</SegmentedControlItem>
-                <SegmentedControlItem value="PRIVATE">{t("visibilityPrivate")}</SegmentedControlItem>
+              <SegmentedControl
+                value={visibility}
+                onValueChange={(v) => setVisibility(v as "WORKSPACE" | "PRIVATE")}
+                label={t("visibility")}
+                className="self-start"
+              >
+                <SegmentedControlItem value="WORKSPACE">
+                  {t("visibilityWorkspace")}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="PRIVATE">
+                  {t("visibilityPrivate")}
+                </SegmentedControlItem>
               </SegmentedControl>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="p-desc">{t("description")}</Label>
-              <Textarea id="p-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("descriptionPlaceholder")} className="min-h-16" />
+              <Textarea
+                id="p-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t("descriptionPlaceholder")}
+                className="min-h-16"
+              />
             </div>
           </DialogBody>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="ghost">{tc("cancel")}</Button>
             </DialogClose>
-            <Button type="submit" variant="primary" loading={pending} disabled={!name.trim() || !effectiveIdentifier}>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={pending}
+              disabled={!name.trim() || !effectiveIdentifier}
+            >
               {t("create")}
             </Button>
           </DialogFooter>

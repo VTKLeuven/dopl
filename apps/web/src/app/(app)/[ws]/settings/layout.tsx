@@ -24,5 +24,10 @@ export default async function SettingsLayout({ children, params }: LayoutProps<"
 async function Nav({ params }: { params: LayoutProps<"/[ws]/settings">["params"] }) {
   const { ws } = await params;
   const ctx = await getWorkspaceCtx(ws);
-  return <SettingsNav ws={ws} isAdmin={ctx ? canWorkspace(ctx.policyActor, "workspace.settings") : false} />;
+  return (
+    <SettingsNav
+      ws={ws}
+      isAdmin={ctx ? canWorkspace(ctx.policyActor, "workspace.settings") : false}
+    />
+  );
 }

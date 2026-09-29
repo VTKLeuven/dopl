@@ -17,9 +17,19 @@ export default function AuthenticationPage({ params }: PageProps<"/[ws]/settings
   );
 }
 
-async function Authentication({ params }: { params: PageProps<"/[ws]/settings/authentication">["params"] }) {
+async function Authentication({
+  params,
+}: {
+  params: PageProps<"/[ws]/settings/authentication">["params"];
+}) {
   const { ws } = await params;
   const ctx = await requireWorkspaceCtx(ws);
   if (!canWorkspace(ctx.policyActor, "workspace.auth.manage")) notFound();
-  return <SsoSettings ws={ws} providers={await listSsoProviders()} callbackBase={`${env.BETTER_AUTH_URL}/api/auth/sso/callback/`} />;
+  return (
+    <SsoSettings
+      ws={ws}
+      providers={await listSsoProviders()}
+      callbackBase={`${env.BETTER_AUTH_URL}/api/auth/sso/callback/`}
+    />
+  );
 }

@@ -10,7 +10,21 @@ const icons: Record<string, LucideIcon> = {
   sparkles: Sparkles,
 };
 
-export function TypeIcon({ icon, color, className }: { icon: string; color: string; className?: string }) {
+export function TypeIcon({
+  icon,
+  color,
+  className,
+}: {
+  icon: string;
+  color: string;
+  className?: string;
+}) {
   const Icon = icons[icon] ?? SquareCheck;
-  return <Icon className={cn("size-4 shrink-0", tagClass(color).text, className)} strokeWidth={1.75} aria-hidden />;
+  return (
+    <Icon
+      className={cn("size-4 shrink-0", tagClass(color).text, className)}
+      strokeWidth={1.75}
+      aria-hidden
+    />
+  );
 }

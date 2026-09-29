@@ -13,8 +13,18 @@ export interface PMNode {
 }
 
 const BLOCKS = new Set([
-  "doc", "paragraph", "heading", "bulletList", "orderedList", "listItem", "taskList", "taskItem",
-  "blockquote", "codeBlock", "horizontalRule", "hardBreak",
+  "doc",
+  "paragraph",
+  "heading",
+  "bulletList",
+  "orderedList",
+  "listItem",
+  "taskList",
+  "taskItem",
+  "blockquote",
+  "codeBlock",
+  "horizontalRule",
+  "hardBreak",
 ]);
 const INLINE = new Set(["text", "mention", "workItemRef"]);
 const MARKS = new Set(["bold", "italic", "strike", "code", "underline", "link"]);
@@ -47,8 +57,12 @@ function sanitizeNode(node: unknown, depth: number): PMNode[] {
     if (typeof n.text !== "string" || n.text.length === 0) return [];
     const rawMarks: unknown[] = Array.isArray(n.marks) ? n.marks : [];
     const marks = rawMarks
-      .filter((m): m is { type: string; attrs?: Record<string, unknown> } =>
-        typeof m === "object" && m !== null && typeof (m as { type?: unknown }).type === "string" && MARKS.has((m as { type: string }).type),
+      .filter(
+        (m): m is { type: string; attrs?: Record<string, unknown> } =>
+          typeof m === "object" &&
+          m !== null &&
+          typeof (m as { type?: unknown }).type === "string" &&
+          MARKS.has((m as { type: string }).type),
       )
       .map((m) => {
         if (m.type !== "link") return { type: m.type };
@@ -70,7 +84,8 @@ function sanitizeNode(node: unknown, depth: number): PMNode[] {
     const attrs: Record<string, unknown> = {};
     for (const key of allowed) {
       const v = n.attrs[key];
-      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null) attrs[key] = v;
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null)
+        attrs[key] = v;
     }
     if (n.type === "heading") attrs.level = Math.min(3, Math.max(1, Number(attrs.level) || 2));
     out.attrs = attrs;
@@ -85,9 +100,17 @@ export function sanitizeDoc(doc: unknown): PMNode {
   return root;
 }
 
-const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
+const str = (v: unknown): string =>
+  typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
 
-const BLOCK_BREAK = new Set(["paragraph", "heading", "listItem", "taskItem", "blockquote", "codeBlock"]);
+const BLOCK_BREAK = new Set([
+  "paragraph",
+  "heading",
+  "listItem",
+  "taskItem",
+  "blockquote",
+  "codeBlock",
+]);
 
 export function docToPlainText(doc: PMNode | null | undefined, max = 20_000): string {
   if (!doc) return "";
@@ -101,7 +124,11 @@ export function docToPlainText(doc: PMNode | null | undefined, max = 20_000): st
     if (BLOCK_BREAK.has(n.type)) parts.push("\n");
   };
   walk(doc);
-  return parts.join("").replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
+  return parts
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, max);
 }
 
 export function isEmptyDoc(doc: PMNode | null | undefined): boolean {
@@ -121,10 +148,14 @@ function collect(doc: PMNode | null | undefined, type: string, attr: string): st
 /** User ids mentioned with @. */
 export const extractMentions = (doc: PMNode | null | undefined) => collect(doc, "mention", "id");
 /** Work item ids referenced with #. */
-export const extractItemRefs = (doc: PMNode | null | undefined) => collect(doc, "workItemRef", "id");
+export const extractItemRefs = (doc: PMNode | null | undefined) =>
+  collect(doc, "workItemRef", "id");
 
 export function textToDoc(text: string): PMNode {
-  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
   return {
     type: "doc",
     content: paragraphs.length

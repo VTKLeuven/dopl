@@ -29,7 +29,8 @@ export function InviteForm(props: {
     setError(null);
     startTransition(async () => {
       const res = await acceptInviteWithPassword({ token: props.token, name, password });
-      if (!res.ok) setError(res.error === "invalid_invite" ? t("inviteInvalid") : t("genericError"));
+      if (!res.ok)
+        setError(res.error === "invalid_invite" ? t("inviteInvalid") : t("genericError"));
     });
   }
 
@@ -58,13 +59,18 @@ export function InviteForm(props: {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h1 className="text-title-lg font-semibold">{t("inviteTitle", { workspace: props.workspaceName })}</h1>
+        <h1 className="text-title-lg font-semibold">
+          {t("inviteTitle", { workspace: props.workspaceName })}
+        </h1>
         <p className="text-body text-fg-muted">
           {t("inviteSubtitle", { role: t(`roles.${props.role}`), email: props.email })}
         </p>
       </div>
       {props.googleEnabled ? (
-        <Button size="lg" onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/" })}>
+        <Button
+          size="lg"
+          onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/" })}
+        >
           <GoogleIcon />
           {t("continueWithGoogle")}
         </Button>
@@ -72,15 +78,32 @@ export function InviteForm(props: {
       <form className="flex flex-col gap-4" onSubmit={onSubmit}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">{t("yourName")}</Label>
-          <Input id="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+          <Input
+            id="name"
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            autoFocus
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">{t("newPassword")}</Label>
-          <Input id="password" type="password" autoComplete="new-password" minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={10}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           <FieldHint>{t("newPasswordHint")}</FieldHint>
         </div>
         {error ? <FieldError>{error}</FieldError> : null}
-        <Button type="submit" variant="primary" size="lg" loading={pending}>{t("setPasswordAndJoin")}</Button>
+        <Button type="submit" variant="primary" size="lg" loading={pending}>
+          {t("setPasswordAndJoin")}
+        </Button>
       </form>
       <div className="border-t border-border pt-4">
         <Button variant="ghost" size="sm" className="-ml-2.5" onClick={onMagic}>

@@ -13,8 +13,8 @@ export const menuContentClasses = cn(
   "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
 );
 export const menuItemClasses = cn(
-  "relative flex h-8 cursor-default select-none items-center gap-2 rounded-[8px] px-2 outline-none",
-  "data-[highlighted]:bg-neutral-150 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+  "relative flex h-8 cursor-default items-center gap-2 rounded-[8px] px-2 outline-none select-none",
+  "data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-neutral-150",
   "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-icon",
 );
 
@@ -97,7 +97,7 @@ export function DropdownMenuRadioItem({
 export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof M.Label>) {
   return (
     <M.Label
-      className={cn("px-2 pb-1 pt-2 text-caption font-medium text-fg-muted", className)}
+      className={cn("px-2 pt-2 pb-1 text-caption font-medium text-fg-muted", className)}
       {...props}
     />
   );
@@ -171,6 +171,9 @@ export function ContextMenuItem({
     </CM.Item>
   );
 }
-export function ContextMenuSeparator({ className, ...props }: React.ComponentProps<typeof CM.Separator>) {
+export function ContextMenuSeparator({
+  className,
+  ...props
+}: React.ComponentProps<typeof CM.Separator>) {
   return <CM.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />;
 }

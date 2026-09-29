@@ -18,8 +18,8 @@ export function MobileNav(props: Omit<SidebarProps, "onNavigate">) {
   return (
     <D.Root open={open} onOpenChange={setOpen}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-[50] bg-neutral-900/25 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 md:hidden" />
-        <D.Content className="fixed inset-y-0 left-0 z-[50] w-[280px] bg-canvas shadow-dialog outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left md:hidden">
+        <D.Overlay className="fixed inset-0 z-[50] bg-neutral-900/25 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 md:hidden" />
+        <D.Content className="fixed inset-y-0 left-0 z-[50] w-[280px] bg-canvas shadow-dialog outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left md:hidden">
           <D.Title className="sr-only">{t("openMenu")}</D.Title>
           <Sidebar {...props} onNavigate={() => setOpen(false)} />
         </D.Content>

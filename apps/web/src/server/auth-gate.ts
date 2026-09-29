@@ -36,7 +36,10 @@ export async function acceptPendingInvites(
   userId: string,
   meta: { ip?: string | null; userAgent?: string | null },
 ): Promise<void> {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true },
+  });
   if (!user) return;
   const now = new Date();
   await db.$transaction(async (tx) => {
@@ -77,7 +80,10 @@ export async function acceptPendingInvites(
 
 /** Only users that exist and may sign in get emails (no spam to strangers). */
 export async function isEligibleEmail(email: string): Promise<{ userId: string } | null> {
-  const user = await db.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true } });
+  const user = await db.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true },
+  });
   if (!user) return null;
   return (await canStartSession(user.id)) ? { userId: user.id } : null;
 }

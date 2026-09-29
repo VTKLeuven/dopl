@@ -27,7 +27,7 @@ describe("sort keys", () => {
     }
   });
 
-  it("produces keys that break under locale collation (why we need COLLATE \"C\")", () => {
+  it('produces keys that break under locale collation (why we need COLLATE "C")', () => {
     const top = keyBefore(keyBefore(keyAfter(null)));
     // Uppercase-led keys appear once you insert above the first item.
     expect(top).toMatch(/^[A-Z]/);

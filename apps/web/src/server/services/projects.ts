@@ -28,7 +28,14 @@ export async function createProject(ctx: WorkspaceCtx, raw: CreateProjectInput) 
         name: input.name,
         color: input.color,
         visibility: input.visibility,
-        description: input.description ? { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: input.description }] }] } : undefined,
+        description: input.description
+          ? {
+              type: "doc",
+              content: [
+                { type: "paragraph", content: [{ type: "text", text: input.description }] },
+              ],
+            }
+          : undefined,
         leadId: ctx.actor.userId,
         createdById: ctx.actor.userId,
       },
@@ -73,11 +80,27 @@ export async function createProject(ctx: WorkspaceCtx, raw: CreateProjectInput) 
       },
     });
     await tx.channel.create({
-      data: { workspaceId: ctx.workspace.id, kind: "PROJECT", projectId: project.id, name: project.name, createdById: ctx.actor.userId },
+      data: {
+        workspaceId: ctx.workspace.id,
+        kind: "PROJECT",
+        projectId: project.id,
+        name: project.name,
+        createdById: ctx.actor.userId,
+      },
     });
 
-    activity({ entityType: "PROJECT", entityId: project.id, projectId: project.id, verb: "created", meta: { name: project.name, identifier: project.identifier } });
-    emit({ topic: `workspace:${ctx.workspace.id}`, type: "project.created", payload: { id: project.id } });
+    activity({
+      entityType: "PROJECT",
+      entityId: project.id,
+      projectId: project.id,
+      verb: "created",
+      meta: { name: project.name, identifier: project.identifier },
+    });
+    emit({
+      topic: `workspace:${ctx.workspace.id}`,
+      type: "project.created",
+      payload: { id: project.id },
+    });
     return project;
   });
 }

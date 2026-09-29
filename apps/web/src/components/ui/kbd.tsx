@@ -48,7 +48,7 @@ export function Kbd({
   return (
     <kbd
       className={cn(
-        "tabular inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] border px-1 font-sans text-micro font-medium",
+        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] border px-1 font-sans text-micro font-medium tabular",
         tone === "default" && "border-border-strong bg-surface text-fg-muted",
         tone === "inverted" && "border-white/20 bg-white/10 text-white/80",
         className,

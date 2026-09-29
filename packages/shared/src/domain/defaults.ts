@@ -1,9 +1,15 @@
 import type { TagColor } from "../schemas/palette";
 
-export type StateGroupName = "TRIAGE" | "BACKLOG" | "UNSTARTED" | "STARTED" | "COMPLETED" | "CANCELLED";
+export type StateGroupName =
+  "TRIAGE" | "BACKLOG" | "UNSTARTED" | "STARTED" | "COMPLETED" | "CANCELLED";
 
 /** Default workflow for a new project (Q-15). Triage is hidden and fixed. */
-export const defaultStates: Array<{ name: string; group: StateGroupName; color: string; isDefault?: boolean }> = [
+export const defaultStates: Array<{
+  name: string;
+  group: StateGroupName;
+  color: string;
+  isDefault?: boolean;
+}> = [
   { name: "Triage", group: "TRIAGE", color: "#837DED" },
   { name: "Backlog", group: "BACKLOG", color: "#A1A1AA", isDefault: true },
   { name: "Todo", group: "UNSTARTED", color: "#71717A" },
@@ -14,7 +20,12 @@ export const defaultStates: Array<{ name: string; group: StateGroupName; color: 
 ];
 
 /** Workspace-wide work-item types (lucide icon names, tag colours). */
-export const defaultWorkItemTypes: Array<{ name: string; icon: string; color: TagColor; isDefault?: boolean }> = [
+export const defaultWorkItemTypes: Array<{
+  name: string;
+  icon: string;
+  color: TagColor;
+  isDefault?: boolean;
+}> = [
   { name: "Task", icon: "square-check", color: "grey", isDefault: true },
   { name: "Bug", icon: "bug", color: "red" },
   { name: "Incident", icon: "siren", color: "orange" },

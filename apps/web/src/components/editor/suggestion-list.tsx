@@ -40,7 +40,10 @@ export const SuggestionList = forwardRef<
     },
   }));
   return (
-    <div className="w-72 overflow-hidden rounded-card border border-border bg-surface p-1 shadow-popover" role="listbox">
+    <div
+      className="w-72 overflow-hidden rounded-card border border-border bg-surface p-1 shadow-popover"
+      role="listbox"
+    >
       {items.length === 0 ? (
         <p className="px-2 py-1.5 text-small text-fg-muted">{emptyLabel}</p>
       ) : (
@@ -55,11 +58,16 @@ export const SuggestionList = forwardRef<
               e.preventDefault();
               command(item);
             }}
-            className={cn("flex h-8 w-full items-center gap-2 rounded-[8px] px-2 text-left text-body", i === index && "bg-neutral-150")}
+            className={cn(
+              "flex h-8 w-full items-center gap-2 rounded-[8px] px-2 text-left text-body",
+              i === index && "bg-neutral-150",
+            )}
           >
             {item.icon}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {item.hint ? <span className="tabular shrink-0 text-small text-fg-muted">{item.hint}</span> : null}
+            {item.hint ? (
+              <span className="shrink-0 text-small text-fg-muted tabular">{item.hint}</span>
+            ) : null}
           </button>
         ))
       )}
