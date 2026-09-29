@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
+/** Waits until no change is still being written (see UnsavedChangesGuard). */
+async function waitForSaved(page: Page) {
+  await expect(page.locator("html:not([data-saving])")).toBeAttached();
+}
+
 const uniq = () => Math.random().toString(36).slice(2, 7);
 
 async function openSandbox(page: Page) {
@@ -53,7 +58,7 @@ test("change priority inline with the keyboard; it survives a reload", async ({ 
   await page.keyboard.press("p");
   await page.getByRole("option", { name: "High" }).click();
   await expect(row.getByRole("button", { name: "Priority: High" })).toBeVisible();
-  await page.waitForLoadState("networkidle"); // let the optimistic save land
+  await waitForSaved(page);
   await page.reload();
   await expect(
     page
@@ -110,7 +115,7 @@ test("done items are hidden by default and can be shown (D-053)", async ({ page 
   const row = await createItem(page, `E2E done ${uniq()}`);
   await row.getByRole("button", { name: /^State:/ }).click();
   await page.getByRole("option", { name: "Done" }).click();
-  await page.waitForLoadState("networkidle");
+  await waitForSaved(page);
   await page.reload();
   const chip = page.getByTestId("done-toggle");
   if ((await chip.textContent())?.includes("Showing done")) await chip.click();
@@ -150,7 +155,7 @@ test("drag a card to another column on the board", async ({ page }) => {
   await page.mouse.move(to.x + 60, to.y + 80, { steps: 15 });
   await page.mouse.up();
   await expect(inProgress.getByTestId("board-card").filter({ hasText: title })).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await waitForSaved(page);
   await page.reload();
   await expect(
     page

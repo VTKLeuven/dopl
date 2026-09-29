@@ -8,7 +8,10 @@ import {
   CreateManyWorkItemsSchema,
   CreateWorkItemSchema,
   DONE_GROUPS,
+  IdsSchema,
+  MoveToProjectSchema,
   MoveWorkItemSchema,
+  PatchManySchema,
   UpdateWorkItemSchema,
   type CreateWorkItemInput,
   type StateGroup,
@@ -550,6 +553,132 @@ export async function bulkUpdateWorkItems(ctx: WorkspaceCtx, raw: unknown) {
   });
 }
 
+/** Per-item patches in one transaction and one activity batch (bulk undo). */
+export async function patchManyWorkItems(ctx: WorkspaceCtx, raw: unknown) {
+  const { items } = PatchManySchema.parse(raw);
+  return withMutation(ctx, async (m) => {
+    for (const { id, patch } of items)
+      await applyUpdate(m, UpdateWorkItemSchema.parse({ id, ...patch }));
+    return { updated: items.length };
+  });
+}
+
+/**
+ * Moves items to another project in one transaction. Each gets a new number in
+ * the target; its state maps to the target's state of the same group, labels
+ * map by name (workspace labels stay), and parent links that would cross
+ * projects are cut so counters stay consistent.
+ */
+export async function moveToProject(ctx: WorkspaceCtx, raw: unknown) {
+  const { ids, projectId } = MoveToProjectSchema.parse(raw);
+  const target = await projectAccessById(ctx, projectId);
+  if (!target.can("workItem.create")) throw new ForbiddenError();
+  return withMutation(ctx, async (m) => {
+    const { tx } = m;
+    const moving = new Set(ids);
+    const [states, targetLabels] = await Promise.all([
+      tx.workflowState.findMany({
+        where: { projectId },
+        orderBy: { sortKey: "asc" },
+        select: { id: true, group: true, isDefault: true },
+      }),
+      tx.label.findMany({
+        where: { workspaceId: ctx.workspace.id, projectId },
+        select: { id: true, name: true },
+      }),
+    ]);
+    const stateFor = (group: StateGroup) =>
+      states.find((s) => s.group === group && s.isDefault) ??
+      states.find((s) => s.group === group) ??
+      states.find((s) => s.isDefault);
+    const labelByName = new Map(targetLabels.map((l) => [l.name.toLowerCase(), l.id]));
+    const first = await tx.workItem.findFirst({
+      where: { projectId, deletedAt: null },
+      orderBy: { sortKey: "asc" },
+      select: { sortKey: true },
+    });
+    let topKey = first?.sortKey ?? null;
+    const moved: Array<{ id: string; identifier: string }> = [];
+
+    for (const id of ids) {
+      const { item, access } = await loadItemForWrite(tx, ctx, id);
+      if (item.projectId === projectId) continue;
+      const state = stateFor(item.state.group);
+      if (!state) throw new ConflictError("no_matching_state");
+      const sequence = item.sequence === null ? null : await nextSequence(tx, projectId);
+      // Parent link across projects: cut it and fix the old parent's counters.
+      if (item.parentId && !moving.has(item.parentId)) {
+        await tx.workItem.update({
+          where: { id: item.parentId },
+          data: {
+            childCount: { decrement: 1 },
+            ...(isDone(item.stateGroup) ? { childDoneCount: { decrement: 1 } } : {}),
+          },
+        });
+      }
+      const staying = await tx.workItem.findMany({
+        where: { parentId: item.id, deletedAt: null, id: { notIn: ids } },
+        select: { id: true, stateGroup: true },
+      });
+      if (staying.length) {
+        await tx.workItem.updateMany({
+          where: { id: { in: staying.map((c) => c.id) } },
+          data: { parentId: null },
+        });
+      }
+      const labels = await tx.label.findMany({
+        where: { id: { in: item.labels.map((l) => l.labelId) } },
+        select: { id: true, name: true, projectId: true },
+      });
+      const nextLabels = [
+        ...new Set(
+          labels.flatMap((l) => {
+            if (!l.projectId) return [l.id];
+            const mapped = labelByName.get(l.name.toLowerCase());
+            return mapped ? [mapped] : [];
+          }),
+        ),
+      ];
+      topKey = keyBefore(topKey);
+      await tx.workItemLabel.deleteMany({ where: { workItemId: item.id } });
+      await tx.workItem.update({
+        where: { id: item.id },
+        data: {
+          projectId,
+          sequence,
+          stateId: state.id,
+          stateGroup: state.group,
+          sortKey: topKey,
+          parentId: item.parentId && moving.has(item.parentId) ? item.parentId : null,
+          childCount: { decrement: staying.length },
+          childDoneCount: { decrement: staying.filter((c) => isDone(c.stateGroup)).length },
+          labels: {
+            createMany: {
+              data: nextLabels.map((labelId) => ({ labelId, workspaceId: ctx.workspace.id })),
+            },
+          },
+        },
+      });
+      const from = `${access.project.identifier}-${item.sequence ?? ""}`;
+      const to = `${target.project.identifier}-${sequence ?? ""}`;
+      m.activity({
+        entityType: "WORK_ITEM",
+        entityId: item.id,
+        workItemId: item.id,
+        projectId,
+        verb: "moved",
+        field: "project",
+        fromValue: from,
+        toValue: to,
+      });
+      emitItem(m, item.projectId, "workItem.deleted", { id: item.id });
+      emitItem(m, projectId, "workItem.created", { id: item.id });
+      moved.push({ id: item.id, identifier: to });
+    }
+    return { moved };
+  });
+}
+
 /* ───────────────────────── ordering ───────────────────────── */
 
 export async function moveWorkItem(ctx: WorkspaceCtx, raw: unknown) {
@@ -581,55 +710,79 @@ export async function moveWorkItem(ctx: WorkspaceCtx, raw: unknown) {
 /* ───────────────────────── lifecycle ───────────────────────── */
 
 export async function setArchived(ctx: WorkspaceCtx, id: string, archived: boolean) {
+  return withMutation(ctx, (m) => archiveOne(m, id, archived));
+}
+
+/** Archive or restore many items in one transaction. */
+export async function setArchivedMany(ctx: WorkspaceCtx, raw: unknown, archived: boolean) {
+  const ids = IdsSchema.parse(raw);
   return withMutation(ctx, async (m) => {
-    const { item } = await loadItemForWrite(m.tx, ctx, id);
-    await m.tx.workItem.update({
-      where: { id },
-      data: { archivedAt: archived ? new Date() : null },
-    });
-    m.activity({
-      entityType: "WORK_ITEM",
-      entityId: id,
-      workItemId: id,
-      projectId: item.projectId,
-      verb: archived ? "archived" : "unarchived",
-    });
-    emitItem(m, item.projectId, "workItem.updated", { id, fields: ["archivedAt"] });
-    return { id };
+    for (const id of ids) await archiveOne(m, id, archived);
+    return { count: ids.length };
   });
 }
 
-export async function setDeleted(ctx: WorkspaceCtx, id: string, deleted: boolean) {
-  return withMutation(ctx, async (m) => {
-    const item = await m.tx.workItem.findFirst({
-      where: { id, workspaceId: ctx.workspace.id },
-      select: { id: true, projectId: true, parentId: true, stateGroup: true, deletedAt: true },
-    });
-    if (!item) throw new NotFoundError();
-    const access = await projectAccessById(ctx, item.projectId);
-    if (!access.can("workItem.delete")) throw new ForbiddenError();
-    if (Boolean(item.deletedAt) === deleted) return { id };
-    await m.tx.workItem.update({ where: { id }, data: { deletedAt: deleted ? new Date() : null } });
-    if (item.parentId) {
-      const d = deleted ? -1 : 1;
-      await m.tx.workItem.update({
-        where: { id: item.parentId },
-        data: {
-          childCount: { increment: d },
-          ...(isDone(item.stateGroup) ? { childDoneCount: { increment: d } } : {}),
-        },
-      });
-    }
-    m.activity({
-      entityType: "WORK_ITEM",
-      entityId: id,
-      workItemId: id,
-      projectId: item.projectId,
-      verb: deleted ? "deleted" : "restored",
-    });
-    emitItem(m, item.projectId, deleted ? "workItem.deleted" : "workItem.created", { id });
-    return { id };
+async function archiveOne(m: Mutation, id: string, archived: boolean) {
+  const { ctx } = m;
+  const { item } = await loadItemForWrite(m.tx, ctx, id);
+  await m.tx.workItem.update({
+    where: { id },
+    data: { archivedAt: archived ? new Date() : null },
   });
+  m.activity({
+    entityType: "WORK_ITEM",
+    entityId: id,
+    workItemId: id,
+    projectId: item.projectId,
+    verb: archived ? "archived" : "unarchived",
+  });
+  emitItem(m, item.projectId, "workItem.updated", { id, fields: ["archivedAt"] });
+  return { id };
+}
+
+export async function setDeleted(ctx: WorkspaceCtx, id: string, deleted: boolean) {
+  return withMutation(ctx, (m) => deleteOne(m, id, deleted));
+}
+
+/** Delete or restore many items in one transaction (the undo toast restores them all). */
+export async function setDeletedMany(ctx: WorkspaceCtx, raw: unknown, deleted: boolean) {
+  const ids = IdsSchema.parse(raw);
+  return withMutation(ctx, async (m) => {
+    for (const id of ids) await deleteOne(m, id, deleted);
+    return { count: ids.length };
+  });
+}
+
+async function deleteOne(m: Mutation, id: string, deleted: boolean) {
+  const { ctx } = m;
+  const item = await m.tx.workItem.findFirst({
+    where: { id, workspaceId: ctx.workspace.id },
+    select: { id: true, projectId: true, parentId: true, stateGroup: true, deletedAt: true },
+  });
+  if (!item) throw new NotFoundError();
+  const access = await projectAccessById(ctx, item.projectId);
+  if (!access.can("workItem.delete")) throw new ForbiddenError();
+  if (Boolean(item.deletedAt) === deleted) return { id };
+  await m.tx.workItem.update({ where: { id }, data: { deletedAt: deleted ? new Date() : null } });
+  if (item.parentId) {
+    const d = deleted ? -1 : 1;
+    await m.tx.workItem.update({
+      where: { id: item.parentId },
+      data: {
+        childCount: { increment: d },
+        ...(isDone(item.stateGroup) ? { childDoneCount: { increment: d } } : {}),
+      },
+    });
+  }
+  m.activity({
+    entityType: "WORK_ITEM",
+    entityId: id,
+    workItemId: id,
+    projectId: item.projectId,
+    verb: deleted ? "deleted" : "restored",
+  });
+  emitItem(m, item.projectId, deleted ? "workItem.deleted" : "workItem.created", { id });
+  return { id };
 }
 
 /* ───────────────────────── relations, links, subscription ───────────────────────── */

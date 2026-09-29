@@ -797,3 +797,69 @@ These routes are **internal**: they have no stability promise. The public REST A
 - **Prisma refuses destructive commands (`migrate reset`) when it detects an AI agent** unless the user types an explicit consent phrase. Agents must not work around this. Tests use `migrate deploy` on `DATABASE_URL_TEST` and isolate data per test with their own workspaces.
 - **Building the Docker images locally crashed the OrbStack daemon twice** during `next build`. Images are built in CI (the `images` job pushes to GHCR); locally, use `pnpm build` for a smoke build.
 - After `pnpm add` in `apps/web`, Turbopack can serve stale modules. Restart `pnpm dev` and delete `apps/web/.next/dev`.
+
+## Decisions made while building Phase 2 (2026-09-29)
+
+### D-062: How item lists load, and how big they may get
+
+**Context:** The performance pass (`pnpm perf`, 50,000 items in 10 projects) showed that planning and indexes are fine (every access path is an index scan, 0.3–26 ms server time). The cost is in returning rows: about 12 µs per row for transfer and parsing, whether through Prisma or `pg` directly.
+**Decision:**
+
+- Lists load in two steps. Prisma applies the compiled filter and returns ids only. Then one SQL query fetches those rows, with assignees and labels aggregated in Postgres (CTEs, not a subquery per row).
+- Caps per response: **10,000 rows** for a project list and **2,000** across projects, where the most recently updated rows win. A capped list shows a notice asking for a narrower filter.
+- Measured p50: filtered views 7–22 ms; workspace views about 35 ms; a 3.3k-row project list about 38 ms; the unfiltered 5k-row list about 66 ms. p95 is noisy on a shared dev machine (GC pauses), so the harness asserts p50 against the budget and reports p95. The budget is 50 ms for filtered views and lists up to 2,000 rows, and linear (15 ms + 15 µs per row) above that.
+
+**Revisit when** a single project passes about 5,000 open items. Options: denormalized `assigneeIds`/`labelIds` arrays on `work_items`, server-side grouping with per-group windows, or streaming rows.
+
+### D-063: Realtime transport as built (amends ARCHITECTURE §4)
+
+- One `LISTEN dopl_realtime` connection per web process, on a dedicated `pg` client rather than the Prisma pool. It reads each `realtime_events` row once and fans it out to that workspace's SSE streams (`/api/v1/[ws]/realtime`).
+- Each connection keeps a permission snapshot: accessible project ids, plus a cached item-to-project lookup for `workItem:` topics. `user:` topics go only to that user. The snapshot is refreshed on `project.*`, `member.*` and `invite.*` events.
+- `Last-Event-ID` replays up to 500 missed events; beyond that the server sends `resync` and the client refetches everything. Keepalive `: ping` every 20 s; the client reconnects with backoff.
+- The client batches events for 150 ms, invalidates the matching queries, and refreshes server-rendered pages (Home, sidebar, view lists) with `router.refresh()`. **It waits while local mutations are in flight**: otherwise a refetch can land between an optimistic update and its write and put the old value back (found by the e2e run).
+- **Not built yet:** the BroadcastChannel leader tab (one stream per browser). Each tab opens its own stream, which is fine at our size over HTTP/2. The "flash the changed field" treatment (DESIGN_SYSTEM §7.2) is also still to do.
+
+### D-064: Filter semantics
+
+- The AST lives in `@dopl/shared/schemas/filters`. The server compiler is `apps/web/src/server/queries/filters.ts`, with a database test for every field × operator (78 pairs).
+- "is none of" on a nullable field (type, parent, created by) **keeps items where the field is empty**. Otherwise excluding one type would silently drop untyped items.
+- Date rules compare calendar days in the **workspace time zone**; timestamp rules convert those days to instants in the same zone. Dynamic values: today, yesterday, tomorrow, start and end of this week and month, and within the last or next N days, weeks or months.
+- Quick filters are ordinary top-level rules of an AND root, so they combine with anything and show up as chips.
+- An unsaved view keeps its filters per user and scope (`ViewPreference`) and mirrors them into `?f=` so links can be shared. On load, a URL filter wins over the saved one.
+- In the builder, the parent field only offers "is empty / is set". `in` on parent ids stays available in the AST for the API and the agent.
+
+### D-065: Saved views
+
+- Private views are the owner's. Shared views are visible to everyone who can see the project (or the workspace, for cross-project views).
+- Any non-guest human can edit a shared view unless it's **locked**. Only the owner or an admin can lock, change visibility, or delete it (`canView` in the policy module).
+- Opening a saved view seeds the page with its settings. Changes are **not** auto-saved: the filter bar offers Reset, Save (if you may edit) and Save as new. Unsaved project and workspace pages keep auto-saving their last-used settings.
+- Favourites (the `favorites` table) pin views to the sidebar and disappear with the view.
+
+### D-066: Cross-project (workspace) views
+
+- Non-guests only; a guest's access is per project and may exclude browsing.
+- Grouping by state becomes grouping by **state group**, because each project has its own states; you can also group by project. Manual order falls back to priority. The state and label pickers narrow to the row's own project, and a board drop into a state group picks that project's first state in the group.
+- Creating items from a workspace view isn't offered yet: the create dialog needs a project picker.
+
+### D-067: Table, calendar and timeline
+
+- **Table:** TanStack Table 9 owns column state only (sizing, resizing, order, visibility); we render the virtualized rows ourselves as memoized components, so editing a cell re-renders one row. Column order and widths are saved in `DisplayOptions.table.columns`; visibility follows the display properties. The title column is pinned.
+- **Calendar:** dragging changes only the date shown (due or start). If the start would end up after the due date, the server rejects it and the change rolls back. Keyboard: Shift+arrows move by a day or a week, and focus stays on the item.
+- **Timeline:** a drag or resize sends start and due together in one update. A dependency is drawn red when the blocker ends on or after the day the blocked item starts.
+
+### D-068: Keyboard registry and the command palette
+
+- Every shortcut is defined in `apps/web/src/lib/shortcuts/registry.ts` with a scope. Handlers resolve key events through it, the `?` overlay is generated from it, and a unit test checks for conflicts and missing labels. Physical keys are used for punctuation with ⌘ (⌘⇧, reports `<`).
+- The palette acts on "the current item": the one open in peek or on its page, else the focused row. Views publish it through a tiny external store (`features/palette/context.ts`). Item property changes from the palette are nested pages.
+- "Recent" comes from `recent_visits`, recorded by a server action when an item, project or view opens. Access is checked when recents are read, not when they're written.
+
+### D-069: Bulk operations
+
+- Each bulk operation is one transaction and one activity batch. **Undo** sends each item's previous values (taken from the client cache) back through `patchManyWorkItems`. Archive and delete undo by reversing the flag for the same ids.
+- **Move to project** gives items new numbers in the target project and maps the state to the target's state in the same group (the default one if possible). Project labels map by name; workspace labels stay. Parent links that would cross projects are cut, with counters fixed. **Old identifiers don't redirect yet** (see Q-23).
+
+### D-070: Keeping the e2e suite deterministic
+
+- `<html data-saving>` is present while mutations are in flight. Tests wait for it to disappear instead of `networkidle`, which the always-open realtime stream makes meaningless.
+- The Playwright setup empties the E2E sandbox (select all, delete) before the run.
+- Next keeps the previous route mounted (hidden) for instant back navigation, so a test id can match twice. Specs act on `filter({ visible: true })`.

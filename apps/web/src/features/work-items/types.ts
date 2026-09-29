@@ -3,6 +3,7 @@ import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
 
 export interface WorkItemRow {
   id: string;
+  projectId: string;
   sequence: number | null;
   identifier: string;
   title: string;
@@ -33,6 +34,9 @@ export interface StateMeta {
   color: string;
   sortKey: string;
   isDefault: boolean;
+  /** Set in workspace (cross-project) metadata. */
+  projectId?: string;
+  projectName?: string;
 }
 export interface LabelMeta {
   id: string;
@@ -63,12 +67,16 @@ export interface ProjectMeta {
     color: string | null;
     estimateSystem: "NONE" | "POINTS" | "HOURS";
   };
+  /** Only in workspace (cross-project) metadata. */
+  projects?: Array<{ id: string; identifier: string; name: string; color: string | null }>;
   states: StateMeta[];
   labels: LabelMeta[];
   types: TypeMeta[];
   members: MemberMeta[];
   can: { create: boolean; edit: boolean; delete: boolean; manage: boolean; comment: boolean };
   me: string;
+  /** Calendar settings for date math (today, week bounds). */
+  calendar: { timeZone: string; weekStartsOn: number };
 }
 
 export interface CommentView {
@@ -99,7 +107,6 @@ export interface RelationView {
 }
 
 export interface WorkItemDetail extends WorkItemRow {
-  projectId: string;
   projectIdentifier: string;
   description: unknown;
   createdById: string | null;

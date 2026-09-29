@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @dopl/web --filter @dopl/worker dev",
-    "build": "pnpm -r --filter ./apps/* build",
+    "build": "pnpm -r --filter './apps/*' build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint && prettier --check .",
     "format": "prettier --write .",
@@ -24,7 +24,8 @@
     "db:reset": "pnpm --filter @dopl/db reset",
     "db:drift": "pnpm --filter @dopl/db drift",
     "db:studio": "pnpm --filter @dopl/db studio",
-    "dopl:bootstrap": "pnpm --filter @dopl/db bootstrap"
+    "dopl:bootstrap": "pnpm --filter @dopl/db bootstrap",
+    "perf": "vitest run --config vitest.perf.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

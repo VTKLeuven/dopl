@@ -31,6 +31,12 @@ export function formatKey(key: string, isMac = true): string {
       return "↑";
     case "down":
       return "↓";
+    case "left":
+      return "←";
+    case "right":
+      return "→";
+    case "space":
+      return "Space";
     default:
       return key.length === 1 ? key.toUpperCase() : key;
   }

@@ -23,7 +23,7 @@ secrets/
 
 # local data
 .data/
-storage/
+/storage/
 
 # tests
 coverage/

@@ -351,6 +351,7 @@ function ItemRow({
         {show("labels") ? (
           <LabelPicker
             meta={meta}
+            projectId={row.projectId}
             value={row.labelIds}
             onChange={(labelIds) => onUpdate(row.id, { labelIds })}
             disabled={!canEdit}

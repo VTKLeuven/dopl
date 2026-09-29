@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import type { UpdateWorkItemInput } from "@dopl/shared/schemas/work-item";
+import { isEmptyFilter, normalizeFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
 import {
   createWorkItemAction,
   createWorkItemsAction,
@@ -11,6 +12,9 @@ import {
   setDeletedAction,
   updateWorkItemAction,
   bulkUpdateWorkItemsAction,
+  moveToProjectAction,
+  patchManyWorkItemsAction,
+  setArchivedManyAction,
 } from "@/server/actions/work-items";
 import type { ActionResult } from "@/server/action-result";
 import type { ProjectMeta, WorkItemDetail, WorkItemRow } from "./types";
@@ -20,13 +24,16 @@ export interface ItemsData {
   rows: WorkItemRow[];
   hiddenDone: number;
   hiddenByState: Record<string, number>;
+  truncated?: boolean;
 }
 
 /* ─────────────── query keys (one place; realtime reuses them later) ─────────────── */
 export const keys = {
   items: (projectId: string) => ["items", projectId] as const,
-  itemsMode: (projectId: string, mode: CompletedMode) => ["items", projectId, mode] as const,
+  itemsQuery: (projectId: string, mode: CompletedMode, filterKey: string) =>
+    ["items", projectId, mode, filterKey] as const,
   meta: (projectId: string) => ["meta", projectId] as const,
+  relations: (projectId: string) => ["relations", projectId] as const,
   detail: (ref: string) => ["item", ref.toUpperCase()] as const,
   search: (q: string, projectId?: string) => ["search-items", q, projectId ?? null] as const,
 };
@@ -37,18 +44,51 @@ async function getJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function useProjectItems(
+/** Stable string for a filter; empty filters share one cache entry. */
+export function filterKey(filters: FilterGroup): string {
+  return isEmptyFilter(filters) ? "" : JSON.stringify(normalizeFilter(filters));
+}
+
+export function itemsSearchParams(mode: CompletedMode, filters: FilterGroup): string {
+  const key = filterKey(filters);
+  return `completed=${mode}${key ? `&f=${encodeURIComponent(key)}` : ""}`;
+}
+
+/** Where a list of items comes from: one project, or every project (workspace views). */
+export type ItemsScope = { kind: "project"; projectId: string } | { kind: "workspace" };
+
+/** Cache key for a scope; project scopes use the project id so mutations can find them. */
+export function scopeKey(scope: ItemsScope): string {
+  return scope.kind === "project" ? scope.projectId : "workspace";
+}
+
+function scopeBase(ws: string, scope: ItemsScope): string {
+  return scope.kind === "project" ? `/api/v1/${ws}/projects/${scope.projectId}` : `/api/v1/${ws}`;
+}
+
+export function useItems(
   ws: string,
-  projectId: string,
-  mode: CompletedMode,
+  scope: ItemsScope,
+  query: { completed: CompletedMode; filters: FilterGroup },
   initial?: ItemsData,
 ) {
   return useQuery({
-    queryKey: keys.itemsMode(projectId, mode),
+    queryKey: keys.itemsQuery(scopeKey(scope), query.completed, filterKey(query.filters)),
     queryFn: () =>
-      getJson<ItemsData>(`/api/v1/${ws}/projects/${projectId}/items?completed=${mode}`),
+      getJson<ItemsData>(
+        `${scopeBase(ws, scope)}/items?${itemsSearchParams(query.completed, query.filters)}`,
+      ),
     initialData: initial,
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useScopeMeta(ws: string, scope: ItemsScope, initial?: ProjectMeta) {
+  return useQuery({
+    queryKey: keys.meta(scopeKey(scope)),
+    queryFn: () => getJson<ProjectMeta>(`${scopeBase(ws, scope)}/meta`),
+    initialData: initial,
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -59,6 +99,20 @@ export function useProjectMeta(ws: string, projectId: string, initial?: ProjectM
     enabled: Boolean(projectId),
     initialData: initial,
     staleTime: 5 * 60_000,
+  });
+}
+
+export interface BlockingRelation {
+  id: string;
+  sourceId: string;
+  targetId: string;
+}
+export function useBlockingRelations(ws: string, projectId: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.relations(projectId),
+    queryFn: () => getJson<BlockingRelation[]>(`/api/v1/${ws}/projects/${projectId}/relations`),
+    enabled,
+    staleTime: 30_000,
   });
 }
 
@@ -186,24 +240,118 @@ export function useUpdateItem(ws: string, projectId: string) {
   });
 }
 
+type BulkPatch = Omit<UpdateWorkItemInput, "id" | "title" | "description">;
+
+/** The current values of the patched fields, so a bulk change can be undone. */
+function previousValues(rows: WorkItemRow[], patch: BulkPatch) {
+  const fields = Object.keys(patch) as Array<keyof BulkPatch>;
+  return rows.map((r) => ({
+    id: r.id,
+    patch: Object.fromEntries(fields.map((f) => [f, r[f as keyof WorkItemRow]])) as BulkPatch,
+  }));
+}
+
+/** One batch for the whole selection, with an undo toast that restores each item. */
 export function useBulkUpdate(ws: string, projectId: string) {
   const qc = useQueryClient();
   const t = useTranslations("items");
   return useMutation({
-    mutationFn: async (input: {
-      ids: string[];
-      patch: Omit<UpdateWorkItemInput, "id" | "title" | "description">;
-    }) => unwrap(await bulkUpdateWorkItemsAction(ws, input)),
-    onMutate: async ({ ids, patch }) => {
+    mutationFn: async (input: { rows: WorkItemRow[]; patch: BulkPatch }) =>
+      unwrap(
+        await bulkUpdateWorkItemsAction(ws, {
+          ids: input.rows.map((r) => r.id),
+          patch: input.patch,
+        }),
+      ),
+    onMutate: async ({ rows, patch }) => {
       await qc.cancelQueries({ queryKey: keys.items(projectId) });
-      return { snapshot: patchCaches(qc, projectId, ids, patch) };
+      return {
+        snapshot: patchCaches(
+          qc,
+          projectId,
+          rows.map((r) => r.id),
+          patch,
+        ),
+        previous: previousValues(rows, patch),
+      };
     },
     onError: (err, _input, context) => {
       if (context) restore(qc, context.snapshot);
       toast.error(errorMessage(t, err));
     },
+    onSuccess: (_data, { rows }, context) => {
+      toast(t("bulkUpdated", { count: rows.length }), {
+        duration: 6000,
+        action: {
+          label: t("undo"),
+          onClick: () =>
+            void (async () => {
+              unwrap(await patchManyWorkItemsAction(ws, { items: context.previous }));
+              await qc.invalidateQueries({ queryKey: keys.items(projectId) });
+            })().catch((err: unknown) => toast.error(errorMessage(t, err))),
+        },
+      });
+    },
     onSettled: () =>
       void qc.invalidateQueries({ queryKey: keys.items(projectId), refetchType: "none" }),
+  });
+}
+
+/** Removes rows from every cached list of a scope (archive, delete, move away). */
+function removeFromCaches(qc: QueryClient, projectId: string, ids: string[]): Snapshot {
+  const snapshot: Snapshot = [];
+  for (const [key, data] of qc.getQueriesData<ItemsData>({ queryKey: keys.items(projectId) })) {
+    snapshot.push([key, data]);
+    if (data)
+      qc.setQueryData<ItemsData>(key, {
+        ...data,
+        rows: data.rows.filter((r) => !ids.includes(r.id)),
+      });
+  }
+  return snapshot;
+}
+
+export function useArchiveItems(ws: string, projectId: string) {
+  const qc = useQueryClient();
+  const t = useTranslations("items");
+  return useMutation({
+    mutationFn: async (ids: string[]) => unwrap(await setArchivedManyAction(ws, ids, true)),
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: keys.items(projectId) });
+      return { snapshot: removeFromCaches(qc, projectId, ids) };
+    },
+    onError: (err, _ids, context) => {
+      if (context) restore(qc, context.snapshot);
+      toast.error(errorMessage(t, err));
+    },
+    onSuccess: (_data, ids) => {
+      toast(t("archivedMany", { count: ids.length }), {
+        duration: 6000,
+        action: {
+          label: t("undo"),
+          onClick: () =>
+            void (async () => {
+              unwrap(await setArchivedManyAction(ws, ids, false));
+              await qc.invalidateQueries({ queryKey: keys.items(projectId) });
+            })(),
+        },
+      });
+    },
+  });
+}
+
+export function useMoveToProject(ws: string, projectId: string) {
+  const qc = useQueryClient();
+  const t = useTranslations("items");
+  return useMutation({
+    mutationFn: async (input: { ids: string[]; projectId: string }) =>
+      unwrap(await moveToProjectAction(ws, input)),
+    onSuccess: (data) => {
+      toast.success(t("movedMany", { count: data.moved.length }));
+      void qc.invalidateQueries({ queryKey: ["items"] });
+    },
+    onError: (err) => toast.error(errorMessage(t, err)),
+    onSettled: () => void qc.invalidateQueries({ queryKey: keys.items(projectId) }),
   });
 }
 

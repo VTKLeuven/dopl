@@ -108,3 +108,9 @@ _Default:_ generic OIDC next to Google and email+password, configured by an Admi
 _Default:_ titles and links only (`includeContent` off), with events chosen per webhook.
 
 **Q-20 (Phase 1/7): Google Cloud access.** Who can create the OAuth client (for sign-in), the service account with domain-wide delegation, and the Pub/Sub topic and subscription? Does a GCP project for this exist yet? I'll write a step-by-step admin guide either way.
+
+**Q-23 (Phase 2): Moved items' old numbers.** When INFRA-42 moves to NET and becomes NET-7, should `INFRA-42` keep resolving (links, `#INFRA-42` references, emails)?
+_Default until answered:_ no alias yet. The move is recorded in the item's activity. A per-item "previous identifiers" list, like the one projects already have, would make old links redirect.
+
+**Q-24 (Phase 2): Calendar drags and start dates.** When you drag an item with both dates on the calendar, should the start date move along to keep the duration?
+_Default:_ only the date shown moves. The timeline is the place to move both.

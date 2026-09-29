@@ -84,6 +84,26 @@ export const BulkUpdateSchema = z.object({
   patch: UpdateWorkItemSchema.omit({ id: true, title: true, description: true }),
 });
 
+/** Different values per item in one transaction: undoing a bulk change. */
+export const PatchManySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        patch: UpdateWorkItemSchema.omit({ id: true, title: true, description: true }),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+export const IdsSchema = z.array(z.uuid()).min(1).max(500);
+
+export const MoveToProjectSchema = z.object({
+  ids: IdsSchema,
+  projectId: z.uuid(),
+});
+
 export const RelationTypeSchema = z.enum(["BLOCKS", "BLOCKED_BY", "RELATES_TO", "DUPLICATE_OF"]);
 export const AddRelationSchema = z.object({
   id: z.uuid(),

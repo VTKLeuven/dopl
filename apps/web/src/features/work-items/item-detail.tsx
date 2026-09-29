@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { clearPaletteItem, setPaletteItem } from "@/features/palette/context";
+import { recordVisitAction } from "@/server/actions/recents";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -98,6 +100,18 @@ export function ItemDetail({
   const { data, isError } = useWorkItemDetail(ws, itemRef);
   const { data: meta } = useProjectMeta(ws, data?.projectId ?? "", undefined);
   const t = useTranslations("items");
+  // ⌘K acts on the open item; opening it also counts as a visit for "Recent".
+  const itemId = data?.id;
+  const identifier = data?.identifier;
+  const title = data?.title;
+  useEffect(() => {
+    if (!itemId || !identifier || title === undefined) return;
+    setPaletteItem({ id: itemId, identifier, title });
+    return () => clearPaletteItem(itemId);
+  }, [itemId, identifier, title]);
+  useEffect(() => {
+    if (itemId) void recordVisitAction(ws, { type: "WORK_ITEM", id: itemId });
+  }, [ws, itemId]);
   if (isError) {
     return (
       <div className="p-6">
@@ -163,7 +177,10 @@ function DetailBody({
   const del = useDeleteItems(ws, item.projectId);
   const canEdit = meta.can.edit && !item.archivedAt;
   const set = (patch: Record<string, unknown>) => update.mutate({ id: item.id, ...patch });
-  const refresh = () => qc.invalidateQueries({ queryKey: keys.detail(item.identifier) });
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: keys.relations(item.projectId) });
+    return qc.invalidateQueries({ queryKey: keys.detail(item.identifier) });
+  };
   const url = () => `${window.location.origin}/${ws}/i/${item.identifier}`;
 
   const copy = async (text: string) => {
