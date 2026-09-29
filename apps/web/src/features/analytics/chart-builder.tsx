@@ -152,6 +152,7 @@ function BuilderForm({
             <Input
               value={shownTitle}
               placeholder={t("builder.namePlaceholder")}
+              aria-label={t("builder.name")}
               onChange={(e) => {
                 setTitle(e.target.value);
                 setTitleTouched(true);
