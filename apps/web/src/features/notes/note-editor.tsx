@@ -135,7 +135,7 @@ export interface NoteEditorProps {
   onChange?: (doc: unknown, editor: Editor) => void;
   /** ⌘/Ctrl+Enter */
   onSubmit?: () => void;
-  /** Esc, unless a suggestion popup took it. */
+  /** Esc, unless a suggestion popup is open. */
   onEscape?: () => void;
   onReady?: (editor: Editor) => void;
   placeholder?: string;
@@ -300,6 +300,12 @@ export function NoteEditor({
           handlers.current.onSubmit();
           return true;
         }
+        // Handled here, before anything else can take the key; an open
+        // suggestion popup keeps Esc for itself.
+        if (event.key === "Escape" && !suggesting.current && handlers.current.onEscape) {
+          handlers.current.onEscape();
+          return true;
+        }
         return false;
       },
     },
@@ -312,12 +318,6 @@ export function NoteEditor({
       editor={editor}
       className={cn("cursor-text", className)}
       data-testid="note-editor"
-      onKeyDown={(e) => {
-        // A suggestion popup handles its own Escape (and prevents the default).
-        if (e.key === "Escape" && !e.defaultPrevented && !suggesting.current) {
-          handlers.current.onEscape?.();
-        }
-      }}
     />
   );
 }
