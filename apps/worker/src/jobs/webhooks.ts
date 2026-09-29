@@ -69,6 +69,43 @@ async function loadEntity(
       description: item.descriptionText,
     };
   }
+  if (entityType === "EMAIL_THREAD") {
+    const thread = await db.emailThread.findUnique({
+      where: { id: entityId },
+      select: {
+        id: true,
+        subject: true,
+        snippet: true,
+        status: true,
+        mailbox: { select: { emailAddress: true, displayName: true } },
+        assignee: { select: { name: true } },
+        contact: { select: { name: true, email: true } },
+        participants: true,
+      },
+    });
+    if (!thread) return null;
+    const first = (thread.participants as Array<{ email: string; name: string | null }>)[0];
+    const from = thread.contact
+      ? thread.contact.name
+        ? `${thread.contact.name} <${thread.contact.email}>`
+        : thread.contact.email
+      : first
+        ? first.name
+          ? `${first.name} <${first.email}>`
+          : first.email
+        : null;
+    return {
+      kind: "email_thread",
+      identifier: thread.mailbox.displayName ?? thread.mailbox.emailAddress,
+      title: thread.subject,
+      url: `${appUrl}/${slug}/mail?thread=${thread.id}`,
+      projectName: thread.mailbox.emailAddress,
+      assignees: thread.assignee ? [thread.assignee.name] : [],
+      // Snippet and sender are content: only sent when the webhook includes it.
+      description: thread.snippet,
+      submitter: from,
+    };
+  }
   if (entityType === "INTAKE_ITEM") {
     const intake = await db.intakeItem.findUnique({
       where: { id: entityId },

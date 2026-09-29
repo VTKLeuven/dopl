@@ -6,6 +6,7 @@ import { sendOutboundEmail } from "../email/send";
 import { env } from "../env";
 import { queueOptions } from "../queues";
 import { snapshotProjects } from "./analytics";
+import { registerMailHandlers } from "./mail";
 import { sendDigests } from "./digest";
 import { wakeSnoozed } from "./snooze";
 import { deliverWebhook } from "./webhooks";
@@ -17,7 +18,8 @@ export interface JobContext {
 }
 
 /** Wires queue handlers and schedules. Each queue gets its own module as features land. */
-export async function registerHandlers(ctx: JobContext): Promise<void> {
+/** Returns a function that stops long-running consumers (Pub/Sub pull, fake watcher). */
+export async function registerHandlers(ctx: JobContext): Promise<() => void> {
   const { boss, db, logger } = ctx;
   const tz = { tz: "Europe/Brussels" };
 
@@ -95,4 +97,7 @@ export async function registerHandlers(ctx: JobContext): Promise<void> {
       "pruned ephemeral rows",
     );
   });
+
+  // Shared mailbox (Phase 7).
+  return registerMailHandlers({ boss, db, logger, tz });
 }

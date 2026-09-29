@@ -18,6 +18,7 @@
     "@prisma/client": "catalog:",
     "dompurify": "^3.4.16",
     "dotenv": "catalog:",
+    "google-auth-library": "^11.1.0",
     "jsdom": "^30.1.1",
     "nodemailer": "^10.0.12",
     "pg": "catalog:",
