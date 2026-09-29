@@ -186,7 +186,23 @@ Deliberate deviations (recorded in DECISIONS):
 
 ---
 
-## Phase 2: Views
+## Phase 2: Views ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Every item below is built, and so is the realtime transport (Q-9). Screenshots are in `docs/screenshots/phase-2/`; the CHANGELOG has the summary; decisions D-062 to D-070 record the choices. Tests: 124 Vitest (including every filter field × operator against Postgres) and 21 Playwright tests plus setup. `pnpm perf` runs the 50k-item benchmark.
+
+Where it differs from the plan below:
+
+- **Performance (item 10):** filtered views and lists up to 2,000 rows are well under 50 ms. Unfiltered lists of 3–5k rows take 40–70 ms because returning rows costs about 12 µs each, so they get a linear budget, and lists are capped at 10,000 rows per project and 2,000 across projects (D-062).
+- **Calendar keyboard:** Shift+arrows move the focused item by a day or a week, instead of dnd-kit's Space-pick-up (D-067).
+- **Realtime:** one stream per tab, no BroadcastChannel leader yet; changed fields don't flash yet (D-063).
+
+**Not done yet, carried forward:**
+
+- [ ] Table acceptance measurements (10,000 rows at 60 fps, the React Profiler check). Rows are virtualized and memoized, but the check isn't automated.
+- [ ] Shortcuts from the keyboard map that have no handler yet: `T` type, `E` edit title, `M` comment in peek, `Q` quick note (Phase 5), `[` toggle the sidebar
+- [ ] Creating items from a cross-project view (needs a project picker in the create dialog)
+- [ ] Old identifiers of moved items don't redirect (Q-23)
+- [ ] Everything still open from Phase 1 (visual baselines, axe, the mock-OIDC SSO test)
 
 1. **Table view:** TanStack Table v9 + Virtual, every cell inline-editable, resizable and reorderable columns (saved per view), a pinned first column, keyboard grid navigation, and sort by header click.
    _Accept:_ 10,000 rows scroll at 60 fps and editing a cell never re-renders other rows (React Profiler check).

@@ -2,7 +2,7 @@
 
 Dopl is a self-hosted project-management, personal-notes and IT-team tool: Plane-style work items and views, Blinko-style notes and to-dos, a shared Gmail mailbox, team chat, and an AI teammate (Hermes Agent on the team's own model) with human approval for every infrastructure action.
 
-**Status:** The plan was approved on 2026-09-29, and Phase 1 (Core) is in progress. Build phase by phase following `docs/ROADMAP.md`, and stop after each phase for review.
+**Status:** Phases 0–2 are built (plan, core, views) and waiting for review; **start with `docs/HANDOFF.md`**. Build phase by phase following `docs/ROADMAP.md`, and stop after each phase for review. Phase 3 (Intake) is next.
 
 **Deployment facts:** Dopl is public at `https://dopl.vtk.be` (D-051). All accounts are **invite-only**, across Google, email+password (+2FA), SSO and magic links (D-050). Outbound email goes through the Google Workspace SMTP relay. Discord webhooks post events (D-052). Done items are hidden by default in views (D-053).
 
@@ -33,15 +33,17 @@ docs/           plans, decisions, screenshots/phase-N/, CHANGELOG.md
 
 ```bash
 pnpm i                 # install (pnpm version pinned via packageManager / corepack)
-pnpm db:up             # docker compose -f docker/compose.dev.yml up -d  (Postgres 17 + pgvector, Garage)
+pnpm db:up             # docker compose -f docker/compose.dev.yml up -d  (Postgres 17 + pgvector on :54320, Mailpit)
 pnpm db:migrate        # prisma migrate dev   (then: pnpm db:generate)
 pnpm db:generate       # prisma generate      (v7 does NOT run this automatically)
 pnpm db:seed           # deterministic seed   (v7 does NOT auto-seed after migrate)
+pnpm db:seed -- --reset  # dev only: rebuild the seeded projects (fixes data changed by manual testing)
 pnpm dev               # next dev (web) + worker in watch mode
 pnpm typecheck         # tsc -b across the workspace
 pnpm lint              # eslint (flat config) + prettier --check
 pnpm test              # vitest (unit + integration against the test Postgres)
-pnpm e2e               # playwright (smoke, visual, instant() tests)
+pnpm e2e               # playwright against `pnpm dev` + the seeded DB (signs in as bram@dopl.test)
+pnpm perf              # 50k-item query benchmark on the test DB (not part of `pnpm test`)
 pnpm db:drift          # prisma migrate diff migrations→schema; must print an empty migration
 ```
 

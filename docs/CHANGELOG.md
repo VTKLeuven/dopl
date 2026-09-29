@@ -1,5 +1,55 @@
 # Changelog
 
+## Phase 2: Views (2026-09-29)
+
+**Filters**
+
+- A filter builder with quick filters (My items, Due this week, Overdue, Unassigned, High priority), rules, AND/OR and nested groups, plus a chip bar with the applied filters.
+- 20 fields with per-field operators and dynamic dates (today, this week, within the last or next N days), evaluated in the workspace time zone.
+- A server compiler tested against Postgres for every field × operator. Filters persist per user and appear in the URL for sharing.
+
+**Layouts**
+
+- **Table:** every cell editable, resizable and reorderable columns saved per view, a pinned title column, arrow-key grid navigation, sorting from the headers.
+- **Calendar:** month and week, due or start date, drag to reschedule, a tray of unscheduled items, "+N more", Shift+arrow moves.
+- **Timeline:** drag to move or resize (start and due change together), dependency arrows that turn red on conflicts, week/month/quarter zoom, a today line, click to schedule an undated item.
+- **Board swimlanes:** a second grouping; dropping into another lane changes both properties.
+
+**Saved views**
+
+- Private or shared, lockable; Save, Reset and Save as new when a view has unsaved changes; favourites in the sidebar.
+- Cross-project views for the whole workspace, plus an "All items" page, grouped by state group or project.
+
+**Keyboard and palette**
+
+- ⌘K searches items, projects, views and people, lists recents, and changes the open or focused item (state, priority, assignees, labels, due date, copy link/ID) through nested pages; → opens actions for a search result.
+- One shortcut registry drives the handlers and the `?` overlay. New: ⌘Enter, ⌘A, ⇧A (assign to me), ⌘⇧, (copy link), ⌘. (copy ID), and `g` then h/p/v/s.
+
+**Bulk actions**
+
+- The selection bar sets state, priority, assignees, labels, type or due date, moves items to another project, archives or deletes.
+- Each change is one transaction with an undo toast.
+
+**Realtime**
+
+- Server-sent events on Postgres LISTEN/NOTIFY: lists, boards, details and server-rendered pages update without a reload. Streams are filtered by project access and replay missed events on reconnect.
+
+**Performance**
+
+- `pnpm perf` seeds 50,000 items and times every view query.
+- Lists load ids first, then rows with assignees and labels aggregated in SQL; they're capped at 10,000 per project and 2,000 across projects (D-062).
+
+**Fixes found along the way**
+
+- The attachments storage module had never been committed (a `.gitignore` pattern hid it).
+- The build script's glob was expanded by the shell.
+- Test fixtures could create colliding project identifiers.
+- A realtime refetch could overwrite an optimistic update.
+
+**Tests**
+
+- 124 Vitest tests (filters, dates, views, bulk operations, realtime access, shortcut registry) and 21 Playwright tests covering every Phase 2 flow, including realtime between two tabs.
+
 ## Phase 1: Core (2026-09-29)
 
 **Foundation**

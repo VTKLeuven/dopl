@@ -56,16 +56,17 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
   const t = useTranslations("shortcuts");
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent size="lg" data-testid="shortcuts-overlay">
+      <DialogContent size="lg" className="max-w-[1000px]" data-testid="shortcuts-overlay">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
         </DialogHeader>
-        <DialogBody className="grid gap-x-8 gap-y-5 pb-5 sm:grid-cols-2">
+        {/* Columns flow the sections so short ones don't leave gaps. */}
+        <DialogBody className="gap-x-8 pb-5 sm:columns-2 lg:columns-3">
           {SCOPE_ORDER.map((scope) => {
             const items = SHORTCUTS.filter((s) => s.scope === scope);
             if (items.length === 0) return null;
             return (
-              <section key={scope} className="flex flex-col gap-1">
+              <section key={scope} className="mb-5 flex break-inside-avoid flex-col gap-1">
                 <h3 className="mb-1 text-caption font-medium tracking-wide text-fg-muted uppercase">
                   {t(`scope.${scope}`)}
                 </h3>
