@@ -11,6 +11,7 @@ import { Banner } from "@/components/ui/banner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FieldError, FieldHint, Input, Label, Textarea, inputClasses } from "@/components/ui/input";
 import { DoplMark } from "@/components/icons/dopl-logo";
+import { useHydrated } from "@/lib/use-hydrated";
 
 export type FormMode = "page" | "embed" | "modal" | "preview";
 
@@ -67,6 +68,8 @@ export function PublicForm({
   const session = useRef({ clientSubmissionId: "", startedAt: 0 });
   const root = useRef<HTMLDivElement>(null);
   const preview = mode === "preview";
+  // Until React owns the form, a click would be lost (or submit natively).
+  const hydrated = useHydrated();
   const embedded = mode === "embed" || mode === "modal";
 
   useEffect(() => {
@@ -368,7 +371,12 @@ export function PublicForm({
             ) : null}
             <div className="flex items-center justify-between gap-3 pt-1">
               <p className="text-caption text-fg-muted">{t("privacy")}</p>
-              <Button type="submit" variant="primary" loading={pending} disabled={preview}>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={pending}
+                disabled={preview || !hydrated}
+              >
                 {t("submit")}
               </Button>
             </div>

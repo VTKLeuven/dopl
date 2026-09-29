@@ -20,6 +20,7 @@ export async function openChannel(page: Page, name: string) {
   await page.getByTestId("channel-link").filter({ hasText: name }).first().click();
   await expect(page.getByTestId("channel-name")).toHaveText(name);
   await expect(page.getByTestId("composer")).toBeVisible();
+  await expect(page.locator("html[data-realtime]")).toBeAttached();
 }
 
 /** Types into a composer; `@Name` segments pick the person from the suggestion list. */

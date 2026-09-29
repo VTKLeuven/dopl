@@ -33,6 +33,16 @@ const STALE_MS = 50_000; // two missed 20 s pings
 const WATCHDOG_MS = 10_000;
 const STOP_DELAY_MS = 1_000;
 
+/**
+ * `<html data-realtime>`: "open" once this tab's stream is connected, "relay"
+ * while another tab holds it. Tests wait on it before triggering events, the
+ * same way they wait on `data-saving`.
+ */
+function markConnection(state: "open" | "relay" | null) {
+  if (state) document.documentElement.dataset.realtime = state;
+  else delete document.documentElement.dataset.realtime;
+}
+
 class RealtimeClient {
   private listeners = new Set<RealtimeListener>();
   private es: EventSource | null = null;
@@ -99,6 +109,7 @@ class RealtimeClient {
     }
     const name = `dopl-realtime:${this.ws}`;
     this.bc = new BroadcastChannel(name);
+    markConnection("relay");
     this.bc.onmessage = (e: MessageEvent<Relay>) => {
       const msg = e.data;
       if (msg.t === "event") {
@@ -142,7 +153,10 @@ class RealtimeClient {
       this.lastActivity = Date.now();
       this.backoff = 1_000;
     };
-    es.onopen = touch;
+    es.onopen = () => {
+      touch();
+      markConnection("open");
+    };
     es.addEventListener("ping", touch);
     es.onmessage = (e: MessageEvent<string>) => {
       touch();
@@ -191,6 +205,7 @@ class RealtimeClient {
 
   private stop() {
     this.running = false;
+    markConnection(null);
     this.es?.close();
     this.es = null;
     if (this.lastId) this.relay({ t: "cursor", id: this.lastId });

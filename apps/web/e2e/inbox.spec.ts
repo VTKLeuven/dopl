@@ -11,6 +11,7 @@ test("a mention shows up in the Inbox live, with its badge, and can be triaged w
   await expect(
     page.getByTestId("inbox-list").or(page.getByText("No notifications yet")),
   ).toBeVisible();
+  await expect(page.locator("html[data-realtime=open]")).toBeAttached();
 
   const chloe = await signInAs(browser, "chloe@dopl.test");
   const tag = `ping ${uniq()}`;
@@ -43,8 +44,10 @@ test("a mention shows up in the Inbox live, with its badge, and can be triaged w
 
 test("unread counts stay in sync across tabs", async ({ page, context, browser }) => {
   await page.goto("/vtk/inbox");
+  await expect(page.locator("html[data-realtime=open]")).toBeAttached();
   const other = await context.newPage();
   await other.goto("/vtk/home");
+  await expect(other.locator("html[data-realtime]")).toBeAttached();
 
   const chloe = await signInAs(browser, "chloe@dopl.test");
   const tag = `tabs ${uniq()}`;

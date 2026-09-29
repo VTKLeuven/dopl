@@ -214,7 +214,9 @@ test("changes from another tab appear without a reload", async ({ page, context 
   const other = await context.newPage();
   await other.goto("/vtk/p/E2E/items");
   await expect(other.getByTestId("new-item")).toBeVisible();
-  await other.waitForTimeout(1000); // let the event stream connect
+  // The first tab holds the stream and relays to this one.
+  await expect(page.locator("html[data-realtime=open]")).toBeAttached();
+  await expect(other.locator("html[data-realtime]")).toBeAttached();
   const title = `E2E realtime ${uniq()}`;
   await createItem(page, title);
   await expect(other.getByTestId("item-row").filter({ hasText: title })).toBeVisible();
