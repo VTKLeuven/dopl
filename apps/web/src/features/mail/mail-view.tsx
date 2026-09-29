@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useTranslations } from "next-intl";
@@ -71,6 +71,14 @@ export function MailView({
   const [url, setUrl] = useQueryStates(parsers);
   const { data: mailboxes = initialMailboxes } = useMailboxes(ws, initialMailboxes);
   const params = { mailbox: url.mailbox, view: url.view, q: url.q };
+  // The server renders the Open list once. It seeds the cache only when the page
+  // loaded on that view; seeded later (after a view switch) it would count as
+  // fresh and hide changes made since the page loaded.
+  const [seed] = useState(() =>
+    initialPage && !url.mailbox && url.view === "open" && !url.q
+      ? { page: initialPage, at: Date.now() }
+      : undefined,
+  );
   const counts = (v: View) =>
     v === "unassigned" || v === "mine" || v === "open"
       ? mailboxes
@@ -209,9 +217,7 @@ export function MailView({
           <ThreadList
             ws={ws}
             params={params}
-            initial={
-              initialPage && !url.mailbox && url.view === "open" && !url.q ? initialPage : undefined
-            }
+            initial={seed && !url.mailbox && url.view === "open" && !url.q ? seed : undefined}
             selected={url.thread}
             onSelect={(id) => void setUrl({ thread: id })}
           />
@@ -282,7 +288,7 @@ function ThreadList({
 }: {
   ws: string;
   params: { mailbox: string | null; view: View; q: string | null };
-  initial?: ThreadPage;
+  initial?: { page: ThreadPage; at: number };
   selected: string | null;
   onSelect: (id: string) => void;
 }) {

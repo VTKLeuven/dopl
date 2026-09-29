@@ -58,7 +58,11 @@ export function useMailboxes(ws: string, initial?: MailboxSummary[]) {
   });
 }
 
-export function useThreads(ws: string, p: ThreadListParams, initial?: ThreadPage) {
+export function useThreads(
+  ws: string,
+  p: ThreadListParams,
+  initial?: { page: ThreadPage; at: number },
+) {
   return useInfiniteQuery({
     queryKey: mailKeys.list(ws, p),
     queryFn: ({ pageParam }) => {
@@ -70,7 +74,13 @@ export function useThreads(ws: string, p: ThreadListParams, initial?: ThreadPage
     },
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
-    ...(initial ? { initialData: { pages: [initial], pageParams: [null] } } : {}),
+    // `at` is when the server page arrived, so an old seed counts as stale.
+    ...(initial
+      ? {
+          initialData: { pages: [initial.page], pageParams: [null] },
+          initialDataUpdatedAt: initial.at,
+        }
+      : {}),
     placeholderData: (prev) => prev,
   });
 }
