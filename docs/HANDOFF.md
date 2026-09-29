@@ -2,6 +2,10 @@
 
 Where the project stands and how to pick it up. Written 2026-09-29, after Phases 0–2. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
 
+**To start a new session**, open Claude Code in the repo (`/Users/d1ff1cult/Local/dopl`) and paste:
+
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then wait for my review of Phases 1–2 before starting Phase 3.
+
 ---
 
 ## 1. Where things stand
@@ -30,7 +34,21 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 
 **The owner's review is pending for Phases 1 and 2.** The process in the brief is to stop after each phase. Before starting Phase 3, ask the user to look at the screenshots and confirm, or collect their feedback.
 
-Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`.
+Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
+
+### What the user has decided so far
+
+These answers shape the plan; the details are in `docs/OPEN_QUESTIONS.md` (answered table) and `docs/DECISIONS.md`.
+
+- **Stack:** as the brief says. Use Prisma 8 only once it's GA; it isn't, so the project stays on Prisma 7.10 (D-049).
+- **Plane pain points Dopl must solve:**
+  1. mail tracking (the shared mailbox, Phase 7)
+  2. feedback forms in the free edition (intake forms, Phase 3)
+  3. filtering done items out of a project's overview (done hidden by default, D-053, already built)
+- **Accounts are invite-only** (D-050). Sign-in methods: email + password with 2FA, SSO, magic links and optional Google.
+- **Hosting:** public at `dopl.vtk.be` behind Caddy (D-051). Outbound mail goes through the Google Workspace SMTP relay.
+- **Discord webhooks** for updates, new tickets and new mail (D-052, Phase 3 onward).
+- **Realtime** was pulled forward into Phase 2. That was Q-9's proposed default, not an explicit answer; confirm it in the review.
 
 ---
 
@@ -81,6 +99,7 @@ CI (`.github/workflows/ci.yml`):
 - It runs typecheck, lint (including `prettier --check`), Vitest, the drift check, `pnpm build` and the Playwright suite against a freshly seeded database.
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
+- **Last verified:** the `check` job passed on `4e895f1`: typecheck, lint, Vitest, drift, build and the full e2e suite. The three image builds for that commit were still running when this was written, and no image build had yet been seen completing, so confirm they pass on the first run of the next session.
 - Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
@@ -120,6 +139,47 @@ Patterns to follow (details in `CLAUDE.md`):
 - **Every UI string** is in `apps/web/messages/en.json`, and every colour is a token.
 
 ---
+
+### Recipes for common changes
+
+- **A new mutation:**
+  1. Add a zod schema in `packages/shared/src/schemas/`.
+  2. Add a service function in `apps/web/src/server/services/`: parse the input, check the policy, then run the change in `withMutation`, calling `m.activity(…)` and `m.emit({ topic, type, payload })`.
+  3. Add a thin action in `server/actions/`.
+  4. Add a TanStack mutation hook with an optimistic patch (`features/work-items/data.ts` shows the pattern).
+  5. Write an integration test next to the service, using `server/testing/fixtures.ts`.
+- **A new read for the client:**
+  1. Add a query in `server/queries/`.
+  2. Add a route under `app/api/v1/[ws]/…` wrapped in `api(ws, fn)` (401/403/404 mapping, 2FA gate).
+  3. Run `npx next typegen`.
+  4. Add a `useQuery` hook.
+- **A new filter field:**
+  1. Add it to `FILTER_FIELDS` (and `validateRule` if it needs a special value) in `packages/shared/src/schemas/filters.ts`.
+  2. Compile it in `server/queries/filters.ts`.
+  3. Add labels under `filters.field` in `en.json`.
+  4. Add a case to `filters.test.ts`; its guard test counts the field × operator pairs and fails until you do.
+- **A new shortcut:**
+  1. Add it to `lib/shortcuts/registry.ts`.
+  2. Label it under `shortcuts.label` in `en.json`.
+  3. Handle it where its scope lives. The registry test checks for conflicts and missing labels.
+- **A new realtime event:** emit it inside `withMutation` on the right topic (`project:`, `workspace:`, `workItem:`, `user:`), then map it to query invalidations in `features/realtime/realtime-provider.tsx`. Access filtering is in `server/realtime/access.ts`.
+- **A new screen:**
+  1. Put the page under `app/(app)/[ws]/…` with a `Suspense` skeleton.
+  2. Put strings in `en.json` and use tokens only.
+  3. Take a screenshot with Playwright and compare it with `docs/design/spott-reference.png`.
+
+### Environment
+
+`.env.example` lists and explains every variable. In use today:
+
+- `DATABASE_URL`, `DATABASE_URL_TEST`
+- `APP_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
+- `DOPL_ENCRYPTION_KEY`
+- `SMTP_*`, `MAIL_FROM`
+- `STORAGE_DRIVER`, `STORAGE_LOCAL_DIR` (or the S3 variables)
+- optional `GOOGLE_CLIENT_ID`/`SECRET`
+
+The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later phases.
 
 ## 5. Gotchas learned the hard way
 
