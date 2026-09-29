@@ -157,7 +157,7 @@ Phase 3 seed data: the HELP project has a published form at <http://localhost:30
 ## 3. Checks
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test     # 279 Vitest tests after Phase 7; integration tests use DATABASE_URL_TEST
+pnpm typecheck && pnpm lint && pnpm test     # 280 Vitest tests after Phase 7; integration tests use DATABASE_URL_TEST
 pnpm e2e                                      # 45 Playwright tests + setup after Phase 7; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
 pnpm perf                                     # 50k-item benchmarks on the test DB (items ~40 s, analytics ~3 min; PERF_FILE=… for one)
 pnpm db:drift                                 # schema vs migrations must be empty
@@ -168,7 +168,7 @@ CI (`.github/workflows/ci.yml`):
 - It runs typecheck, lint (including `prettier --check`), Vitest, the drift check, `pnpm build` and the Playwright suite against a freshly seeded database, with Mailpit as a service and the worker running in the background (the intake e2e reads confirmation emails).
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
-- **Last verified:** `main` at `53d5d48` passed every job. From `46b88a3` to the Phase 6 merge, CI's e2e step failed on a different timing-sensitive test each run (the cold dev server, D-114); Playwright now retries once on CI. The Phase 7 merge passed typecheck, lint, 279 Vitest tests and the drift check locally. The full Playwright suite passed except the note-capture timing check, which exceeds 100 ms only while this machine is swapping. Check the merge's CI run first thing. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
+- **Last verified:** `main` at `953a21a` (Phase 7 plus a Dockerfile fix) passed every job, images included. The Phase 7 merge itself (`5f62421`) passed the checks but failed the image build, because the Dockerfile didn't install the new `@dopl/server` package; `deploy.test.ts` now checks that every workspace package is installed there. From `46b88a3` to the Phase 6 merge, CI's e2e step failed on a different timing-sensitive test each run (the cold dev server); Playwright now retries once on CI, and a pass on retry shows as flaky (D-114). Locally the note-capture timing check exceeds 100 ms only while this machine is swapping. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
 - Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
@@ -308,6 +308,7 @@ The worker's secrets (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_TOPIC`, `
 - **Mail e2e needs the worker** running with the same `GMAIL_FAKE_DIR` as the specs (they read it from `.env`). After `pnpm db:seed`, the mailbox is `CONNECTING` until the worker's next 5-minute poll; restart the worker to connect it at once.
 - **Email HTML can't be measured or scripted** in its frame (D-028, D-109). Don't add `allow-same-origin` or `allow-scripts` to fix a layout issue; the e2e test fails if you do.
 - **Admins must enrol 2FA before they see admin pages.** For quick admin screenshots in dev, set Bram's role to ADMIN and `users."twoFactorEnabled"` to true in the dev DB, then set both back (or use the magic-link workaround in §2).
+- **A new workspace package** needs its `package.json` copied in `docker/Dockerfile`'s deps stage; `deploy.test.ts` fails until it is.
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---
