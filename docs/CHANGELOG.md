@@ -1,5 +1,14 @@
 # Changelog
 
+## Going live (2026-09-30)
+
+- **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.
+- **`./dopl`**: `up`, `update [sha]`, `bootstrap`, `status`, `logs`, `backup`, `restore`, `down` over the production compose file.
+- **`.env.production.example`**: the production settings, with the commands that generate the secrets.
+- **Production compose:** uploads on a volume shared by web and worker (owned by the app user), a nightly **backup** container (database dump and uploads archive, pruned after 14 days), and optional Caddy.
+- **`README.md`**: what Dopl is, running it, developing it, and where the docs are.
+- Tested end to end against the published images, including a restore (D-125).
+
 ## Phase 8: AI teammate (2026-09-29)
 
 **Asking Dopl**

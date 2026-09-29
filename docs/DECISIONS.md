@@ -1215,3 +1215,19 @@ When a run completes, the worker posts the final output as the agent's comment o
 ### D-124: Who approves
 
 Admins and members with "Approves Dopl" (Settings → Members) may decide approvals; guests and agents never. Deciding marks everyone's notification for that approval as read. Production hosts ask for a second confirmation in the UI. Approvals expire after the profile's timeout (default 1 hour); an expired one fails its step and the agent is told not to retry.
+
+---
+
+## Going live
+
+### D-125: Production defaults: an uploads volume, a backup container and `./dopl`
+
+**Decision:**
+
+- **Uploads** live on a named volume shared by `web` and `worker` (`STORAGE_DRIVER=local`, `STORAGE_LOCAL_DIR=/data/uploads`), not in Garage. One small team's attachments fit on the server's disk, the volume is included in the backups, and there is one service less to run. S3 (Garage, MinIO…) stays available with `STORAGE_DRIVER=s3` (Q-5's default of Garage is superseded for the first deployment). A one-shot `uploads-init` container `chown`s the volume to uid 1000 before the apps start, because whichever container mounts a new volume first decides its owner, and the apps run as `node`.
+- **Backups** are a `backup` container (the Postgres image) that runs `pg_dump --format=custom` and tars the uploads volume every night into `docker/backups/` on the host, keeping `BACKUP_KEEP_DAYS` days. `restore.sh` drops and recreates the database and replaces the uploads. Both were tested against the published images, and a restore brings back the audit trigger and every schema. Off-site copies are the operator's job (restic, rsync…), documented in `docs/ops/deploy.md`.
+- **HTTPS** is either the bundled Caddy (`DOPL_CADDY=true`, compose profile `caddy`, automatic certificates) or the operator's own proxy on `127.0.0.1:DOPL_PORT`. Both unbuffer `/api/v1/<ws>/realtime` and `/api/mcp`.
+- **`./dopl`** wraps `docker compose -f docker/compose.prod.yml --env-file .env` (up, update [tag], bootstrap, status, logs, backup, restore, down), so nobody has to remember the flags or run bootstrap in the right container.
+- **`.env.production.example`** is the production template (the service name `postgres` in `DATABASE_URL`, absolute storage path, backup settings); `.env.example` stays the development one. `deploy.test.ts` checks that neither holds worker secrets and that the uploads volume and backups are wired.
+
+**Why:** the first deployment should be one server, one command, and backups that are tested, not a plan to set them up later.

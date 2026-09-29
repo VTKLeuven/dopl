@@ -17,6 +17,7 @@ packages/db/src/generated/
 .env
 .env.*
 !.env.example
+!.env.production.example
 # Worker-only secrets (D-027); worker.env.example is committed
 worker.env
 *.pem
@@ -24,6 +25,7 @@ worker.env
 secrets/
 
 # local data
+/docker/backups/
 .data/
 /storage/
 

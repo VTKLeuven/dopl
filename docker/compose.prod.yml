@@ -1,5 +1,8 @@
-# Production stack (D-047). Put Caddy in front of `web` (see docs/ARCHITECTURE.md §13).
+# Production stack (D-047). docs/ops/deploy.md walks through it:
+#   cp .env.production.example .env        # then fill it in
 #   docker compose -f docker/compose.prod.yml --env-file .env up -d
+# Add `--profile caddy` to also run Caddy for HTTPS on :80/:443, or put your own
+# reverse proxy in front of 127.0.0.1:3000.
 name: dopl
 
 x-env: &env
@@ -21,6 +24,8 @@ services:
       interval: 5s
       retries: 20
 
+  # Applies migrations on every start, then exits. Also runs one-off commands:
+  #   docker compose -f docker/compose.prod.yml run --rm migrate pnpm dopl:bootstrap --email …
   migrate:
     image: ghcr.io/d1ff1cult0/dopl-migrate:${DOPL_VERSION:-latest}
     env_file: ../.env
@@ -28,21 +33,35 @@ services:
       postgres: { condition: service_healthy }
     restart: "no"
 
+  # The app runs as `node` (uid 1000); make sure it owns the uploads volume,
+  # whichever container created it first.
+  uploads-init:
+    image: busybox:1.37
+    command: ["chown", "-R", "1000:1000", "/data/uploads"]
+    volumes:
+      - uploads:/data/uploads
+    restart: "no"
+
   web:
     image: ghcr.io/d1ff1cult0/dopl-web:${DOPL_VERSION:-latest}
     <<: *env
     depends_on:
       migrate: { condition: service_completed_successfully }
+      uploads-init: { condition: service_completed_successfully }
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${DOPL_PORT:-3000}:3000"
+    volumes:
+      # Uploads (STORAGE_DRIVER=local): shared with the worker, backed up nightly.
+      - uploads:/data/uploads
 
   worker:
     image: ghcr.io/d1ff1cult0/dopl-worker:${DOPL_VERSION:-latest}
     <<: *env
     depends_on:
       migrate: { condition: service_completed_successfully }
-    # Worker-only secrets (Google service account, agent SSH key) reach this container
-    # only (D-027): worker.env for the settings, ./secrets for the key files.
+      uploads-init: { condition: service_completed_successfully }
+    # Worker-only secrets (Google service account, Hermes key, agent SSH key) reach this
+    # container only (D-027): worker.env for the settings, ./secrets for the key files.
     # e.g. GOOGLE_SERVICE_ACCOUNT_KEY_FILE=/run/secrets/google-sa.json
     env_file:
       - ../.env
@@ -50,6 +69,50 @@ services:
         required: false
     volumes:
       - ./secrets:/run/secrets:ro
+      - uploads:/data/uploads
+
+  # Nightly database dump and uploads archive into ./backups (on the host), kept
+  # BACKUP_KEEP_DAYS days. Copy that directory off the server with your own tooling.
+  #   docker compose -f docker/compose.prod.yml exec backup /backup.sh now
+  backup:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-dopl}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-dopl}
+      BACKUP_TIME: ${BACKUP_TIME:-03:30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: ${TZ:-Europe/Brussels}
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - ./backup/restore.sh:/restore.sh:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+      - uploads:/data/uploads
+    entrypoint: ["/bin/bash", "/backup.sh"]
+
+  # Optional HTTPS with automatic certificates: `--profile caddy`.
+  caddy:
+    image: caddy:2
+    profiles: [caddy]
+    restart: unless-stopped
+    depends_on: [web]
+    environment:
+      DOPL_DOMAIN: ${DOPL_DOMAIN:-dopl.vtk.be}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

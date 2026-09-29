@@ -535,7 +535,8 @@ Downloads go through `/api/files/<id>`, which checks the policy and 302s to a 5-
 flowchart TB
   subgraph compose["docker compose (prod)"]
     PG[("postgres<br/>pgvector/pgvector:pg17<br/>volume: pgdata")]
-    ST[("storage<br/>Garage · volume")]
+    ST[("uploads volume<br/>(or S3 / Garage)")]
+    BK["backup<br/>nightly pg_dump + uploads<br/>→ docker/backups"]
     MG["migrate<br/>prisma migrate deploy<br/>one-shot"]
     WEB["web<br/>next start (standalone)<br/>:3000 /healthz"]
     WK["worker<br/>node dist/main.js<br/>/healthz"]
@@ -544,7 +545,10 @@ flowchart TB
   MG -->|service_completed_successfully| WEB & WK
   WEB & WK & MG --> PG
   WEB & WK --> ST
+  BK --> PG & ST
 ```
+
+`docs/ops/deploy.md` is the operator's guide; `./dopl` wraps the compose commands (D-125).
 
 - **Images:** multi-stage builds (`pnpm deploy --filter`), Node 24 slim, non-root user, read-only root filesystem where possible. GitHub Actions builds `linux/amd64` and `linux/arm64` images and pushes them to GHCR, tagged by commit SHA.
 - **Local dev:**
@@ -553,7 +557,8 @@ flowchart TB
   - Blobs go to the local-disk driver.
 - **Networking:** Caddy terminates TLS for `dopl.vtk.be` in front of `web`, with `flush_interval -1` on `/api/realtime`. The whole app is public; D-051 lists the hardening.
 - **Configuration:** everything is env-only (`.env.example` documents each variable). Secrets that are files (the Google SA key, the SSH key) are mounted read-only into the worker only.
-- **Backups:** nightly `pg_dump` and Garage snapshots, run by your existing tooling (documented in the ops guide).
+- **Storage:** uploads go to a volume shared by `web` and `worker` (`STORAGE_DRIVER=local`, `/data/uploads`) unless S3 is configured (D-125).
+- **Backups:** the `backup` container writes a nightly `pg_dump` and an uploads archive to `docker/backups/` and prunes old ones; copying them off the server is left to your tooling. `./dopl restore` puts one back (D-125).
 
 ## 14. Security model summary
 
