@@ -13,6 +13,8 @@
   "dependencies": {
     "@dopl/db": "workspace:*",
     "@dopl/shared": "workspace:*",
+    "@prisma/adapter-pg": "catalog:",
+    "@prisma/client": "catalog:",
     "dotenv": "catalog:",
     "nodemailer": "^10.0.12",
     "pg": "catalog:",

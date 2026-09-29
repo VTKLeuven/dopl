@@ -1,0 +1,49 @@
+# Production stack (D-047). Put Caddy in front of `web` (see docs/ARCHITECTURE.md §13).
+#   docker compose -f docker/compose.prod.yml --env-file .env up -d
+name: dopl
+
+x-env: &env
+  env_file: ../.env
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    <<: *env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dopl}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-dopl}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dopl}"]
+      interval: 5s
+      retries: 20
+
+  migrate:
+    image: ghcr.io/d1ff1cult0/dopl-migrate:${DOPL_VERSION:-latest}
+    env_file: ../.env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  web:
+    image: ghcr.io/d1ff1cult0/dopl-web:${DOPL_VERSION:-latest}
+    <<: *env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  worker:
+    image: ghcr.io/d1ff1cult0/dopl-worker:${DOPL_VERSION:-latest}
+    <<: *env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    # Worker-only secrets (Google service account, agent SSH key) are mounted here only (D-027):
+    # volumes:
+    #   - ./secrets/google-sa.json:/run/secrets/google-sa.json:ro
+
+volumes:
+  pgdata:

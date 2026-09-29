@@ -1,6 +1,7 @@
 "use client";
 
-import { QueryClient, QueryClientProvider, isServer } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { QueryClient, QueryClientProvider, isServer, useIsMutating } from "@tanstack/react-query";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,10 +27,23 @@ function getQueryClient() {
   return browserQueryClient;
 }
 
+/** Optimistic UI means the screen is ahead of the server: warn before leaving mid-save. */
+function UnsavedChangesGuard() {
+  const pending = useIsMutating();
+  useEffect(() => {
+    if (pending === 0) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [pending]);
+  return null;
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
   return (
     <QueryClientProvider client={queryClient}>
+      <UnsavedChangesGuard />
       <NuqsAdapter>
         <TooltipProvider>
           {children}

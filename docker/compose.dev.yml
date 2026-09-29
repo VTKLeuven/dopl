@@ -4,6 +4,7 @@ name: dopl-dev
 services:
   postgres:
     image: pgvector/pgvector:pg17
+    restart: unless-stopped
     environment:
       POSTGRES_USER: dopl
       POSTGRES_PASSWORD: dopl
@@ -23,6 +24,7 @@ services:
   # UI: http://localhost:8025 — tests read messages through its API.
   mailpit:
     image: axllent/mailpit:latest
+    restart: unless-stopped
     environment:
       # Reverse-DNS on every SMTP connection costs ~8s under Docker Desktop.
       MP_SMTP_DISABLE_RDNS: "true"

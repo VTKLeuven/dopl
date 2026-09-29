@@ -68,9 +68,16 @@ export const auth = betterAuth({
       enabled: true,
       // Google and admin-registered SSO providers may attach to an invited
       // user by verified email. Nothing else links implicitly.
-      trustedProviders: async () => {
-        const providers = await db.ssoProvider.findMany({ select: { providerId: true } });
-        return ["google", ...providers.map((p) => p.providerId)];
+      trustedProviders: async (request) => {
+        // Called without a request during initialisation (and at build time):
+        // answer statically there, and only hit the DB for real sign-ins.
+        if (!request) return ["google"];
+        try {
+          const providers = await db.ssoProvider.findMany({ select: { providerId: true } });
+          return ["google", ...providers.map((p) => p.providerId)];
+        } catch {
+          return ["google"];
+        }
       },
     },
   },

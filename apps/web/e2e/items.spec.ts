@@ -51,6 +51,7 @@ test("change priority inline with the keyboard; it survives a reload", async ({ 
   await page.keyboard.press("p");
   await page.getByRole("option", { name: "High" }).click();
   await expect(row.getByRole("button", { name: "Priority: High" })).toBeVisible();
+  await page.waitForLoadState("networkidle"); // let the optimistic save land
   await page.reload();
   await expect(page.getByTestId("item-row").filter({ hasText: title }).getByRole("button", { name: "Priority: High" })).toBeVisible();
 });
@@ -108,12 +109,16 @@ test("done items are hidden by default and can be shown (D-053)", async ({ page 
 test("drag a card to another column on the board", async ({ page }) => {
   await page.goto("/vtk/p/INFRA/items");
   await page.getByRole("radio", { name: "Board" }).click();
-  const board = page.getByTestId("board");
-  await expect(board).toBeVisible();
+  await expect(page.getByTestId("board")).toBeVisible();
   const todo = page.getByRole("region", { name: "Todo" });
   const inProgress = page.getByRole("region", { name: "In progress" });
-  const card = todo.getByTestId("board-card").first();
-  const id = (await card.locator("span").first().textContent())?.trim() ?? "";
+  // Create a fresh card in Todo via the column's "+" (prefills the state).
+  const title = `E2E drag ${uniq()}`;
+  await todo.getByRole("button", { name: "New item" }).click();
+  await page.getByRole("textbox", { name: "Issue title" }).fill(title);
+  await page.keyboard.press("Meta+Enter");
+  const card = todo.getByTestId("board-card").filter({ hasText: title });
+  await expect(card).toBeVisible();
   const target = inProgress.getByTestId("board-card").first();
   const from = await card.boundingBox();
   const to = await target.boundingBox();
@@ -123,10 +128,12 @@ test("drag a card to another column on the board", async ({ page }) => {
   await page.mouse.move(from.x + 60, from.y + 30, { steps: 5 });
   await page.mouse.move(to.x + 40, to.y + 10, { steps: 15 });
   await page.mouse.up();
-  await expect(inProgress.getByTestId("board-card").filter({ hasText: id })).toBeVisible();
+  await expect(inProgress.getByTestId("board-card").filter({ hasText: title })).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await page.reload();
-  await expect(page.getByRole("region", { name: "In progress" }).getByTestId("board-card").filter({ hasText: id })).toBeVisible();
+  await expect(page.getByRole("region", { name: "In progress" }).getByTestId("board-card").filter({ hasText: title })).toBeVisible();
   await page.getByRole("radio", { name: "List" }).click();
+  await page.waitForTimeout(1200); // let the debounced layout preference save
 });
 
 test("attach a file to an item and download it", async ({ page }) => {
