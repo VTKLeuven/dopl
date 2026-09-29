@@ -449,6 +449,57 @@
     "shortcuts": {
       "title": "Keyboard shortcuts"
     },
-    "doneHiddenPending": "Done hidden"
+    "doneHiddenPending": "Done hidden",
+    "projectSettings": "Project settings"
+  },
+  "projectSettings": {
+    "title": "Project settings",
+    "general": "General",
+    "name": "Name",
+    "identifier": "Identifier",
+    "identifierHint": "Renaming keeps old references like {old}-12 working.",
+    "color": "Colour",
+    "visibility": "Visibility",
+    "guestsCanView": "Guests who are project members can browse the project",
+    "estimates": "Estimates",
+    "estimateSystem": {
+      "NONE": "Off",
+      "POINTS": "Points",
+      "HOURS": "Hours"
+    },
+    "lead": "Lead",
+    "save": "Save changes",
+    "saved": "Project updated",
+    "states": "Workflow states",
+    "statesHint": "Items move through these states. Each group needs at least one state.",
+    "addState": "Add state",
+    "stateName": "State name",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "deleteState": "Delete state",
+    "reassignTo": "Move its items to",
+    "lastInGroup": "Each group needs at least one state.",
+    "groups": {
+      "BACKLOG": "Backlog",
+      "UNSTARTED": "Unstarted",
+      "STARTED": "Started",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "labels": "Labels",
+    "labelsHint": "Coloured labels for this project.",
+    "addLabel": "Add label",
+    "labelName": "Label name",
+    "labelExists": "A label with that name already exists.",
+    "members": "Members",
+    "membersHint": "Everyone in the workspace can see public projects; private projects need membership.",
+    "addMember": "Add member",
+    "remove": "Remove",
+    "danger": "Archive",
+    "archive": "Archive project",
+    "unarchive": "Restore project",
+    "archiveHint": "Archived projects are read-only and hidden from the sidebar.",
+    "visibilityWorkspace": "Workspace",
+    "visibilityPrivate": "Private"
   }
 }

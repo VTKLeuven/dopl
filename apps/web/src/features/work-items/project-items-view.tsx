@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import { useTranslations } from "next-intl";
-import { ArrowUpDown, Columns3, Eye, EyeOff, LayoutList, ListTodo, Plus, Search, SlidersHorizontal, Trash, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpDown, Columns3, Eye, EyeOff, LayoutList, ListTodo, Plus, Search, Settings, SlidersHorizontal, Trash, X } from "lucide-react";
 import { DisplayOptionsSchema, type DisplayOptions, type GroupKey, type OrderField, type PropertyKey } from "@dopl/shared/schemas/view";
 import type { Priority } from "@dopl/shared/schemas/work-item";
 import { cn } from "@/lib/cn";
@@ -224,6 +225,13 @@ export function ProjectItemsView({
               </Tooltip>
             </SegmentedControl>
             <DisplayOptionsButton options={options} setOptions={setOptions} />
+            {meta.can.manage ? (
+              <Tooltip content={t("projectSettings")}>
+                <Button size="icon" asChild aria-label={t("projectSettings")} className="hidden sm:inline-flex">
+                  <Link href={`/${ws}/p/${meta.project.identifier}/settings` as never}><Settings /></Link>
+                </Button>
+              </Tooltip>
+            ) : null}
             {meta.can.create ? (
               <Tooltip content={t("newItem")} shortcut="c">
                 <Button variant="primary" onClick={() => createInGroup(undefined)} data-testid="new-item">
