@@ -160,7 +160,12 @@
     "evening": "evening",
     "emptyTitle": "Nothing assigned to you yet",
     "emptyDescription": "Items assigned to you will show up here, sorted by due date.",
-    "assigned": "Assigned to me"
+    "assigned": "Assigned to me",
+    "overdue": "Overdue",
+    "thisWeek": "Due this week",
+    "later": "Later",
+    "noDue": "No due date",
+    "assignedCount": "{count, plural, one {# open item assigned to you} other {# open items assigned to you}}"
   },
   "settings": {
     "title": "Settings",
