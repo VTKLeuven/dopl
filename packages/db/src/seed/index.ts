@@ -19,6 +19,7 @@ import { createDbClient } from "../client";
 import type { Prisma } from "../generated/prisma/client";
 import { commentBank, people, projects } from "./data";
 import { seedIntake } from "./intake";
+import { seedAnalytics } from "./analytics";
 import { seedNotes } from "./notes";
 
 loadEnv({ path: path.resolve(import.meta.dirname, "../../../../.env"), quiet: true });
@@ -462,6 +463,9 @@ async function main() {
 
   const notes = await seedNotes(db, { workspaceId: workspace.id, today });
   console.log(`  Notes  ${notes} notes`);
+
+  const stats = await seedAnalytics(db, { workspaceId: workspace.id, today });
+  console.log(`  Stats  ${stats} daily project snapshots (approximated)`);
 
   console.log(`\nSeeded "${workspace.name}" (/${workspace.slug}): ${totalItems} work items.`);
   console.log(`Sign in with any of: ${people.map((p) => p.email).join(", ")}`);

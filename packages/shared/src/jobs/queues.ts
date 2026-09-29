@@ -15,6 +15,8 @@ export const queues = {
   "webhook.deliver": z.object({ deliveryId: z.uuid() }),
   /** Every minute: snoozed intake items come back to the queue. */
   "snooze.wake": z.object({}),
+  /** Nightly: one project_daily_stats row per project for "over time" charts. */
+  "analytics.snapshot": z.object({}),
   "notifications.fanout": z.object({
     workspaceId: z.uuid(),
     activityIds: z.array(z.uuid()).min(1),

@@ -260,6 +260,8 @@ export const CreateDashboardSchema = z.object({
   visibility: z.enum(["PRIVATE", "WORKSPACE"]).default("PRIVATE"),
   /** Copy the widgets of a built-in dashboard ("workspace" or "project"). */
   fromDefault: z.enum(["workspace", "project"]).nullable().default(null),
+  /** Titles for the copied widgets by key, in the reader's language. */
+  titles: z.record(z.string().max(64), Title).default({}),
 });
 
 export const UpdateDashboardSchema = z.object({
