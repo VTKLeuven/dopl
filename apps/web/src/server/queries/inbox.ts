@@ -34,6 +34,8 @@ export interface InboxRow {
   data: Record<string, unknown>;
   /** Resolved from the work item: INFRA-42 (or "Intake #7" for requests). */
   identifier: string | null;
+  /** What to open the work item by: its identifier, or its id while in triage. */
+  itemRef: string | null;
   intakeId: string | null;
   projectIdentifier: string | null;
   href: string | null;
@@ -183,6 +185,7 @@ function toRow(
     actor: n.actor,
     data,
     identifier,
+    itemRef: n.workItemId ? target.identifier : null,
     intakeId,
     projectIdentifier,
     href: notificationPath(ws, target),

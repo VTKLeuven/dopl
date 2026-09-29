@@ -25,6 +25,7 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     projects,
     favorites,
     canCreateProject: canWorkspace(ctx.policyActor, "project.create"),
+    canChat: ctx.role !== "GUEST",
   };
   return (
     <>
