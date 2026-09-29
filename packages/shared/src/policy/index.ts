@@ -53,10 +53,10 @@ export function canWorkspace(actor: PolicyActor, action: WorkspaceAction): boole
     case "agent.pause":
       return actor.kind === "HUMAN" && isAdmin(actor.workspaceRole);
     // Contacts are people outside the team: never visible to guests.
-    case "contact.view":
-    case "contact.edit":
     // Analytics count across projects; guests only ever see their own requests.
     case "analytics.view":
+    case "contact.view":
+    case "contact.edit":
     case "project.create":
     case "view.workspace.create":
       return actor.kind === "HUMAN" && actor.workspaceRole !== "GUEST";

@@ -136,8 +136,8 @@ export function percentile(values: readonly number[], p: number): number | null 
   const rank = (sorted.length - 1) * p;
   const lo = Math.floor(rank);
   const hi = Math.ceil(rank);
-  const a = sorted[lo]!;
-  const b = sorted[hi]!;
+  const a = sorted[lo] ?? 0;
+  const b = sorted[hi] ?? a;
   return a + (b - a) * (rank - lo);
 }
 
@@ -209,7 +209,7 @@ export function orderKeys(
   limit: number,
 ): { keys: string[]; fold: (k: string) => string } {
   const fixed = FIXED_ORDER[axis];
-  let keys = [...sizes.keys()];
+  const keys = [...sizes.keys()];
   if (fixed) keys.sort((a, b) => fixed.indexOf(a) - fixed.indexOf(b));
   else
     keys.sort((a, b) =>
@@ -261,23 +261,31 @@ function itemPoints(metric: Metric, rows: readonly ItemRow[], ctx: AggregateCont
           .map((r) => ({ at: r.completedAt, x: x(r), id: `${r.id}:c`, series: "completed" })),
       ];
     case "cycle_time":
-      return rows
-        .filter((r) => r.stateGroup === "COMPLETED" && r.startedAt && inWindow(r.completedAt, ctx))
-        .map((r) => ({
-          at: r.completedAt,
-          x: x(r),
-          id: r.id,
-          value: Math.max(0, days(r.startedAt!, r.completedAt!)),
-        }));
+      return rows.flatMap((r) =>
+        r.stateGroup === "COMPLETED" && r.startedAt && r.completedAt && inWindow(r.completedAt, ctx)
+          ? [
+              {
+                at: r.completedAt,
+                x: x(r),
+                id: r.id,
+                value: Math.max(0, days(r.startedAt, r.completedAt)),
+              },
+            ]
+          : [],
+      );
     case "lead_time":
-      return rows
-        .filter((r) => r.stateGroup === "COMPLETED" && inWindow(r.completedAt, ctx))
-        .map((r) => ({
-          at: r.completedAt,
-          x: x(r),
-          id: r.id,
-          value: Math.max(0, days(r.createdAt, r.completedAt!)),
-        }));
+      return rows.flatMap((r) =>
+        r.stateGroup === "COMPLETED" && r.completedAt && inWindow(r.completedAt, ctx)
+          ? [
+              {
+                at: r.completedAt,
+                x: x(r),
+                id: r.id,
+                value: Math.max(0, days(r.createdAt, r.completedAt)),
+              },
+            ]
+          : [],
+      );
     default:
       return [];
   }
@@ -290,14 +298,18 @@ function intakePoints(metric: Metric, rows: readonly IntakeRow[], ctx: Aggregate
       .filter((r) => inWindow(r.createdAt, ctx))
       .map((r) => ({ at: r.createdAt, x: x(r), id: r.id }));
   if (metric === "time_to_triage")
-    return rows
-      .filter((r) => r.triagedAt && inWindow(r.triagedAt, ctx))
-      .map((r) => ({
-        at: r.triagedAt,
-        x: x(r),
-        id: r.id,
-        value: Math.max(0, days(r.createdAt, r.triagedAt!)),
-      }));
+    return rows.flatMap((r) =>
+      r.triagedAt && inWindow(r.triagedAt, ctx)
+        ? [
+            {
+              at: r.triagedAt,
+              x: x(r),
+              id: r.id,
+              value: Math.max(0, days(r.createdAt, r.triagedAt)),
+            },
+          ]
+        : [],
+    );
   return [];
 }
 
@@ -318,7 +330,13 @@ export function aggregate(
 
   // x keys for each point
   const xOf = (p: Point): string[] =>
-    xAxis === "none" ? ["all"] : isTimeAxis(xAxis) ? [bucketOf(p.at!, xAxis, ctx)] : p.x(xAxis);
+    xAxis === "none"
+      ? ["all"]
+      : isTimeAxis(xAxis)
+        ? p.at
+          ? [bucketOf(p.at, xAxis, ctx)]
+          : []
+        : p.x(xAxis);
 
   let xKeys: string[];
   let foldX = (k: string) => k;
@@ -340,7 +358,7 @@ export function aggregate(
     seriesOf = () => ["value"];
   } else if (spec.metric === "flow") {
     seriesKeys = ["created", "completed"];
-    seriesOf = (p) => [p.series!];
+    seriesOf = (p) => (p.series ? [p.series] : []);
   } else if (segment) {
     const sizes = new Map<string, number>();
     for (const p of points) for (const k of p.x(segment)) sizes.set(k, (sizes.get(k) ?? 0) + 1);
@@ -361,7 +379,7 @@ export function aggregate(
     for (const p of points)
       for (const x of new Set(xOf(p).map(foldX))) {
         const list = samples.get(x) ?? [];
-        list.push(p.value!);
+        if (p.value !== undefined) list.push(p.value);
         samples.set(x, list);
       }
     for (const [x, list] of samples) {
@@ -387,7 +405,7 @@ export function aggregate(
     total: duration
       ? round1(
           percentile(
-            points.map((p) => p.value!),
+            points.flatMap((p) => (p.value === undefined ? [] : [p.value])),
             0.5,
           ),
         )

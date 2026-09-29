@@ -61,7 +61,7 @@ import { useProjects } from "@/features/notes/data";
 import { ChartBuilder, type BuilderTarget } from "./chart-builder";
 import { useDashboard, useDashboardMutations, useWidgetMutations } from "./data";
 import type { DashboardDetail, WidgetView } from "./types";
-import { SPAN, WidgetCard, type WidgetActions } from "./widget-card";
+import { baseSpan, SPAN, WidgetCard, type WidgetActions } from "./widget-card";
 
 const rangeParser = parseAsStringLiteral(RANGES).withDefault("90d");
 
@@ -431,7 +431,7 @@ function SortableWidget({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       // The wrapper takes the span; the card fills it.
-      className={cn("col-span-12", SPAN[widget.w], isDragging && "z-10")}
+      className={cn(baseSpan(widget.spec, widget.w), SPAN[widget.w], isDragging && "z-10")}
     >
       <WidgetCard
         ws={ws}

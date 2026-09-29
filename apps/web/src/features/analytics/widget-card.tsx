@@ -38,6 +38,10 @@ export const SPAN: Record<WidgetWidth, string> = {
   12: "md:col-span-12",
 };
 
+/** Phones: small number tiles sit two to a row; everything else takes the row. */
+export const baseSpan = (spec: WidgetSpec, w: WidgetWidth) =>
+  spec.chartType === "NUMBER" && w === 4 ? "col-span-6" : "col-span-12";
+
 export interface WidgetActions {
   onEdit?: () => void;
   onResize?: (w: WidgetWidth) => void;
@@ -87,7 +91,8 @@ export function WidgetCard({
       data-testid="widget"
       data-metric={spec.metric}
       className={cn(
-        "group/widget col-span-12 flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-card",
+        "group/widget flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-card",
+        baseSpan(spec, w),
         SPAN[w],
         dragging && "shadow-drag",
         className,

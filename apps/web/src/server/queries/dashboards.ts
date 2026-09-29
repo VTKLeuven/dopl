@@ -30,8 +30,15 @@ function toSummary(
   },
 ): DashboardSummary {
   const policy = { ownerId: d.owner.id, visibility: d.visibility };
+  // Field by field, so extra columns (sortKey, widgets) never reach the response.
   return {
-    ...d,
+    id: d.id,
+    name: d.name,
+    description: d.description,
+    visibility: d.visibility,
+    projectId: d.projectId,
+    project: d.project,
+    owner: d.owner,
     canEdit: canDashboard(ctx.policyActor, policy, "dashboard.edit"),
     canDelete: canDashboard(ctx.policyActor, policy, "dashboard.delete"),
   };
@@ -56,7 +63,7 @@ export async function listDashboards(ctx: WorkspaceCtx): Promise<DashboardSummar
   });
   // Fractional keys compare as plain strings (COLLATE "C"), never localeCompare.
   rows.sort((a, b) => (a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0));
-  return rows.map(({ sortKey: _, ...r }) => toSummary(ctx, r));
+  return rows.map((r) => toSummary(ctx, r));
 }
 
 export async function getDashboard(ctx: WorkspaceCtx, id: string): Promise<DashboardDetail> {
@@ -95,6 +102,5 @@ export async function getDashboard(ctx: WorkspaceCtx, id: string): Promise<Dashb
     widgets.push({ id: w.id, title: w.title, spec: spec.data, w: pos.data.w, key: pos.data.key });
   }
   widgets.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-  const { widgets: _, ...summary } = d;
-  return { ...toSummary(ctx, summary), widgets };
+  return { ...toSummary(ctx, d), widgets };
 }
