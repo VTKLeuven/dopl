@@ -59,11 +59,14 @@ export function IntegrationsSettings({
   ws,
   hooks,
   projects,
+  mailboxes,
   allowLocal,
 }: {
   ws: string;
   hooks: WebhookView[];
   projects: Project[];
+  /** Connected shared mailboxes, for the mail events' filter (Phase 7). */
+  mailboxes: Array<{ id: string; name: string }>;
   allowLocal: boolean;
 }) {
   const t = useTranslations("integrations");
@@ -120,6 +123,7 @@ export function IntegrationsSettings({
           ws={ws}
           hook={editing === "new" ? null : editing}
           projects={projects}
+          mailboxes={mailboxes}
           allowLocal={allowLocal}
           onClose={() => setEditing(null)}
         />
@@ -296,12 +300,14 @@ function HookDialog({
   ws,
   hook,
   projects,
+  mailboxes,
   allowLocal,
   onClose,
 }: {
   ws: string;
   hook: WebhookView | null;
   projects: Project[];
+  mailboxes: Array<{ id: string; name: string }>;
   allowLocal: boolean;
   onClose: () => void;
 }) {
@@ -313,6 +319,8 @@ function HookDialog({
     (hook?.events as WebhookEvent[] | undefined) ?? ["work_item.created", "intake.submitted"],
   );
   const [projectIds, setProjectIds] = useState<string[]>(hook?.projectIds ?? []);
+  const [mailboxIds, setMailboxIds] = useState<string[]>(hook?.mailboxIds ?? []);
+  const mailEvents = events.some((e) => e.startsWith("email_"));
   const [includeContent, setIncludeContent] = useState(hook?.includeContent ?? false);
   const [pending, setPending] = useState(false);
   const urlInvalid = url !== "" && !isAllowedWebhookUrl(url.trim(), { allowLocal });
@@ -322,7 +330,7 @@ function HookDialog({
     e.preventDefault();
     if (!valid) return;
     setPending(true);
-    const base = { name: name.trim(), events, projectIds, includeContent };
+    const base = { name: name.trim(), events, projectIds, mailboxIds, includeContent };
     const res = hook
       ? await updateWebhookAction(ws, { id: hook.id, ...base, ...(url ? { url: url.trim() } : {}) })
       : await createWebhookAction(ws, { ...base, url: url.trim() });
@@ -410,6 +418,31 @@ function HookDialog({
                 </label>
               ))}
             </fieldset>
+            {mailEvents && mailboxes.length > 0 ? (
+              <fieldset className="flex flex-col gap-2" data-testid="hook-mailboxes">
+                <legend className="mb-1 text-body font-medium">{t("mailboxes")}</legend>
+                <label className="flex items-center gap-2 text-body">
+                  <Checkbox
+                    checked={mailboxIds.length === 0}
+                    onCheckedChange={(c) => c && setMailboxIds([])}
+                  />
+                  {t("allMailboxes")}
+                </label>
+                {mailboxes.map((mb) => (
+                  <label key={mb.id} className="flex items-center gap-2 text-body">
+                    <Checkbox
+                      checked={mailboxIds.includes(mb.id)}
+                      onCheckedChange={(c) =>
+                        setMailboxIds((all) =>
+                          c ? [...all, mb.id] : all.filter((x) => x !== mb.id),
+                        )
+                      }
+                    />
+                    {mb.name}
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
             <label className="flex items-start justify-between gap-3">
               <span className="flex flex-col">
                 <span className="text-body font-medium">{t("includeContent")}</span>

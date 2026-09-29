@@ -1853,8 +1853,8 @@
       "work_item_assigned": "Assigned",
       "intake_submitted": "New request",
       "intake_accepted": "Request accepted",
-      "email_thread_created": "New email thread",
-      "email_message_received": "New email",
+      "email_thread_created": "New email conversation",
+      "email_message_received": "New reply in a conversation",
       "agent_approval_requested": "Agent approval needed",
       "test": "Test message"
     },
@@ -1866,7 +1866,9 @@
     "errors": {
       "generic": "That didn't work. Try again.",
       "url": "Use a Discord webhook URL (https://discord.com/api/webhooks/…)."
-    }
+    },
+    "mailboxes": "Mailboxes",
+    "allMailboxes": "All mailboxes"
   },
   "analytics": {
     "title": "Analytics",

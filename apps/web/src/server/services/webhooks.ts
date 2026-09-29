@@ -26,6 +26,14 @@ function checkUrl(url: string) {
     throw new ConflictError("invalid_webhook_url");
 }
 
+async function checkMailboxes(m: Mutation, ids: string[]) {
+  if (ids.length === 0) return;
+  const n = await m.tx.mailbox.count({
+    where: { id: { in: ids }, workspaceId: m.ctx.workspace.id, deletedAt: null },
+  });
+  if (n !== new Set(ids).size) throw new ConflictError("invalid_mailbox");
+}
+
 async function checkProjects(m: Mutation, ids: string[]) {
   if (ids.length === 0) return;
   const n = await m.tx.project.count({
@@ -40,6 +48,7 @@ export async function createWebhook(ctx: WorkspaceCtx, raw: unknown) {
   checkUrl(input.url);
   return withMutation(ctx, async (m) => {
     await checkProjects(m, input.projectIds);
+    await checkMailboxes(m, input.mailboxIds);
     const hook = await m.tx.outgoingWebhook.create({
       data: {
         workspaceId: ctx.workspace.id,
@@ -49,6 +58,7 @@ export async function createWebhook(ctx: WorkspaceCtx, raw: unknown) {
         urlHint: webhookUrlHint(input.url),
         events: input.events,
         projectIds: input.projectIds,
+        mailboxIds: input.mailboxIds,
         includeContent: input.includeContent,
         createdById: ctx.actor.userId,
       },
@@ -80,6 +90,7 @@ export async function updateWebhook(ctx: WorkspaceCtx, raw: unknown) {
     });
     if (!hook) throw new NotFoundError();
     if (patch.projectIds) await checkProjects(m, patch.projectIds);
+    if (patch.mailboxIds) await checkMailboxes(m, patch.mailboxIds);
     await m.tx.outgoingWebhook.update({
       where: { id },
       data: {
