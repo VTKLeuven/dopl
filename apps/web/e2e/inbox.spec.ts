@@ -14,8 +14,16 @@ test("a mention shows up in the Inbox live, with its badge, and can be triaged w
   await expect(page.locator("html[data-realtime=open]")).toBeAttached();
 
   const chloe = await signInAs(browser, "chloe@dopl.test");
-  const tag = `ping ${uniq()}`;
   await openChannel(chloe.page, SANDBOX);
+  // The first live notification may still compile routes on a cold dev
+  // server (CI), so it isn't timed; the next one is (D-106).
+  const warmup = `warm ${uniq()}`;
+  await send(chloe.page, [{ mention: "Bram" }, ` ${warmup}`]);
+  await expect(page.getByTestId("inbox-row").filter({ hasText: warmup })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const tag = `ping ${uniq()}`;
   await send(chloe.page, [{ mention: "Bram" }, ` ${tag}`]);
   await expect(chloe.page.getByTestId("message").filter({ hasText: tag })).toBeVisible();
 
