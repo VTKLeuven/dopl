@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Shortcut } from "@/components/ui/kbd";
 import { SHORTCUTS, comboOf, isTypingTarget, type ShortcutScope } from "@/lib/shortcuts/registry";
+import { QuickCapture } from "@/features/notes/quick-capture";
 
 const SEQUENCE_MS = 1200;
 const GO: Record<string, string> = {
@@ -21,6 +22,7 @@ const GO: Record<string, string> = {
   s: "settings",
   i: "inbox",
   m: "messages",
+  n: "notes",
 };
 const SCOPE_ORDER: ShortcutScope[] = [
   "global",
@@ -65,7 +67,12 @@ export function GlobalShortcuts() {
     return () => window.removeEventListener("keydown", onKey);
   }, [params.ws, router]);
 
-  return help ? <ShortcutsOverlay onClose={() => setHelp(false)} /> : null;
+  return (
+    <>
+      {help ? <ShortcutsOverlay onClose={() => setHelp(false)} /> : null}
+      <QuickCapture />
+    </>
+  );
 }
 
 function ShortcutsOverlay({ onClose }: { onClose: () => void }) {

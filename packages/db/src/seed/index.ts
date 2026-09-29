@@ -2,7 +2,7 @@
  * Deterministic dev/demo seed (DATA_MODEL §9). Refuses to run in production.
  *
  *   pnpm db:seed              (skips if the workspace already has projects)
- *   pnpm db:seed -- --reset   (rebuilds the seeded projects; keeps users)
+ *   pnpm db:seed -- --reset   (rebuilds the seeded projects and notes; keeps users)
  *
  * Creates (or tops up) workspace "vtk" with the people in ./data.ts — all with
  * the password `dopl-dev-password` — five projects and ~300 work items with
@@ -19,6 +19,7 @@ import { createDbClient } from "../client";
 import type { Prisma } from "../generated/prisma/client";
 import { commentBank, people, projects } from "./data";
 import { seedIntake } from "./intake";
+import { seedNotes } from "./notes";
 
 loadEnv({ path: path.resolve(import.meta.dirname, "../../../../.env"), quiet: true });
 
@@ -75,6 +76,9 @@ async function main() {
       where: { workspaceId: workspace.id, identifier: { in: seeded } },
     });
     await db.viewPreference.deleteMany({ where: { workspaceId: workspace.id } });
+    // Notes (and their tags and to-dos) are reseeded too.
+    await db.note.deleteMany({ where: { workspaceId: workspace.id } });
+    await db.tag.deleteMany({ where: { workspaceId: workspace.id } });
     console.log(`Reset: removed ${removed.count} seeded project(s).`);
   }
 
@@ -455,6 +459,9 @@ async function main() {
     today,
   });
   console.log(`  HELP   ${requests} intake requests, 2 forms`);
+
+  const notes = await seedNotes(db, { workspaceId: workspace.id, today });
+  console.log(`  Notes  ${notes} notes`);
 
   console.log(`\nSeeded "${workspace.name}" (/${workspace.slug}): ${totalItems} work items.`);
   console.log(`Sign in with any of: ${people.map((p) => p.email).join(", ")}`);

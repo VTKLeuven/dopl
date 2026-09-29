@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import type { WorkItemDetail } from "@/features/work-items/types";
+import { handleNotesEvent } from "@/features/notes/realtime";
 import { SharedEventSource } from "./client";
 import { commsInvalidations } from "./comms-events";
 
@@ -78,6 +79,7 @@ export function RealtimeProvider() {
       } catch {
         return;
       }
+      if (handleNotesEvent(qc, ws, ev.type)) return;
       const [kind, id] = ev.topic.split(":");
       comms.push(...commsInvalidations(ws, ev));
       if (kind === "project" && id) {

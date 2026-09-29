@@ -1010,3 +1010,42 @@ These routes are **internal**: they have no stability promise. The public REST A
 - **Test hooks:** `<html data-realtime>` is `open` once the tab's own stream is connected and `relay` while another tab holds it. E2e specs wait on it before triggering events from another browser, instead of sleeping. Writes that must survive a reload go through `useMutation`, so `<html data-saving>` covers them.
 - **Notifications stay in the mutation (D-076).** The `notifications.fanout` job from the plan is still unused.
 - **Chat attachments:** `maintenance.prune` deletes chat uploads that were never sent (PENDING, no message, older than 2 days), and downloads of chat attachments check channel access.
+
+### D-092: Popovers and menus share the dialog layer
+
+**Decision:** popovers and dropdown menus use `z-index: 50`, the same as dialogs (was 40).
+**Why:** Radix portals every popover to `<body>`, so a picker opened inside a dialog (the project picker in "Convert to work item") rendered underneath it. At equal z-index, portals stack in the order they open, so a picker opened from a dialog sits on top. A popover opened from the page is dismissed when a dialog takes focus, so it never ends up over one. DESIGN_SYSTEM §3.8 is updated.
+
+### D-093: Notes on a work item's timeline
+
+- An item made from a note or from one checkbox line gets a timeline entry ("created this from a checkbox in a note") with the line or the note's opening text and a link back. The entries come from the `CREATED_FROM` references that conversion already writes, next to the chat references (D-089).
+- A reader who can't open the note (someone's private note) sees "A private note by …" without any text.
+- Notes attached to an item are listed in a Notes section above the timeline rather than as timeline entries: attaching is a sharing setting that can change, while a conversion is an event.
+
+### D-094: `#` in the notes editor
+
+- Tags are plain text, so the popup never offers the tag you just typed (new or exact). Offering it would make Enter complete it instead of starting a new line. Existing tags below or containing the query are still suggested.
+- Work items are only suggested for identifier-like queries (`#INFRA`, `#infra-4`), so `#infra` followed by Enter doesn't turn into a work-item chip.
+- In the shared suggestion list, Enter and Tab with nothing to pick keep their normal meaning (new line, send) instead of being swallowed. This applies to comments and chat too.
+
+### D-095: Note lists share structure by id; cards are memoized
+
+**Decision:** the notes list queries use a `structuralSharing` function that matches cards by id (then `replaceEqualDeep`), and `NoteCardView` is `memo`ized, with the grid's callbacks kept stable through a ref. Per-card dialogs mount only while open.
+**Why:** TanStack's default structural sharing matches arrays by index. Prepending a captured note shifted every card, so each one was compared with its neighbour and rebuilt as a new object, and the whole grid re-rendered: about 200 ms in dev, over the 100 ms acceptance target. Now a capture renders one card, about 40 ms in dev. `notes.spec.ts` measures it in the page.
+
+### D-096: The daily review is computed on read
+
+**Decision:** there's no `notes.review` job. `getReview` takes the owner's notes with `nextReviewAt <= now` (not pinned, archived or trashed) and draws up to five with a weighted sample (older and rarely reviewed notes weigh more) that is deterministic per user and day, so the set doesn't reshuffle between visits. Handled notes drop out and count towards the day's five.
+**Why:** it's a cheap indexed read for one person, and a job would need a table for the picked set and a schedule per timezone. Keep moves the next review out by 1 → 3 → 7 → 21 → 60 days (DATA_MODEL §3.5).
+
+### D-097: Trashed notes are purged after 30 days
+
+The nightly `maintenance.prune` deletes notes that have been in the trash for 30 days (D-020), then removes tags that have no notes left in their subtree, the same rule `purgeNote` applies to one note. Archived notes are kept.
+
+### D-098: Operational notes from Phase 5
+
+- **Editor keys:** the notes editor handles Esc (leave editing, close capture) in ProseMirror's `handleKeyDown`, which runs before other handlers. It was prevented before the React `onKeyDown` saw it. Editor JSON goes through `editorJson()` (D-091).
+- **Task items in the editor:** Tiptap's TaskItem node view copies only `HTMLAttributes` onto the `<li>`, not the `data-type` its `renderHTML` adds, so the notes editor sets `data-type="taskItem"` there for the task styles to apply.
+- **Relative times** ("7 minutes ago") rendered on the server can differ from the client if a minute passes before hydration. The notes, Home and timeline elements carry `suppressHydrationWarning`. The root layout stays static, so the provider can't pass a request-time `now`. Older screens still have the latent mismatch.
+- **Seed:** `pnpm db:seed` adds ten notes (Bram's, one shared by Chloé, one attached to INFRA by Dries), some due for review. `--reset` rebuilds notes and tags too.
+- **E2e:** `playwright.config.ts` takes the web server URL from `E2E_BASE_URL`, so a dev server on another port isn't mistaken for whatever listens on :3000. The setup has a 240 s budget for cold compiles and also warms the notes routes.

@@ -73,6 +73,10 @@ setup("sign in as a seeded member and ensure the sandbox project", async ({ page
     "channels",
     `channels/${none}/messages`,
     `threads/${none}`,
+    "notes?filter=all",
+    "notes/tags",
+    "notes/todos?status=open",
+    "notes/summary",
   ])
     await page.request.get(`/api/v1/vtk/${path}`, { timeout: 60_000 });
 

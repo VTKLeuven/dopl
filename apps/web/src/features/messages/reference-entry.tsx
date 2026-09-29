@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { MessagesSquare } from "lucide-react";
 import { useRelativeTime } from "@/lib/use-relative-time";
-import type { ReferenceView } from "@/features/work-items/types";
+import type { MessageReferenceView } from "@/features/work-items/types";
 
 /**
  * A chat reference on a work item's timeline (DESIGN_SYSTEM §4.5): "created
  * from a message in #infra" or "mentioned in #general", with the snippet and
  * a link back to the message.
  */
-export function ReferenceEntry({ ws, r }: { ws: string; r: ReferenceView }) {
+export function ReferenceEntry({ ws, r }: { ws: string; r: MessageReferenceView }) {
   const t = useTranslations("messages");
   const relative = useRelativeTime();
   const m = r.message;

@@ -199,7 +199,7 @@ Where it differs from the plan below:
 **Not done yet, carried forward:**
 
 - [ ] Table acceptance measurements (10,000 rows at 60 fps, the React Profiler check). Rows are virtualized and memoized, but the check isn't automated.
-- [ ] Shortcuts from the keyboard map that have no handler yet: `T` type, `E` edit title, `M` comment in peek, `Q` quick note (Phase 5), `[` toggle the sidebar
+- [ ] Shortcuts from the keyboard map that have no handler yet: `T` type, `E` edit title, `M` comment in peek, `[` toggle the sidebar (`Q` quick note came with Phase 5)
 - [ ] Creating items from a cross-project view (needs a project picker in the create dialog)
 - [ ] Old identifiers of moved items don't redirect (Q-23)
 - [ ] Everything still open from Phase 1 (visual baselines, axe, the mock-OIDC SSO test)
@@ -318,7 +318,21 @@ Where it differs from the plan below:
 
 ---
 
-## Phase 5: Notes & My Work
+## Phase 5: Notes & My Work ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Items 1–9 are built; 5b waits on Q-6. The CHANGELOG has the summary; decisions D-092 to D-098 record the choices. All four acceptance checks are covered by Playwright (`notes.spec.ts`), plus `Q` from another page.
+
+Where it differs from the plan below:
+
+- **Daily review** is computed on read, a deterministic weighted sample per user and day, instead of a `notes.review` job (D-096).
+- **Sharing:** shared and attached notes are read-only for everyone but the owner (Q-29). Attached notes are listed on the item in a Notes section; the item's timeline shows the note it was converted from (D-093).
+- **Search** is a trigram-indexed `ILIKE` over the notes' plain text (D-016), not Postgres full-text ranking.
+
+**Not done yet, carried forward:**
+
+- [ ] 5b: embeddings, semantic search, "Ask my notes" and AI tag suggestions (Q-6)
+- [ ] Mobile layout of Home's "Assigned to me" rows (Phase 1's list is tight below 400 px)
+- [ ] Relative times on pre-Phase 5 screens can still mismatch at hydration when a minute rolls over (D-098)
 
 1. **Quick capture:** the global `Q` shortcut and the capture bar on Home. Saving is instant (optimistic), with markdown shortcuts.
 2. **Notes grid:** masonry, colours, pinning, inline editing, archive, trash.

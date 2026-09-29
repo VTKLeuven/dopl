@@ -126,3 +126,6 @@ _Default:_ no chat for guests (D-080). Their requests have a public conversation
 
 **Q-28 (Phase 4): Chat retention.** How long should chat messages be kept? Related to Q-11.
 _Default:_ forever, like comments. Deleted messages are soft-deleted.
+
+**Q-29 (Phase 5): Editing shared notes.** Should teammates be able to edit a note that's shared with the team or attached to their project, or tick its checkboxes?
+_Default:_ no. Shared notes are read-only for everyone but the owner, who alone can edit, share, convert and tick to-dos (the to-dos belong to the owner's "My to-dos"). A teammate who wants to act on one asks the owner to convert it, or copies the text into their own note.

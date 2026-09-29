@@ -264,3 +264,46 @@ export class ForbiddenError extends Error {
     this.name = "ForbiddenError";
   }
 }
+
+/* ───────────────────────── notes (Phase 5) ───────────────────────── */
+
+export interface PolicyNote {
+  ownerId: string;
+  visibility: "PRIVATE" | "WORKSPACE";
+  archived: boolean;
+  deleted: boolean;
+  /**
+   * True when the note is attached to a project (directly or through a work
+   * item) that the actor can browse. The caller resolves project access.
+   */
+  attachedProjectVisible: boolean;
+}
+
+export type NoteAction =
+  | "note.view"
+  | "note.edit" // content, colour, pin, to-dos, archive, trash
+  | "note.share" // private / team / project / work item
+  | "note.convert"; // turn the note or one of its lines into a work item
+
+/**
+ * DATA_MODEL §3.5: a note is its owner's. Others see it only when it is
+ * shared with the team or attached to a project/work item they can browse,
+ * and never once it's archived or in the trash. Guests only ever see their
+ * own notes, and admins get no special access to private notes. Only the
+ * owner changes a note; shared notes are read-only for everyone else.
+ */
+export function canNote(actor: PolicyActor, note: PolicyNote, action: NoteAction): boolean {
+  const owner = note.ownerId === actor.userId;
+  const guest = actor.workspaceRole === "GUEST";
+  switch (action) {
+    case "note.view":
+      if (owner) return true;
+      if (guest || note.archived || note.deleted) return false;
+      return note.visibility === "WORKSPACE" || note.attachedProjectVisible;
+    case "note.edit":
+      return owner;
+    case "note.share":
+    case "note.convert":
+      return owner && !guest && actor.kind !== "SYSTEM";
+  }
+}
