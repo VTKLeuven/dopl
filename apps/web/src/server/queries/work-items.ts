@@ -23,6 +23,7 @@ import { z } from "zod";
 import { compileFilter, type CompileContext } from "./filters";
 import { requestSelect, toRequestInfo } from "./intake";
 import { projectAccessById, type ProjectAccess } from "./projects";
+import { loadItemReferences } from "./references";
 
 export const rowSelect = {
   id: true,
@@ -575,6 +576,7 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
     })),
     comments,
     activities,
+    references: await loadItemReferences(ctx, item.id),
     subscribed: item.subscribers.length > 0 && !item.subscribers[0]?.muted,
   };
 }

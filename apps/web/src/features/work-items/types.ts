@@ -129,6 +129,25 @@ export interface RequestInfo {
   publicStatus: PublicStatus;
 }
 
+/** A chat message that mentions the item or that it was created from (Phase 4). */
+export interface ReferenceView {
+  id: string;
+  kind: "MENTIONED" | "LINKED" | "CREATED_FROM";
+  createdAt: string;
+  actorId: string | null;
+  actorName: string | null;
+  message: {
+    id: string;
+    channelId: string;
+    channelKind: "PROJECT" | "CUSTOM" | "DM" | "GROUP_DM";
+    /** null for DMs. */
+    channelName: string | null;
+    threadRootId: string | null;
+    excerpt: string;
+    authorName: string | null;
+  };
+}
+
 export interface WorkItemDetail extends WorkItemRow {
   request: RequestInfo | null;
   projectIdentifier: string;
@@ -148,6 +167,7 @@ export interface WorkItemDetail extends WorkItemRow {
   }>;
   comments: CommentView[];
   activities: ActivityView[];
+  references: ReferenceView[];
   subscribed: boolean;
   archivedAt: string | null;
 }

@@ -4,6 +4,7 @@ import { uuidv7 } from "@dopl/shared/ids";
 import { ConflictError, NotFoundError } from "../action-result";
 import { db } from "../db";
 import { withMutation } from "../mutation";
+import { channelAccessById } from "../queries/channels";
 import { projectAccessById } from "../queries/projects";
 import type { WorkspaceCtx } from "../session";
 import { blobStore, MAX_UPLOAD_BYTES } from "../storage";
@@ -110,8 +111,14 @@ export async function resolveDownload(ctx: WorkspaceCtx, attachmentId: string) {
       mimeType: true,
       workItem: { select: { projectId: true } },
       comment: { select: { projectId: true } },
+      message: { select: { channelId: true } },
     },
   });
+  // Chat attachments follow the channel's access (Phase 4).
+  if (a?.message) {
+    await channelAccessById(ctx, a.message.channelId);
+    return a;
+  }
   const projectId = a?.workItem?.projectId ?? a?.comment?.projectId;
   if (!a || !projectId) throw new NotFoundError();
   const access = await projectAccessById(ctx, projectId);
