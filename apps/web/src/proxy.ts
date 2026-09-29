@@ -36,8 +36,11 @@ export function proxy(request: NextRequest) {
   h.set("X-Content-Type-Options", "nosniff");
   h.set("Referrer-Policy", "strict-origin-when-cross-origin");
   h.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
-  // Public forms (/f/*) set their own frame-ancestors per form (Phase 3).
+  // Public forms (/f/*) can be embedded anywhere; which origins may submit is
+  // checked per form on the server (D-071). Everything else refuses framing.
   if (!pathname.startsWith("/f/")) h.set("X-Frame-Options", "DENY");
+  // Status-page links carry their token in the path: never leak it.
+  if (pathname.startsWith("/s/")) h.set("Referrer-Policy", "no-referrer");
   if (process.env.NODE_ENV === "production") {
     h.set("Strict-Transport-Security", "max-age=31536000");
   }

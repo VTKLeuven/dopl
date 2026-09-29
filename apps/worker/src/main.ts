@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { PgBoss } from "pg-boss";
 import { createDbClient } from "@dopl/db";
 import { queueNames } from "@dopl/shared/jobs/queues";
+import { ensureQueues } from "./queues";
 import { env } from "./env";
 import { logger } from "./logger";
 import { registerHandlers } from "./jobs";
@@ -26,11 +27,7 @@ let healthy = false;
 
 async function main() {
   await boss.start();
-  const queueOptions = { retryLimit: 5, retryDelay: 10, retryBackoff: true, notify: true };
-  for (const name of queueNames) {
-    await boss.createQueue(name, queueOptions); // no-op when it exists
-    await boss.updateQueue(name, queueOptions); // keep options in sync
-  }
+  await ensureQueues(boss);
   await registerHandlers({ boss, db, logger });
   healthy = true;
   logger.info({ queues: queueNames.length }, "worker started");

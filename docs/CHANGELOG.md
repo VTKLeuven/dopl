@@ -1,5 +1,51 @@
 # Changelog
 
+## Phase 3: Intake (2026-09-29)
+
+**Triage queue** (`/<ws>/p/<IDENT>/intake`)
+
+- Pending, Snoozed, Accepted, Declined and Duplicates tabs with counts, and a sidebar badge with the number waiting.
+- A peek with a decision bar: accept (state, priority, assignees, labels), decline (reason, notify the sender), mark as a duplicate of an existing item, snooze (presets or a date). Shortcuts `Y`, `N`, `U`, `Z`, plus `J`/`K`; the next request opens after a decision.
+- Accepting gives the item the next number; declined and duplicate requests never use one and can be reopened. A snoozed request comes back on its own and its snoozer is notified.
+- Every request shows who sent it, how, and their answers ("External": untrusted for the AI teammate). Accepted items keep that panel.
+
+**Replying to the sender**
+
+- The comment box on a request switches between an internal note and a public reply. Public replies email the sender (contacts get a fresh status link; guests also get an Inbox notification). Internal notes never reach guests or the status page.
+
+**Public forms**
+
+- A form builder per project: fields (short and long text, single and multiple choice, date, file, email, checkbox), required, help text, placeholders, reordering, mapping to title, description, priority, type, labels or due date, a live preview, publish and unpublish, the public address, and settings (defaults, who's notified, Turnstile, allowed embed sites, file limits).
+- `/f/<slug>`: a cached public page with success and error states. Every form asks for the sender's email and name; senders become contacts.
+- Embeds: an `<iframe>` snippet and `embed.js` (a floating button that opens the form in a modal, sized over `postMessage`), both with copy buttons. A form can restrict which sites may send it.
+- Spam protection: a honeypot, a minimum fill time, per-IP and per-email rate limits, optional Turnstile and blocked contacts. Uploads are size and type checked and quarantined until the submission that claims them commits.
+
+**Status page and guests**
+
+- The confirmation email links to `/s/<token>`: a simplified status (Received, In progress, Resolved, Closed, Already reported), the sender's own answers and files, the public conversation, and a reply box with attachments.
+- Guests get **Requests**: send a request to a project they belong to and follow it with the same view.
+
+**Contacts** (`/<ws>/contacts`)
+
+- A list with search, and a page per contact with details, notes and their requests. Block and unblock; admins merge duplicates.
+
+**Discord webhooks** (Settings → Integrations)
+
+- Add a webhook with its events, projects and whether content is included; send a test message; a delivery log with redelivery.
+- The worker posts Discord embeds with mentions disabled, coalesces quick edits to one item into one message, honours 429s and disables a webhook after 10 failures in a row (admins are notified).
+
+**Under the hood**
+
+- `withMutation` also covers public actors (contacts) and queues webhook deliveries in the same transaction. Notifications go through one `notify()` helper with preferences, grouping and realtime badge events.
+- New worker jobs: `webhook.deliver`, `snooze.wake`; `maintenance.prune` also drops old deliveries and abandoned uploads.
+- Seed: an IT-support form, a draft server-request form, contacts and requests in every triage state.
+- Decisions D-071 to D-079.
+
+**Tests**
+
+- Vitest: intake services (numbering, spam rules, the 21st submission from one IP gets 429, oversized and wrong-type uploads, claiming only your own uploads, status tokens, internal comments never reaching guests or the status page), webhooks (coalescing, URL allowlist, encryption), the Discord renderer, form validation, the policy additions, and the worker's delivery job (429, auto-disable).
+- Playwright: build and publish a form; submit it from an embed on another origin and accept it; follow the confirmation email to the status page and reply; a guest's request with public and internal comments.
+
 ## Phase 2: Views (2026-09-29)
 
 **Filters**

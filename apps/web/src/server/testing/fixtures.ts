@@ -2,6 +2,9 @@ import type { WorkspaceRole } from "@dopl/shared/policy";
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
 import { createProject } from "../services/projects";
+import { createForm, saveForm, setFormPublished } from "../services/intake-forms";
+import { getFormForEdit } from "../queries/intake";
+import { projectAccessById } from "../queries/projects";
 
 let n = 0;
 const uniq = () =>
@@ -81,4 +84,46 @@ export async function makeProject(
     return s;
   };
   return { ...p, states, byName };
+}
+
+/** Adds an existing workspace member (e.g. a guest) to a project. */
+export async function addToProject(
+  projectId: string,
+  member: WorkspaceCtx,
+  role: "ADMIN" | "MEMBER" | "GUEST" = "GUEST",
+) {
+  await db.projectMember.create({
+    data: {
+      projectId,
+      workspaceId: member.workspace.id,
+      userId: member.actor.userId,
+      role,
+      sortKey: `a${uniq()}`,
+    },
+  });
+}
+
+/** A published form with the default fields, optionally adjusted. */
+export async function makePublishedForm(
+  admin: WorkspaceCtx,
+  projectId: string,
+  adjust: (
+    form: Awaited<ReturnType<typeof getFormForEdit>>,
+  ) => Partial<Awaited<ReturnType<typeof getFormForEdit>>> = () => ({}),
+) {
+  const { id } = await createForm(admin, { projectId, title: `Support ${uniq()}` });
+  const access = await projectAccessById(admin, projectId);
+  const form = await getFormForEdit(access, id);
+  const next = { ...form, ...adjust(form) };
+  await saveForm(admin, {
+    id,
+    title: next.title,
+    description: next.description,
+    slug: next.slug,
+    settings: next.settings,
+    theme: next.theme,
+    fields: next.fields,
+  });
+  await setFormPublished(admin, id, true);
+  return { ...next, id };
 }

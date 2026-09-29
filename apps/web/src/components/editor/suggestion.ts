@@ -8,6 +8,12 @@ import type {
 } from "@tiptap/suggestion";
 import { SuggestionList, type SuggestionItem, type SuggestionListHandle } from "./suggestion-list";
 
+let openPopups = 0;
+/** True while an @mention or #reference popup is open (Enter picks, not sends). */
+export function isSuggestionOpen(): boolean {
+  return openPopups > 0;
+}
+
 /** Renders the suggestion popup in a fixed-position container at the caret. */
 export function suggestionRenderer(
   emptyLabel: string,
@@ -32,6 +38,7 @@ export function suggestionRenderer(
 
     return {
       onStart: (props) => {
+        openPopups += 1;
         container = document.createElement("div");
         container.style.position = "fixed";
         container.style.zIndex = "45";
@@ -52,6 +59,7 @@ export function suggestionRenderer(
         return renderer?.ref?.onKeyDown(props.event) ?? false;
       },
       onExit: () => {
+        if (renderer) openPopups = Math.max(0, openPopups - 1);
         renderer?.destroy();
         container?.remove();
         renderer = null;

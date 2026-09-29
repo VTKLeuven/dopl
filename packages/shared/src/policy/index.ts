@@ -32,6 +32,9 @@ export type WorkspaceAction =
   | "workspace.auth.manage"
   | "project.create"
   | "view.workspace.create"
+  | "contact.view"
+  | "contact.edit"
+  | "contact.merge"
   | "agent.pause";
 
 const isAdmin = (r: WorkspaceRole) => r === "OWNER" || r === "ADMIN";
@@ -45,8 +48,12 @@ export function canWorkspace(actor: PolicyActor, action: WorkspaceAction): boole
     case "workspace.audit.view":
     case "workspace.integrations.manage":
     case "workspace.auth.manage":
+    case "contact.merge":
     case "agent.pause":
       return actor.kind === "HUMAN" && isAdmin(actor.workspaceRole);
+    // Contacts are people outside the team: never visible to guests.
+    case "contact.view":
+    case "contact.edit":
     case "project.create":
     case "view.workspace.create":
       return actor.kind === "HUMAN" && actor.workspaceRole !== "GUEST";
@@ -146,6 +153,100 @@ export function canView(actor: PolicyActor, view: PolicyView, action: ViewAction
     case "view.delete":
     case "view.lock":
       return owner || admin;
+  }
+}
+
+/**
+ * A request someone submitted from inside Dopl (guest or member). Its
+ * submitter may always follow it and reply publicly, even as a guest who
+ * can't browse the project; everyone else needs triage rights.
+ */
+export function canSeeRequest(
+  actor: PolicyActor,
+  project: PolicyProject,
+  request: { submitterUserId: string | null },
+): boolean {
+  if (request.submitterUserId && request.submitterUserId === actor.userId)
+    return effectiveProjectRole(actor, project) !== null;
+  return canProject(actor, project, "intake.triage");
+}
+
+/**
+ * Team chat (Phase 4). Messages are for the team: guests never see channels
+ * or DMs. Project channels follow project access; custom channels are open to
+ * every non-guest member when public and to their members when private; DMs
+ * belong to their participants. Admins get no backdoor into private channels.
+ */
+export interface PolicyChannel {
+  kind: "PROJECT" | "CUSTOM" | "DM" | "GROUP_DM";
+  isPrivate: boolean;
+  archivedAt?: Date | null;
+  /** The actor's ChannelMember role, if they have a row. */
+  memberRole: "OWNER" | "MEMBER" | null;
+  /** PROJECT channels: the project, with the actor's project membership. */
+  project?: PolicyProject | null;
+}
+
+export type ChannelAction =
+  | "channel.view" // read messages, get realtime events
+  | "channel.post" // send messages and replies (posting in a public channel joins it)
+  | "channel.join"
+  | "channel.leave"
+  | "channel.members" // add people
+  | "channel.manage"; // rename, topic, archive, remove people
+
+export function canChannel(
+  actor: PolicyActor,
+  channel: PolicyChannel,
+  action: ChannelAction,
+): boolean {
+  if (actor.kind === "SYSTEM") return true;
+  if (actor.workspaceRole === "GUEST") return false;
+  const member = channel.memberRole !== null;
+  const archived = Boolean(channel.archivedAt);
+  if (channel.kind === "PROJECT") {
+    const role = channel.project ? effectiveProjectRole(actor, channel.project) : null;
+    const inProject = role === "ADMIN" || role === "MEMBER";
+    switch (action) {
+      case "channel.view":
+      case "channel.join":
+        return inProject;
+      case "channel.post":
+        return inProject && !archived && !channel.project?.archivedAt;
+      case "channel.manage":
+        return role === "ADMIN";
+      case "channel.leave":
+      case "channel.members":
+        return false; // membership follows the project
+    }
+  }
+  if (channel.kind === "CUSTOM") {
+    const visible = member || !channel.isPrivate;
+    switch (action) {
+      case "channel.view":
+        return visible;
+      case "channel.join":
+        return !member && !channel.isPrivate && !archived;
+      case "channel.post":
+        return visible && !archived;
+      case "channel.leave":
+        return member;
+      case "channel.members":
+        return member && !archived;
+      case "channel.manage":
+        return (
+          channel.memberRole === "OWNER" ||
+          (visible && actor.kind === "HUMAN" && isAdmin(actor.workspaceRole))
+        );
+    }
+  }
+  // DM and GROUP_DM: participants only; a different group means a new DM.
+  switch (action) {
+    case "channel.view":
+    case "channel.post":
+      return member;
+    default:
+      return false;
   }
 }
 

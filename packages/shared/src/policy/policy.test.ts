@@ -3,6 +3,7 @@ import {
   canApproveAgentAction,
   canEditComment,
   canProject,
+  canSeeRequest,
   canView,
   canWorkspace,
   effectiveProjectRole,
@@ -165,5 +166,32 @@ describe("saved views", () => {
     expect(canView(actor("MEMBER"), view(), "view.lock")).toBe(false);
     expect(canView(owner, view(), "view.delete")).toBe(true);
     expect(canView(actor("ADMIN"), view(), "view.lock")).toBe(true);
+  });
+});
+
+describe("contacts and requests", () => {
+  it("contacts are for the team; merging is for admins", () => {
+    expect(canWorkspace(actor("MEMBER"), "contact.view")).toBe(true);
+    expect(canWorkspace(actor("MEMBER"), "contact.edit")).toBe(true);
+    expect(canWorkspace(actor("GUEST"), "contact.view")).toBe(false);
+    expect(canWorkspace(actor("MEMBER"), "contact.merge")).toBe(false);
+    expect(canWorkspace(actor("ADMIN"), "contact.merge")).toBe(true);
+  });
+  it("a guest sees only their own requests, even without browsing rights", () => {
+    const guest = actor("GUEST");
+    const p = project({ memberRole: "GUEST" });
+    expect(canSeeRequest(guest, p, { submitterUserId: "u1" })).toBe(true);
+    expect(canSeeRequest(guest, p, { submitterUserId: "u2" })).toBe(false);
+    expect(canSeeRequest(guest, p, { submitterUserId: null })).toBe(false);
+    // …and not once they've lost access to the project.
+    expect(canSeeRequest(guest, project(), { submitterUserId: "u1" })).toBe(false);
+  });
+  it("triagers see every request", () => {
+    expect(canSeeRequest(actor("MEMBER"), project(), { submitterUserId: "u2" })).toBe(true);
+    expect(
+      canSeeRequest(actor("MEMBER"), project({ archivedAt: new Date() }), {
+        submitterUserId: "u2",
+      }),
+    ).toBe(false);
   });
 });

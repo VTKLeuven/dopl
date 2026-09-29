@@ -9,6 +9,12 @@ export const queues = {
   "maintenance.purge": z.object({}),
   "maintenance.prune": z.object({}),
   "email.send": z.object({ outboundEmailId: z.uuid() }),
+  /** Every 10 minutes: one digest email per user with unread, un-emailed notifications. */
+  "email.digest": z.object({}),
+  /** Posts one (possibly coalesced) Discord delivery (D-052). */
+  "webhook.deliver": z.object({ deliveryId: z.uuid() }),
+  /** Every minute: snoozed intake items come back to the queue. */
+  "snooze.wake": z.object({}),
   "notifications.fanout": z.object({
     workspaceId: z.uuid(),
     activityIds: z.array(z.uuid()).min(1),

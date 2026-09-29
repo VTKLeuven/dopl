@@ -22,7 +22,7 @@ async function Settings({ params }: { params: PageProps<"/[ws]/p/[ident]/setting
   const access = await getProjectAccess(ctx, ident);
   if (!access.can("project.manage")) notFound();
   const projectId = access.project.id;
-  const [states, labels, members, workspaceMembers] = await Promise.all([
+  const [states, labels, members, workspaceMembers, intake] = await Promise.all([
     db.workflowState.findMany({
       where: { projectId, group: { not: "TRIAGE" } },
       orderBy: { sortKey: "asc" },
@@ -50,11 +50,16 @@ async function Settings({ params }: { params: PageProps<"/[ws]/p/[ident]/setting
       select: { role: true, user: { select: { id: true, name: true, email: true, image: true } } },
       orderBy: { user: { name: "asc" } },
     }),
+    db.project.findUniqueOrThrow({ where: { id: projectId }, select: { intakeEnabled: true } }),
   ]);
   return (
     <ProjectSettings
       ws={ws}
-      project={{ ...access.project, archivedAt: access.project.archivedAt?.toISOString() ?? null }}
+      project={{
+        ...access.project,
+        archivedAt: access.project.archivedAt?.toISOString() ?? null,
+        intakeEnabled: intake.intakeEnabled,
+      }}
       states={states.map((s) => ({ ...s, count: s._count.workItems }))}
       labels={labels.map((l) => ({ ...l, count: l._count.workItems }))}
       members={members.map((m) => ({ ...m.user, role: m.role }))}

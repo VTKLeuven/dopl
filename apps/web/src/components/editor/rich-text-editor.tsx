@@ -7,7 +7,7 @@ import Mention from "@tiptap/extension-mention";
 import { Placeholder } from "@tiptap/extensions";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { cn } from "@/lib/cn";
-import { suggestionRenderer } from "./suggestion";
+import { isSuggestionOpen, suggestionRenderer } from "./suggestion";
 import type { SuggestionItem } from "./suggestion-list";
 
 export interface EditorSources {
@@ -42,6 +42,7 @@ export function RichTextEditor({
   editable = true,
   onReady,
   minHeight = "min-h-[72px]",
+  submitOnEnter = false,
 }: {
   value: unknown;
   onChange?: (doc: unknown, editor: Editor) => void;
@@ -54,6 +55,8 @@ export function RichTextEditor({
   editable?: boolean;
   onReady?: (editor: Editor) => void;
   minHeight?: string;
+  /** Chat: Enter sends, Shift+Enter adds a line (⌘Enter always submits). */
+  submitOnEnter?: boolean;
 }) {
   const submitRef = useRef(onSubmit);
   useEffect(() => {
@@ -122,10 +125,24 @@ export function RichTextEditor({
           submitRef.current();
           return true;
         }
+        if (
+          submitOnEnter &&
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.isComposing &&
+          !isSuggestionOpen() &&
+          submitRef.current
+        ) {
+          submitRef.current();
+          return true;
+        }
         return false;
       },
     },
-    onUpdate: ({ editor: e }) => onChange?.(e.getJSON(), e),
+    // ProseMirror attrs are null-prototype objects, which server actions
+    // can't serialize (they arrive as unreadable temporary references).
+    // A JSON round trip turns the document into plain data.
+    onUpdate: ({ editor: e }) => onChange?.(JSON.parse(JSON.stringify(e.getJSON())) as unknown, e),
     onCreate: ({ editor: e }) => onReady?.(e),
   });
 

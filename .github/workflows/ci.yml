@@ -23,6 +23,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U dopl -d dopl"
           --health-interval 2s --health-timeout 3s --health-retries 30
+      # Captures outgoing email; e2e reads confirmation links from its API.
+      mailpit:
+        image: axllent/mailpit:latest
+        env:
+          MP_SMTP_DISABLE_RDNS: "true"
+        ports: ["1025:1025", "8025:8025"]
     env:
       DATABASE_URL: postgresql://dopl:dopl@localhost:54320/dopl
       DATABASE_URL_TEST: postgresql://dopl:dopl@localhost:54320/dopl_test
@@ -52,12 +58,16 @@ jobs:
         run: |
           pnpm db:seed
           pnpm --filter @dopl/web exec playwright install --with-deps chromium
+          # The worker sends the emails (and webhooks) the intake tests wait for.
+          pnpm --filter @dopl/worker exec tsx src/main.ts > worker.log 2>&1 &
           pnpm e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-traces
-          path: apps/web/test-results
+          path: |
+            apps/web/test-results
+            worker.log
 
   images:
     needs: check

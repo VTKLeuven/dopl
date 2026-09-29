@@ -10,17 +10,32 @@ interface Node {
   text?: string;
 }
 
+/** Renders a `#INFRA-42` node (chat shows it as a chip with state and title). */
+export type ItemRefRenderer = (attrs: { id: string; label: string }) => React.ReactNode;
+
 /**
  * Read-only renderer for sanitized Tiptap JSON → React elements.
  * No HTML strings, so nothing can inject markup (D-019, CLAUDE.md security rules).
  */
-export function RichTextView({ doc, className }: { doc: unknown; className?: string }) {
+export function RichTextView({
+  doc,
+  className,
+  renderItemRef,
+}: {
+  doc: unknown;
+  className?: string;
+  renderItemRef?: ItemRefRenderer;
+}) {
   if (!doc || typeof doc !== "object") return null;
-  return <div className={cn(proseClasses, className)}>{renderNodes((doc as Node).content)}</div>;
+  return (
+    <div className={cn(proseClasses, className)}>
+      {renderNodes((doc as Node).content, renderItemRef)}
+    </div>
+  );
 }
 
-function renderNodes(nodes: Node[] | undefined): React.ReactNode {
-  return nodes?.map((n, i) => <Fragment key={i}>{renderNode(n)}</Fragment>);
+function renderNodes(nodes: Node[] | undefined, itemRef?: ItemRefRenderer): React.ReactNode {
+  return nodes?.map((n, i) => <Fragment key={i}>{renderNode(n, itemRef)}</Fragment>);
 }
 
 function renderText(n: Node): React.ReactNode {
@@ -46,30 +61,31 @@ function renderText(n: Node): React.ReactNode {
   return el;
 }
 
-function renderNode(n: Node): React.ReactNode {
+function renderNode(n: Node, itemRef?: ItemRefRenderer): React.ReactNode {
+  const children = (nodes: Node[] | undefined) => renderNodes(nodes, itemRef);
   switch (n.type) {
     case "text":
       return renderText(n);
     case "paragraph":
-      return <p>{renderNodes(n.content)}</p>;
+      return <p>{children(n.content)}</p>;
     case "heading": {
       const level = Number(n.attrs?.level ?? 2);
       return level === 1 ? (
-        <h1>{renderNodes(n.content)}</h1>
+        <h1>{children(n.content)}</h1>
       ) : level === 2 ? (
-        <h2>{renderNodes(n.content)}</h2>
+        <h2>{children(n.content)}</h2>
       ) : (
-        <h3>{renderNodes(n.content)}</h3>
+        <h3>{children(n.content)}</h3>
       );
     }
     case "bulletList":
-      return <ul>{renderNodes(n.content)}</ul>;
+      return <ul>{children(n.content)}</ul>;
     case "orderedList":
-      return <ol start={Number(n.attrs?.start ?? 1)}>{renderNodes(n.content)}</ol>;
+      return <ol start={Number(n.attrs?.start ?? 1)}>{children(n.content)}</ol>;
     case "listItem":
-      return <li>{renderNodes(n.content)}</li>;
+      return <li>{children(n.content)}</li>;
     case "taskList":
-      return <ul data-type="taskList">{renderNodes(n.content)}</ul>;
+      return <ul data-type="taskList">{children(n.content)}</ul>;
     case "taskItem":
       return (
         <li data-type="taskItem" data-checked={n.attrs?.checked ? "true" : "false"}>
@@ -81,15 +97,15 @@ function renderNode(n: Node): React.ReactNode {
               className="accent-sky-600"
             />
           </label>
-          <div>{renderNodes(n.content)}</div>
+          <div>{children(n.content)}</div>
         </li>
       );
     case "blockquote":
-      return <blockquote>{renderNodes(n.content)}</blockquote>;
+      return <blockquote>{children(n.content)}</blockquote>;
     case "codeBlock":
       return (
         <pre>
-          <code>{renderNodes(n.content)}</code>
+          <code>{children(n.content)}</code>
         </pre>
       );
     case "horizontalRule":
@@ -99,10 +115,15 @@ function renderNode(n: Node): React.ReactNode {
     case "mention":
       return <span className="mention">@{String(n.attrs?.label ?? "")}</span>;
     case "workItemRef":
+      if (itemRef && typeof n.attrs?.id === "string")
+        return itemRef({
+          id: n.attrs.id,
+          label: String(n.attrs.identifier ?? n.attrs.label ?? ""),
+        });
       return (
         <span className="item-ref">{String(n.attrs?.identifier ?? n.attrs?.label ?? "")}</span>
       );
     default:
-      return renderNodes(n.content);
+      return children(n.content);
   }
 }

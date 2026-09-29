@@ -43,5 +43,22 @@ setup("sign in as a seeded member and ensure the sandbox project", async ({ page
     await expect(page.locator("html:not([data-saving])")).toBeAttached({ timeout: 15_000 });
   }
 
+  // The guest (Gert Gast) is a member of the sandbox so intake tests can send
+  // in-app requests there instead of into the seeded projects.
+  await page.goto("/vtk/p/E2E/settings");
+  const membersSection = page.locator("section").filter({ hasText: "Members" }).last();
+  await expect(page.getByRole("button", { name: "Add member" })).toBeVisible();
+  if (
+    !(await membersSection
+      .getByText("Gert Gast")
+      .isVisible()
+      .catch(() => false))
+  ) {
+    await page.getByRole("button", { name: "Add member" }).click();
+    await page.getByPlaceholder("Add member").fill("Gert");
+    await page.getByRole("option", { name: /Gert Gast/ }).click();
+    await expect(membersSection.getByText("Gert Gast")).toBeVisible();
+  }
+
   await page.context().storageState({ path: "e2e/.auth/member.json" });
 });

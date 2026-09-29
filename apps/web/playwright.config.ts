@@ -16,6 +16,11 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
     viewport: { width: 1440, height: 900 },
+    // Machines with a preinstalled Chromium (e.g. cloud dev containers) point
+    // at it instead of downloading Playwright's build.
+    ...(process.env.PW_CHROMIUM
+      ? { launchOptions: { executablePath: process.env.PW_CHROMIUM } }
+      : {}),
   },
   projects: [
     { name: "setup", testMatch: /global\.setup\.ts/ },

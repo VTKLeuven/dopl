@@ -14,8 +14,24 @@ import { Shortcut } from "@/components/ui/kbd";
 import { SHORTCUTS, comboOf, isTypingTarget, type ShortcutScope } from "@/lib/shortcuts/registry";
 
 const SEQUENCE_MS = 1200;
-const GO: Record<string, string> = { h: "home", p: "projects", v: "views", s: "settings" };
-const SCOPE_ORDER: ShortcutScope[] = ["global", "list", "table", "calendar", "timeline", "peek"];
+const GO: Record<string, string> = {
+  h: "home",
+  p: "projects",
+  v: "views",
+  s: "settings",
+  i: "inbox",
+  m: "messages",
+};
+const SCOPE_ORDER: ShortcutScope[] = [
+  "global",
+  "list",
+  "table",
+  "calendar",
+  "timeline",
+  "peek",
+  "inbox",
+  "messages",
+];
 
 /** `?` opens the shortcut overlay; `g` then a letter navigates (DESIGN_SYSTEM §7.1). */
 export function GlobalShortcuts() {

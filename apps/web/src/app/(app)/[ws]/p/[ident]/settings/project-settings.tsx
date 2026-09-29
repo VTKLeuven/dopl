@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { setIntakeEnabledAction } from "@/server/actions/intake";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Archive, Ellipsis, Plus, Settings, Trash } from "lucide-react";
@@ -68,6 +70,7 @@ interface Props {
     guestsCanViewProject: boolean;
     estimateSystem: "NONE" | "POINTS" | "HOURS";
     archivedAt: string | null;
+    intakeEnabled: boolean;
   };
   states: Array<{
     id: string;
@@ -114,6 +117,7 @@ export function ProjectSettings(props: Props) {
         <States {...props} />
         <Labels {...props} />
         <Members {...props} />
+        <IntakeSettings {...props} />
         <SettingsSection title={t("danger")} description={t("archiveHint")}>
           <Button
             variant={project.archivedAt ? "secondary" : "danger-ghost"}
@@ -128,6 +132,42 @@ export function ProjectSettings(props: Props) {
         </SettingsSection>
       </div>
     </>
+  );
+}
+
+/** Intake (Phase 3): on/off for the whole project, and where the forms live. */
+function IntakeSettings({ ws, project }: Props) {
+  const t = useTranslations("projectSettings");
+  const router = useRouter();
+  const [enabled, setEnabled] = useState(project.intakeEnabled);
+  return (
+    <SettingsSection title={t("intake")} description={t("intakeHint")}>
+      <label className="flex items-center justify-between gap-3 text-body">
+        {t("intakeEnabled")}
+        <Switch
+          checked={enabled}
+          data-testid="intake-enabled"
+          onCheckedChange={async (v) => {
+            setEnabled(v);
+            const res = await setIntakeEnabledAction(ws, project.id, v);
+            if (!res.ok) {
+              setEnabled(!v);
+              toast.error(t("saveFailed"));
+            } else router.refresh();
+          }}
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="secondary">
+          <Link href={`/${ws}/p/${project.identifier}/intake` as never}>{t("openQueue")}</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href={`/${ws}/p/${project.identifier}/intake/forms` as never}>
+            {t("manageForms")}
+          </Link>
+        </Button>
+      </div>
+    </SettingsSection>
   );
 }
 

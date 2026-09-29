@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "../db";
+import { channelAccessById } from "../queries/channels";
 import { accessibleProjectsWhere } from "../queries/projects";
 import type { WorkspaceCtx } from "../session";
 import type { RealtimeMessage } from "./listener";
@@ -12,10 +13,13 @@ import type { RealtimeMessage } from "./listener";
 export class TopicAccess {
   private projects = new Set<string>();
   private itemProject = new Map<string, string | null>();
+  /** channel id → may this member read it (same policy as the chat UI). */
+  private channels = new Map<string, boolean>();
 
   constructor(private readonly ctx: WorkspaceCtx) {}
 
   async refresh() {
+    this.channels.clear();
     const rows = await db.project.findMany({
       where: accessibleProjectsWhere(this.ctx),
       select: { id: true },
@@ -25,7 +29,10 @@ export class TopicAccess {
 
   /** Events that change who can see what. */
   static affectsAccess(msg: RealtimeMessage): boolean {
-    return /^(project|member|invite)\./.test(msg.type);
+    return (
+      /^(project|member|invite)\./.test(msg.type) ||
+      /^channel\.(created|updated|archived|membersChanged)$/.test(msg.type)
+    );
   }
 
   async allows(msg: RealtimeMessage): Promise<boolean> {
@@ -46,6 +53,18 @@ export class TopicAccess {
         }
         const projectId = this.itemProject.get(id);
         return Boolean(projectId && this.projects.has(projectId));
+      }
+      case "channel": {
+        if (!id) return false;
+        if (!this.channels.has(id)) {
+          if (this.channels.size > 2_000) this.channels.clear();
+          const visible = await channelAccessById(this.ctx, id).then(
+            () => true,
+            () => false,
+          );
+          this.channels.set(id, visible);
+        }
+        return this.channels.get(id) === true;
       }
       default:
         return false;

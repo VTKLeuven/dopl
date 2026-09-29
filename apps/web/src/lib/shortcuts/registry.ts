@@ -3,7 +3,8 @@
  * through `resolveShortcut`, tooltips and menus read `keysFor`, and the `?`
  * overlay lists everything here. Labels are next-intl keys under "shortcuts".
  */
-export type ShortcutScope = "global" | "list" | "table" | "calendar" | "timeline" | "peek";
+export type ShortcutScope =
+  "global" | "list" | "table" | "calendar" | "timeline" | "peek" | "triage" | "inbox" | "messages";
 
 export interface ShortcutDef {
   id: string;
@@ -19,6 +20,8 @@ export const SHORTCUTS = [
   { id: "goProjects", keys: "g p", scope: "global" },
   { id: "goViews", keys: "g v", scope: "global" },
   { id: "goSettings", keys: "g s", scope: "global" },
+  { id: "goInbox", keys: "g i", scope: "global" },
+  { id: "goMessages", keys: "g m", scope: "global" },
   { id: "create", keys: "c", scope: "list" },
   { id: "search", keys: "/", scope: "list" },
   { id: "down", keys: "j", scope: "list" },
@@ -48,7 +51,30 @@ export const SHORTCUTS = [
   { id: "barMove", keys: "shift+left shift+right", scope: "timeline" },
   { id: "barResize", keys: "shift+alt+right", scope: "timeline" },
   { id: "peekClose", keys: "esc", scope: "peek" },
+  // Inbox (Phase 4): moving opens the reader, like a mail client.
+  { id: "inboxDown", keys: "j", scope: "inbox" },
+  { id: "inboxUp", keys: "k", scope: "inbox" },
+  { id: "inboxDownArrow", keys: "down", scope: "inbox" },
+  { id: "inboxUpArrow", keys: "up", scope: "inbox" },
+  { id: "inboxOpen", keys: "enter", scope: "inbox" },
+  { id: "inboxOpenFull", keys: "mod+enter", scope: "inbox" },
+  { id: "inboxSelect", keys: "x", scope: "inbox" },
+  { id: "inboxSelectAll", keys: "mod+a", scope: "inbox" },
+  { id: "inboxArchive", keys: "e", scope: "inbox" },
+  { id: "inboxRead", keys: "u", scope: "inbox" },
+  { id: "inboxSnooze", keys: "z", scope: "inbox" },
+  { id: "inboxClear", keys: "esc", scope: "inbox" },
+  // Messages (Phase 4)
+  { id: "msgNextChannel", keys: "alt+down", scope: "messages" },
+  { id: "msgPrevChannel", keys: "alt+up", scope: "messages" },
+  { id: "msgSend", keys: "enter", scope: "messages" },
+  { id: "msgNewline", keys: "shift+enter", scope: "messages" },
+  { id: "msgCloseThread", keys: "esc", scope: "messages" },
   { id: "peekNext", keys: "j k", scope: "peek" },
+  { id: "triageAccept", keys: "y", scope: "triage" },
+  { id: "triageDecline", keys: "n", scope: "triage" },
+  { id: "triageDuplicate", keys: "u", scope: "triage" },
+  { id: "triageSnooze", keys: "z", scope: "triage" },
 ] as const satisfies readonly ShortcutDef[];
 
 export type ShortcutId = (typeof SHORTCUTS)[number]["id"];

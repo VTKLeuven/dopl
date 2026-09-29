@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import type { WorkItemDetail } from "@/features/work-items/types";
+import { SharedEventSource } from "./client";
+import { commsInvalidations } from "./comms-events";
 
 interface WireEvent {
   topic: string;
@@ -32,10 +34,13 @@ export function RealtimeProvider() {
 
   useEffect(() => {
     if (!ws || typeof EventSource === "undefined") return;
-    const es = new EventSource(`/api/v1/${ws}/realtime`);
+    // One stream per browser, shared by its tabs (leader tab, D-023).
+    const es = new SharedEventSource(ws);
+    const comms: QueryKey[] = [];
     const scopes = new Set<string>();
     const items = new Set<string>();
     const metas = new Set<string>();
+    const intake = new Set<string>();
     let refreshPage = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -52,11 +57,14 @@ export function RealtimeProvider() {
       if (scopes.size) void qc.invalidateQueries({ queryKey: ["items", "workspace"] });
       invalidateDetails(qc, items);
       for (const m of metas) void qc.invalidateQueries({ queryKey: ["meta", m] });
+      for (const p of intake) void qc.invalidateQueries({ queryKey: ["intake", p] });
       if (metas.size) void qc.invalidateQueries({ queryKey: ["meta", "workspace"] });
+      for (const key of comms.splice(0)) void qc.invalidateQueries({ queryKey: key });
       if (refreshPage) router.refresh();
       scopes.clear();
       items.clear();
       metas.clear();
+      intake.clear();
       refreshPage = false;
     };
     const schedule = () => {
@@ -71,6 +79,7 @@ export function RealtimeProvider() {
         return;
       }
       const [kind, id] = ev.topic.split(":");
+      comms.push(...commsInvalidations(ws, ev));
       if (kind === "project" && id) {
         if (ev.type.startsWith("workItem.")) {
           scopes.add(id);
@@ -82,9 +91,15 @@ export function RealtimeProvider() {
           scopes.add(id);
         } else if (ev.type.startsWith("view.")) {
           refreshPage = true;
+        } else if (ev.type.startsWith("intake.")) {
+          // The triage queue, its counts and the sidebar badge.
+          intake.add(id);
+          refreshPage = true;
         }
       } else if (kind === "workItem" && id) {
         items.add(id);
+        // A guest's request page is server-rendered.
+        if (/\/requests\//.test(path.current)) refreshPage = true;
       } else if (kind === "workspace") {
         // Projects, members, labels, views: sidebar and settings are server-rendered.
         refreshPage = true;

@@ -18,7 +18,17 @@ const schema = z.object({
   DOPL_ENCRYPTION_KEY: z.string().min(32),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default(".data/uploads"),
+  // Optional Cloudflare Turnstile for public forms (Phase 3).
+  TURNSTILE_SITE_KEY: z
+    .string()
+    .optional()
+    .transform((v) => v || undefined),
+  TURNSTILE_SECRET_KEY: z
+    .string()
+    .optional()
+    .transform((v) => v || undefined),
 });
 
 export const env = schema.parse(process.env);
 export const googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+export const turnstileEnabled = Boolean(env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY);

@@ -1,11 +1,18 @@
 import "server-only";
 import type { Prisma } from "@dopl/db";
 import { canEditComment, ForbiddenError } from "@dopl/shared/policy";
-import { CommentSchema, EditCommentSchema, ReactionSchema } from "@dopl/shared/schemas/work-item";
+import {
+  CommentSchema,
+  EditCommentSchema,
+  formatIdentifier,
+  ReactionSchema,
+} from "@dopl/shared/schemas/work-item";
 import { docToPlainText, extractMentions, isEmptyDoc, sanitizeDoc } from "@dopl/shared/rich-text";
 import { ConflictError, NotFoundError } from "../action-result";
 import { db } from "../db";
+import { notifySubmitter } from "../intake/core";
 import { withMutation } from "../mutation";
+import { notify } from "../notifications/notify";
 import { projectAccessById } from "../queries/projects";
 import type { WorkspaceCtx } from "../session";
 
@@ -16,11 +23,21 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
   return withMutation(ctx, async (m) => {
     const item = await m.tx.workItem.findFirst({
       where: { id: input.workItemId, workspaceId: ctx.workspace.id, deletedAt: null },
-      select: { id: true, projectId: true, title: true, sequence: true },
+      select: {
+        id: true,
+        projectId: true,
+        title: true,
+        sequence: true,
+        intakeItem: { select: { id: true, number: true, contactId: true, submitterUserId: true } },
+      },
     });
     if (!item) throw new NotFoundError();
     const access = await projectAccessById(ctx, item.projectId);
     if (!access.can("comment.create")) throw new ForbiddenError();
+    // A public reply only makes sense when someone outside the team asked.
+    const intake = item.intakeItem;
+    if (input.visibility === "PUBLIC" && !(intake?.contactId || intake?.submitterUserId))
+      throw new ConflictError("no_submitter");
 
     const comment = await m.tx.comment.create({
       data: {
@@ -52,7 +69,7 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
         update: {},
       });
     }
-    const identifier = `${access.project.identifier}-${item.sequence ?? ""}`;
+    const identifier = formatIdentifier(access.project.identifier, item.sequence, intake?.number);
     const excerpt = docToPlainText(body, 200);
     const subscribers = await m.tx.workItemSubscriber.findMany({
       where: {
@@ -62,28 +79,54 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
       },
       select: { userId: true },
     });
-    const notifications = [
-      ...mentioned
-        .filter((u) => u !== ctx.actor.userId)
-        .map((recipientId) => ({ recipientId, type: "MENTION" as const })),
-      ...subscribers.map((s) => ({ recipientId: s.userId, type: "COMMENT" as const })),
-    ];
-    if (notifications.length) {
-      await m.tx.notification.createMany({
-        data: notifications.map((n) => ({
-          workspaceId: ctx.workspace.id,
-          recipientId: n.recipientId,
-          actorId: ctx.actor.userId,
-          type: n.type,
-          entityType: "COMMENT",
-          entityId: comment.id,
-          workItemId: item.id,
-          projectId: item.projectId,
-          groupKey: `workItem:${item.id}:${n.type}`,
-          data: { identifier, title: item.title, excerpt },
-        })),
+    // Guests (e.g. a submitter subscribed to their own request) only ever
+    // hear about PUBLIC comments; internal notes stay inside the team.
+    const guests = new Set(
+      input.visibility === "PUBLIC"
+        ? []
+        : (
+            await m.tx.workspaceMember.findMany({
+              where: {
+                workspaceId: ctx.workspace.id,
+                role: "GUEST",
+                userId: { in: [...mentioned, ...subscribers.map((s) => s.userId)] },
+              },
+              select: { userId: true },
+            })
+          ).map((g) => g.userId),
+    );
+    const data = { identifier, title: item.title, excerpt };
+    await notify(m, {
+      recipientIds: mentioned.filter((u) => !guests.has(u)),
+      type: "MENTION",
+      entityType: "COMMENT",
+      entityId: comment.id,
+      workItemId: item.id,
+      projectId: item.projectId,
+      data,
+    });
+    await notify(m, {
+      recipientIds: subscribers
+        .map((s) => s.userId)
+        // The submitter hears about public replies through notifySubmitter below.
+        .filter(
+          (u) =>
+            !guests.has(u) && !(input.visibility === "PUBLIC" && u === intake?.submitterUserId),
+        ),
+      type: "COMMENT",
+      entityType: "COMMENT",
+      entityId: comment.id,
+      workItemId: item.id,
+      projectId: item.projectId,
+      groupKey: `workItem:${item.id}:COMMENT`,
+      data,
+    });
+    if (input.visibility === "PUBLIC" && intake)
+      await notifySubmitter(m, intake.id, {
+        kind: "reply",
+        authorName: ctx.actor.name,
+        excerpt: docToPlainText(body, 1000),
       });
-    }
     m.activity({
       entityType: "WORK_ITEM",
       entityId: item.id,
