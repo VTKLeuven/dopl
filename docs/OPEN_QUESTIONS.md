@@ -91,7 +91,7 @@ Are these right for your team?
 _Default:_ as listed.
 
 **Q-16 (Phase 7): Mailboxes.** Which mailbox(es) will you connect first? Is the IT address a real user mailbox or a Google Group? What backfill window do you want, and do you want Gmail label mirroring (`Dopl/Solved`…)?
-_Default:_ one mailbox, 90-day backfill, mirroring off.
+_Default (in use since Phase 7):_ one mailbox, 90-day backfill, mirroring off. The dev seed connects `it@vtk.be` to the fake Gmail. If the IT address is a Google Group, `docs/ops/gmail-setup.md` §1 describes connecting a member mailbox with a send-as alias.
 
 **Q-17 (Phase 8): Warpgate.** Which version do you run, and how are targets named? Can we create a dedicated `dopl-agent` Warpgate user with key authentication and per-target roles? Is there a non-root, least-privilege account on the targets for it to use?
 _Default:_ one Warpgate user per agent, targets referenced by name in `AgentHost.warpgateTarget`.
@@ -108,6 +108,7 @@ _Default:_ generic OIDC next to Google and email+password, configured by an Admi
 _Default:_ titles and links only (`includeContent` off), with events chosen per webhook.
 
 **Q-20 (Phase 1/7): Google Cloud access.** Who can create the OAuth client (for sign-in), the service account with domain-wide delegation, and the Pub/Sub topic and subscription? Does a GCP project for this exist yet? I'll write a step-by-step admin guide either way.
+_Default (Phase 7):_ the guide is `docs/ops/gmail-setup.md`; a Workspace super admin follows it once. Until then Dopl runs against the fake Gmail in dev and CI.
 
 **Q-23 (Phase 2): Moved items' old numbers.** When INFRA-42 moves to NET and becomes NET-7, should `INFRA-42` keep resolving (links, `#INFRA-42` references, emails)?
 _Default until answered:_ no alias yet. The move is recorded in the item's activity. A per-item "previous identifiers" list, like the one projects already have, would make old links redirect.

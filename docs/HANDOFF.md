@@ -1,10 +1,10 @@
 # Dopl: handoff
 
-Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 6. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
+Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 7. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
 
 **To start a new session**, open Claude Code in the repo and paste:
 
-> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 7 (ROADMAP §Phase 7) and stop for my review when it's done. Phase 7 needs answers to Q-16 and Q-20 first; ask for them if they're still open.
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 8 (ROADMAP §Phase 8) and stop for my review when it's done. Phase 8 needs answers to Q-17 and Q-18 first; ask for them if they're still open.
 
 ---
 
@@ -29,14 +29,14 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 | 4 Inbox & chat    | ✅ built, **awaiting review** | Notifications, Inbox, preferences + digests, channels, DMs, threads, typing, leader-tab realtime |
 | 5 Notes & My Work | ✅ built, **awaiting review** | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work (5b waits on Q-6) |
 | 6 Analytics       | ✅ built, **awaiting review** | Metrics, nightly snapshots, built-in and custom dashboards, chart builder                        |
-| 7 Shared mailbox  | **next** (needs Q-16, Q-20)   | Gmail sync, collaborative inbox, promote to work item, replies                                   |
-| 8                 | planned                       | AI teammate                                                                                      |
+| 7 Shared mailbox  | ✅ built, **awaiting review** | Gmail sync (fake Gmail in dev), Mail views and reader, promote/link to items, replies            |
+| 8 AI teammate     | **next** (needs Q-17, Q-18)   | Hermes runs, MCP tools, `infra_exec` with approvals                                              |
 
 - **What each phase delivered:** `docs/CHANGELOG.md`.
 - **What's left over from each phase:** the unticked boxes under each phase in `docs/ROADMAP.md`.
-- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-6/`.
+- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-7/`.
 
-**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 6 are built and merged (the owner asked for Phase 6 right after 5); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-6/` at the start of the next session.
+**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 7 are built and merged (the owner asked for Phases 6 and 7 right after the one before); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-7/` at the start of the next session.
 
 Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
 
@@ -85,6 +85,16 @@ Phase 6 was built on `claude/phase-6` and merged into `main`.
 - **Screenshots:** `docs/screenshots/phase-6/` (9, including the builder, the chart states and a phone).
 - **Performance:** `PERF_FILE=apps/web/src/server/queries/analytics.perf.ts pnpm perf` times the heaviest charts at 50,000 items (numbers in D-100).
 
+### 1.4 Phase 7 status
+
+Phase 7 was built on `claude/phase-7` and merged into `main`.
+
+- **What's in it:** Mail at `/vtk/mail` (views, reader, notes, assign, solve, snooze, labels, presence, replies, promote or link to an item), Settings → Mailboxes (connect, status page, sync log), the Gmail sync engine in the worker, email entries on item timelines, conversations on contact pages, Inbox notifications and Discord mail events. Details are in `docs/CHANGELOG.md`; decisions are D-107 to D-114; carry-overs are unticked under Phase 7 in `docs/ROADMAP.md`.
+- **No real mailbox yet.** Everything runs against the file-backed fake Gmail (`GMAIL_FAKE_DIR=.data/fake-gmail` in `.env`, D-111). Connecting `it@vtk.be` for real needs Q-16 and Q-20 and the steps in `docs/ops/gmail-setup.md`.
+- **Migration:** `20260929131612_mailbox_connection_test`. **New file:** `worker.env` (from `worker.env.example`) for the worker's Google key and Pub/Sub names; only the worker reads it (D-110). **New package:** `@dopl/server` (D-107). **New queues:** `gmail.test`, `gmail.backfill`, `gmail.sync`, `gmail.watch-renew` (03:40), `gmail.poll` (every 5 minutes), `gmail.fetch-attachment`, `gmail.send`. **New dependencies (worker):** `google-auth-library`, `dompurify` + `jsdom`.
+- **Seed:** the `it@vtk.be` mailbox ("IT support", members Bram and Chloé, replies on) with six conversations. The worker connects it on its next poll, up to 5 minutes after seeding.
+- **Screenshots:** `docs/screenshots/phase-7/` (10, including two at phone width).
+
 ### What the user has decided so far
 
 These answers shape the plan; the details are in `docs/OPEN_QUESTIONS.md` (answered table) and `docs/DECISIONS.md`.
@@ -98,6 +108,7 @@ These answers shape the plan; the details are in `docs/OPEN_QUESTIONS.md` (answe
 - **Hosting:** public at `dopl.vtk.be` behind Caddy (D-051). Outbound mail goes through the Google Workspace SMTP relay.
 - **Discord webhooks** for updates, new tickets and new mail (D-052, Phase 3 onward).
 - **Realtime** was pulled forward into Phase 2 (Q-9's default).
+- **Q-16's default is in use** (one mailbox, 90-day import, no label mirroring); Q-20 is still open, so no real mailbox is connected.
 - **Q-12, Q-19, Q-22 defaults are in use:** simplified public status wording; guests see only their own requests; Discord webhooks send titles and links only unless "Include content" is on, with events chosen per webhook.
 
 ---
@@ -115,8 +126,8 @@ pnpm i
 cp .env.example .env          # already present on the dev Mac; every variable is commented
 pnpm db:up                    # Postgres 17 + pgvector on :54320, Mailpit SMTP :1025 / UI :8025
 pnpm db:deploy && pnpm db:generate
-pnpm db:seed                  # workspace "VTK IT" at /vtk, 5 projects, ~300 items, 10 notes
-pnpm dev                      # web on :3000 + worker (email, webhooks, snooze wake-ups, maintenance)
+pnpm db:seed                  # workspace "VTK IT" at /vtk, 5 projects, ~300 items, 10 notes, the it@vtk.be mailbox
+pnpm dev                      # web on :3000 + worker (email, webhooks, snooze wake-ups, maintenance, Gmail sync)
 ```
 
 Open <http://localhost:3000/sign-in>.
@@ -133,6 +144,8 @@ Mail sent in dev (invites, magic links, resets) lands in Mailpit: <http://localh
 
 **Manual testing changes seed data** (priorities, layouts, filters, saved views). `pnpm db:seed -- --reset` rebuilds the seeded projects and clears view preferences; users and contacts are kept.
 
+Phase 7 seed data: `it@vtk.be` in the fake Gmail with six conversations (a printer thread with a reply, an HTML email with a tracking pixel and a script, an attachment, a newsletter). Bram and Chloé are members; Ann and the owner see it as admins in Settings → Mailboxes. To "receive" mail by hand, call `appendMessage` from `@dopl/shared/testing/fake-gmail` (see `e2e/mail.spec.ts`).
+
 Phase 5 seed data: Bram has eight notes (nested `#infra/proxmox` tags, to-dos due today and this week, a pinned and an archived note, five due for the daily review); Chloé shares an on-call note with the team, and Dries has a note attached to INFRA.
 
 Phase 3 seed data: the HELP project has a published form at <http://localhost:3000/f/it-support>, a draft form on INFRA, seven contacts (one blocked) and twelve requests in every triage state (`/vtk/p/HELP/intake`).
@@ -144,8 +157,8 @@ Phase 3 seed data: the HELP project has a published form at <http://localhost:30
 ## 3. Checks
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test     # 254 Vitest tests after Phase 6; integration tests use DATABASE_URL_TEST
-pnpm e2e                                      # 40 Playwright tests + setup after Phase 6; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
+pnpm typecheck && pnpm lint && pnpm test     # 279 Vitest tests after Phase 7; integration tests use DATABASE_URL_TEST
+pnpm e2e                                      # 45 Playwright tests + setup after Phase 7; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
 pnpm perf                                     # 50k-item benchmarks on the test DB (items ~40 s, analytics ~3 min; PERF_FILE=… for one)
 pnpm db:drift                                 # schema vs migrations must be empty
 ```
@@ -169,23 +182,24 @@ apps/web/src
   app/(public)/s/[token]       contact status page
   app/embed.js                 floating "Feedback" button script
   app/api/public/…             form submit + uploads, status-page replies/uploads/files (rate-limited)
-  app/(app)/[ws]/…             home (My Work), notes (+ todos, review), analytics, inbox, messages, projects, p/[ident]/items|views|settings|intake(/forms), views,
-                               i/[ref], requests (guests), contacts, settings (… integrations, notifications)
+  app/(app)/[ws]/…             home (My Work), notes (+ todos, review), analytics, inbox, messages, mail, projects, p/[ident]/items|views|settings|intake(/forms), views,
+                               i/[ref], requests (guests), contacts, settings (… integrations, notifications, mailboxes)
   app/api/auth/[...all]        Better Auth
   app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054), /realtime (SSE), channels/[id]/typing
   server/
     services/                  every write: zod → policy → withMutation (Activity + realtime outbox + webhooks)
                                intake (triage), public-intake (forms, status page), intake-forms, contacts, webhooks,
-                               inbox (notifications, preferences), channels + messages (chat), notes (+ tags, to-dos, review), dashboards
+                               inbox (notifications, preferences), channels + messages (chat), notes (+ tags, to-dos, review), dashboards,
+                               mail (mailboxes, threads, notes, promote/link, replies)
     intake/core.ts             creating triage items, notifying triagers and submitters, status links
-    notifications/notify.ts    the one way to create Inbox notifications (prefs, grouping, realtime)
-    webhooks/dispatch.ts       matches events to webhooks, coalesces, enqueues webhook.deliver
     rate-limit.ts              Postgres fixed-window counters + client IP
     queries/                   reads: work-items (lists, detail), filters (AST → Prisma), views, palette, workspace-items
     actions/                   thin server actions over services, return ActionResult
     realtime/                  LISTEN hub (stored + dopl_ephemeral) + per-connection topic access (D-063, D-085)
     mutation.ts, session.ts, auth.ts, api.ts
   features/
+    mail/                      mail view, thread reader + composer, sandboxed email frame, presence, mailbox settings,
+                               item-timeline entries
     intake/                    triage queue + bar, request panel, form builder, public form, request thread, contacts
     inbox/                     list + reader, filters, bulk actions, badge
     analytics/                 chart view (Recharts), widget card + states, dashboards (built-in, custom, dnd), builder
@@ -201,8 +215,10 @@ apps/web/src
   lib/shortcuts/registry.ts    the one shortcut registry (D-068)
 packages/shared/src            zod schemas (work-item, view, filters, intake, webhooks…), policy, dates, sort keys,
                                rich text, Discord renderer, secret box, email templates
-packages/db                    schema.prisma (all phases), migrations, client, seed (+ seed/intake.ts), bootstrap
-apps/worker                    pg-boss: email.send, email.digest, webhook.deliver, snooze.wake, maintenance.prune
+packages/server                server-only code for web and worker: storage, notify (Inbox notifications), webhooks (dispatch)
+packages/db                    schema.prisma (all phases), migrations, client, seed (+ seed/intake.ts, seed/mail.ts), bootstrap
+apps/worker                    pg-boss: email.send, email.digest, webhook.deliver, snooze.wake, maintenance.prune, analytics.snapshot,
+                               gmail.* (src/gmail: Google and fake clients, sync, ingest, sanitize, Pub/Sub pull, send)
 ```
 
 Patterns to follow (details in `CLAUDE.md`):
@@ -256,7 +272,9 @@ Patterns to follow (details in `CLAUDE.md`):
 - `STORAGE_DRIVER`, `STORAGE_LOCAL_DIR` (or the S3 variables)
 - optional `GOOGLE_CLIENT_ID`/`SECRET`
 
-The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later phases.
+- `GMAIL_FAKE_DIR` (dev and CI only: the fake Gmail's directory, relative to the repo root)
+
+The worker's secrets (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_SUBSCRIPTION`, later `AGENT_SSH_KEY_FILE`) go in `worker.env`, never `.env` (D-110). The Turnstile, embeddings, Hermes and Warpgate variables belong to later phases.
 
 ## 5. Gotchas learned the hard way
 
@@ -287,6 +305,9 @@ The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later 
 - **Relative times** need `suppressHydrationWarning` on their element; server and client can straddle a minute.
 - **Timed e2e checks need a warm-up** on CI's cold dev server: send one untimed message or capture first, then time the next (D-106). Don't loosen the thresholds.
 - **Chart colours are tokens** (`--color-chart-1…8`, D-099). Use `features/analytics/colors.ts` so colour follows the entity; don't pick colours by index for entities.
+- **Mail e2e needs the worker** running with the same `GMAIL_FAKE_DIR` as the specs (they read it from `.env`). After `pnpm db:seed`, the mailbox is `CONNECTING` until the worker's next 5-minute poll; restart the worker to connect it at once.
+- **Email HTML can't be measured or scripted** in its frame (D-028, D-109). Don't add `allow-same-origin` or `allow-scripts` to fix a layout issue; the e2e test fails if you do.
+- **Admins must enrol 2FA before they see admin pages.** For quick admin screenshots in dev, set Bram's role to ADMIN and `users."twoFactorEnabled"` to true in the dev DB, then set both back (or use the magic-link workaround in §2).
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---
@@ -301,25 +322,27 @@ Carried forward (also ticked off in ROADMAP as they get done):
 - Realtime: changed fields don't flash yet.
 - Shortcuts without handlers: `T`, `E`, `M` (peek), `[`. Creating items from a cross-project view isn't possible yet.
 - Moved items' old identifiers don't redirect (Q-23).
-- Phase 3 carry-overs (ROADMAP): email-to-intake (needs Phase 7), deleting bytes of abandoned uploads, Turnstile verified with real keys, contact pages listing email threads.
+- Phase 3 carry-overs (ROADMAP): email-to-intake, deleting bytes of abandoned uploads, Turnstile verified with real keys. (Contact pages list email threads since Phase 7.)
 - Phase 4 carry-overs (ROADMAP): per-channel mute, per-project notification preferences in the UI, `DUE_SOON` notifications, chat search and image previews, a chat seed, mobile screenshots, agent replies in DMs (Phase 8).
 - Phase 5 carry-overs (ROADMAP): 5b (Q-6), the mobile layout of Home's "Assigned to me" rows, and relative times on older screens that can mismatch at hydration.
-- Phase 6 carry-overs (ROADMAP): email metrics (Phase 7), keyboard reorder for a lone last-row widget, project-scoped dashboards on the project page, dark-mode chart colours.
+- Phase 6 carry-overs (ROADMAP): email metrics (the data exists now), keyboard reorder for a lone last-row widget, project-scoped dashboards on the project page, dark-mode chart colours.
+
+- Phase 7 carry-overs (ROADMAP): Gmail label mirroring, loading remote images (needs an image proxy), inline `cid:` images, email-to-intake, email metrics, and a test against a real mailbox.
 
 Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block upcoming work:
 
 - **Q-21:** which SSO identity provider.
 - **Q-6:** the embeddings endpoint, model and dimensions (Phase 5b).
-- **Q-20:** who sets up the Google Cloud pieces (OAuth, service account, Pub/Sub).
-- **Q-16, Q-17, Q-18:** mailbox, Warpgate and model details (Phases 7–8).
+- **Q-17, Q-18:** Warpgate and model details (Phase 8).
+- **Q-20 (and Q-16):** who sets up the Google Cloud pieces (OAuth, service account, Pub/Sub) and which mailbox, to connect a real mailbox.
 - **Q-25 to Q-29** (chat, notification and shared-note defaults) don't block anything, but are worth a quick answer during the Phase 4 and 5 reviews.
 
 ---
 
 ## 7. Next steps
 
-1. Show the owner the Phase 3 to 6 screenshots and fix what they flag.
-2. **Phase 7: Shared mailbox** (ROADMAP §Phase 7). It needs Q-16 (which mailbox) and Q-20 (who sets up the Google Cloud pieces) first. It also unlocks email-to-intake, the email metrics in Analytics, and mail events for Discord (`email_thread.created` and `email_message.received` are already defined in `WEBHOOK_EVENTS`).
+1. Show the owner the Phase 3 to 7 screenshots and fix what they flag.
+2. Connect the real mailbox once Q-20 is answered: follow `docs/ops/gmail-setup.md`, then watch the status page and the sync log. Only `GoogleGmail` (`apps/worker/src/gmail/client.ts`) hasn't run against Google yet.
 3. Then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033). **Phase 5b** (embeddings) whenever Q-6 is answered.
 4. Keep the phase routine:
    - Build in small commits.
