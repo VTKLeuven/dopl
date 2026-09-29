@@ -84,6 +84,7 @@ import {
 } from "./pickers";
 import { useEditorSources } from "./editor-sources";
 import { Attachments } from "./attachments";
+import { ReferenceEntry } from "@/features/messages/reference-entry";
 import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
 
 export function ItemDetail({
@@ -976,14 +977,16 @@ function Timeline({
     const all: Array<
       | { kind: "comment"; at: string; c: CommentView }
       | { kind: "activity"; at: string; a: ActivityView }
+      | { kind: "reference"; at: string; r: Detail["references"][number] }
     > = [
+      ...(item.references ?? []).map((r) => ({ kind: "reference" as const, at: r.createdAt, r })),
       ...item.comments.map((c) => ({ kind: "comment" as const, at: c.createdAt, c })),
       ...item.activities
         .filter((a) => a.verb !== "commented")
         .map((a) => ({ kind: "activity" as const, at: a.createdAt, a })),
     ];
     return all.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
-  }, [item.comments, item.activities]);
+  }, [item.comments, item.activities, item.references]);
 
   return (
     <section className="flex flex-col gap-3">
@@ -992,6 +995,8 @@ function Timeline({
         {entries.map((e) =>
           e.kind === "comment" ? (
             <CommentEntry key={e.c.id} ws={ws} c={e.c} meta={meta} onChanged={onChanged} />
+          ) : e.kind === "reference" ? (
+            <ReferenceEntry key={e.r.id} ws={ws} r={e.r} />
           ) : (
             <ActivityEntry key={e.a.id} a={e.a} meta={meta} />
           ),
