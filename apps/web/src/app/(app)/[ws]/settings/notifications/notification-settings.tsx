@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import type { NotificationType } from "@dopl/shared/schemas/inbox";
@@ -41,15 +42,32 @@ export function NotificationSettings({
   const t = useTranslations("notificationSettings");
   const [prefs, setPrefs] = useState(initial);
 
-  const toggle = async (type: NotificationType, channel: "inApp" | "email", value: boolean) => {
-    const before = prefs[type];
-    setPrefs((p) => ({ ...p, [type]: { ...p[type], [channel]: value } }));
-    const res = await setNotificationPreferenceAction(ws, { type, [channel]: value });
-    if (!res.ok) {
-      setPrefs((p) => ({ ...p, [type]: before }));
+  // A mutation (not a bare action call) so the unsaved-changes guard and
+  // <html data-saving> cover the write.
+  const save = useMutation({
+    mutationFn: async (input: {
+      type: NotificationType;
+      channel: "inApp" | "email";
+      value: boolean;
+    }) => {
+      const res = await setNotificationPreferenceAction(ws, {
+        type: input.type,
+        [input.channel]: input.value,
+      });
+      if (!res.ok) throw new Error(res.error);
+    },
+    onMutate: ({ type, channel, value }) => {
+      const before = prefs[type];
+      setPrefs((p) => ({ ...p, [type]: { ...p[type], [channel]: value } }));
+      return { before };
+    },
+    onError: (_err, { type }, context) => {
+      if (context) setPrefs((p) => ({ ...p, [type]: context.before }));
       toast.error(t("error"));
-    }
-  };
+    },
+  });
+  const toggle = (type: NotificationType, channel: "inApp" | "email", value: boolean) =>
+    save.mutate({ type, channel, value });
 
   return (
     <div data-testid="notification-settings">
@@ -77,14 +95,14 @@ export function NotificationSettings({
                 <span className="flex w-14 justify-center">
                   <Switch
                     checked={prefs[type].inApp}
-                    onCheckedChange={(v) => void toggle(type, "inApp", v)}
+                    onCheckedChange={(v) => toggle(type, "inApp", v)}
                     aria-label={t("inAppFor", { type: t(`types.${type}.label`) })}
                   />
                 </span>
                 <span className="flex w-14 justify-center">
                   <Switch
                     checked={prefs[type].email}
-                    onCheckedChange={(v) => void toggle(type, "email", v)}
+                    onCheckedChange={(v) => toggle(type, "email", v)}
                     aria-label={t("emailFor", { type: t(`types.${type}.label`) })}
                   />
                 </span>

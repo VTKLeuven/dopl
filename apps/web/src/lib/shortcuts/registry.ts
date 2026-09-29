@@ -19,6 +19,8 @@ export const SHORTCUTS = [
   { id: "goHome", keys: "g h", scope: "global" },
   { id: "goProjects", keys: "g p", scope: "global" },
   { id: "goViews", keys: "g v", scope: "global" },
+  { id: "goNotes", keys: "g n", scope: "global" },
+  { id: "quickNote", keys: "q", scope: "global" },
   { id: "goSettings", keys: "g s", scope: "global" },
   { id: "goInbox", keys: "g i", scope: "global" },
   { id: "goMessages", keys: "g m", scope: "global" },

@@ -89,6 +89,8 @@ import {
 import { useEditorSources } from "./editor-sources";
 import { Attachments } from "./attachments";
 import { ReferenceEntry } from "@/features/messages/reference-entry";
+import { ItemNotes } from "@/features/notes/item-notes";
+import { NoteReferenceEntry } from "@/features/notes/note-reference-entry";
 import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
 
 export type DetailMode = "peek" | "page" | "triage";
@@ -382,6 +384,7 @@ function DetailBody({
               </>
             )}
             <Attachments ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+            <ItemNotes ws={ws} itemId={item.id} />
             <Timeline ws={ws} item={item} meta={meta} onChanged={refresh} />
           </div>
         </div>
@@ -1038,7 +1041,11 @@ function Timeline({
               hasSubmitter={Boolean(item.request?.submitter)}
             />
           ) : e.kind === "reference" ? (
-            <ReferenceEntry key={e.r.id} ws={ws} r={e.r} />
+            e.r.source === "note" ? (
+              <NoteReferenceEntry key={e.r.id} ws={ws} r={e.r} />
+            ) : (
+              <ReferenceEntry key={e.r.id} ws={ws} r={e.r} />
+            )
           ) : (
             <ActivityEntry key={e.a.id} a={e.a} meta={meta} />
           ),

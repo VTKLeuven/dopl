@@ -20,7 +20,7 @@ export function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-[40] rounded-card border border-border bg-surface text-fg shadow-popover outline-none",
+          "z-[50] rounded-card border border-border bg-surface text-fg shadow-popover outline-none",
           "origin-[var(--radix-popover-content-transform-origin)]",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]",
           "data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1",

@@ -32,8 +32,10 @@ export const SuggestionList = forwardRef<
         return true;
       }
       if (event.key === "Enter" || event.key === "Tab") {
+        // With nothing to pick, the key keeps its normal meaning (new line, send).
         const item = items[index];
-        if (item) command(item);
+        if (!item) return false;
+        command(item);
         return true;
       }
       return false;

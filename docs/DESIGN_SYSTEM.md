@@ -256,7 +256,7 @@ Rich text (descriptions, notes, comments) uses body 14/22 with 12 px paragraph s
 --z-sticky: 10;
 --z-sidebar: 20;
 --z-peek: 30;
---z-popover: 40;
+--z-popover: 50; /* = dialog: portals stack in open order, so pickers inside dialogs show (D-092) */
 --z-dialog: 50;
 --z-palette: 60;
 --z-toast: 70;

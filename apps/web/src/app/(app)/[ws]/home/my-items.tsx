@@ -28,21 +28,21 @@ const BUCKETS = ["overdue", "thisWeek", "later", "noDue"] as const;
 export function MyItems({ ws, items }: { ws: string; items: MyItem[] }) {
   const t = useTranslations("home");
   return (
-    <div className="mt-8 flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {BUCKETS.map((b) => {
         const list = items.filter((i) => i.bucket === b);
         if (list.length === 0) return null;
         return (
           <section key={b}>
-            <h2
+            <h3
               className={cn(
-                "mb-2 flex items-center gap-2 text-body font-semibold",
+                "mb-2 flex items-center gap-2 text-small font-semibold text-fg-secondary",
                 b === "overdue" && "text-danger-text",
               )}
             >
               {t(b)}
               <span className="text-small font-normal text-fg-muted tabular">{list.length}</span>
-            </h2>
+            </h3>
             <ul className="overflow-hidden rounded-card border border-border">
               {list.map((i) => (
                 <li key={i.id} className="border-b border-border last:border-0">

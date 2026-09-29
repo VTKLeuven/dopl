@@ -68,6 +68,7 @@ test("two people: live messages, typing indicator, unread dot", async ({ page, b
 
   // Elsewhere, the sidebar shows it's unread until the channel is opened.
   await page.goto("/vtk/home");
+  await expect(page.locator("html[data-realtime]")).toBeAttached();
   await chloe.page.keyboard.type(`unread ${uniq()}`);
   await chloe.page.keyboard.press("Enter");
   await expect(page.getByTestId("messages-dot")).toBeVisible({ timeout: 3_000 });

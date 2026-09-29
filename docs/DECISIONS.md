@@ -923,3 +923,129 @@ These routes are **internal**: they have no stability promise. The public REST A
 - CI runs Mailpit as a service and the worker in the background during e2e, so the confirmation-email flow is tested for real.
 - `PW_CHROMIUM` points Playwright at a preinstalled Chromium when its own build isn't downloaded (cloud dev containers).
 - next-intl message keys can't contain dots, so webhook event labels use `work_item_created` style keys.
+
+### D-080: Team chat is for members; guests get none
+
+**Context:** guests are outsiders with access to single projects.
+**Decision:** `canChannel` denies guests everything, DMs included.
+
+- Project channels follow project access: a Member or Admin role in the project.
+- Public channels are open to every workspace member who isn't a guest.
+- Private channels and DMs are open to their members only.
+- Workspace admins manage public channels but get no backdoor into private ones.
+
+**Why:** chat is internal and informal. A guest's window into the team is their own requests. (Q-27 asks whether that's right.)
+
+### D-081: Project channels have lazy membership rows
+
+**Decision:** a `ChannelMember` row appears the first time someone reads or posts in a project channel, to hold `lastReadAt`. Without a row, unread counts start from when the person joined the workspace.
+**Why:** the project already defines who can see the channel. Copying that into rows would drift.
+
+### D-082: What counts as unread, and what reaches the Inbox
+
+- **Unread** is the number of top-level messages from others newer than `lastReadAt`. Posting marks the channel read up to your own message.
+- `lastReadAt` only moves forward (`GREATEST`), so a tab that reports an older position can't undo a newer one.
+- **The Inbox** gets @mentions and replies in threads you follow. Plain channel traffic and DMs only show in the Messages sidebar (Q-25).
+- Reading a channel marks its mention notifications read. Opening a thread marks its replies and mentions read.
+- Thread replies are grouped per thread (`groupKey thread:<rootId>`) and counted there, not in the channel's unread count.
+
+**Why:** the Slack/Linear split. The Inbox is about you; the sidebar is about conversations.
+
+### D-083: `dmKey` is `<workspaceId>:<sorted participant ids>`
+
+**Decision:** there is one DM or group DM per set of people. A closed DM reopens for everyone when someone writes in it.
+**Why:** the column is globally unique, and the same two people can share several workspaces.
+
+### D-084: Personal state writes no Activity
+
+**Decision:** read, archive, snooze, preferences, reactions and read positions still run in `withMutation` and emit `user:<id>` events, but write no Activity row. Channel and message lifecycle does: `CHANNEL` created, updated, joined, left and members changed; `MESSAGE` posted, edited and deleted.
+**Why:** Activity is the shared history of shared things. A read receipt in it is noise.
+
+### D-085: Typing goes through a route handler and an ephemeral NOTIFY
+
+- `POST /api/v1/[ws]/channels/[id]/typing`, with an origin check.
+- It isn't a server action because actions from one client run one at a time, so a typing ping could delay sending the message itself.
+- Events go over a second `LISTEN` channel, `dopl_ephemeral`. They are never stored or replayed, and they pass the same per-connection permission check as stored events.
+- Clients ping every 2.5 s while the composer has text. Receivers drop the indicator 4 s after the last ping. A `stop` ping, or that person's message arriving, clears it at once.
+
+### D-086: One stream per browser, with a leader tab chosen by Web Locks
+
+- `navigator.locks` elects a leader tab, which holds the EventSource. A `BroadcastChannel` relays its events to the other tabs.
+- When the leader closes, the next tab takes over and resumes from the last event id any tab saw (`?since=`).
+- Browsers without Web Locks or BroadcastChannel fall back to one stream per tab.
+- `SharedEventSource` has the EventSource shape, so the realtime provider barely changed.
+- The server now holds live events back during a `Last-Event-ID` replay and sends them after it, which removes the duplicates and reordering the Phase 2 code allowed.
+- The keepalive is a named `ping` event. A watchdog reopens the stream after two missed pings, and when the browser comes back online.
+
+**Deployment:** Caddy must not buffer the realtime route (`flush_interval -1`; see `docs/HANDOFF.md`).
+
+### D-087: Email digest rules
+
+- The `email.digest` job runs every 10 minutes and looks at notifications from the last 24 hours.
+- It skips anything younger than 2 minutes, in case the person is reading it in the app.
+- It includes only unread, un-emailed, un-snoozed notifications.
+- The email preference comes from the project row if there is one, then the workspace row. The default is off (Q-26).
+- Rows are claimed by setting `emailedAt` in the same transaction that inserts the outbound email and its `email.send` job, so overlapping runs can't send twice.
+- When a grouped notification gets new activity, `notify()` resets `emailedAt`, so it can appear in a later digest.
+
+### D-088: Notification links and digest lines are shared code
+
+**Decision:** `@dopl/shared/domain/notifications` computes each notification's path and its English digest line. The web Inbox renders its own translated text from the same data.
+**Why:** the Inbox and the email always point to the same place.
+
+### D-089: Mentions and references respect channel access
+
+- A mention in chat only notifies people who can read the channel.
+- `#INFRA-42` in a message creates a `MENTIONED` reference, and "Create work item from message" creates a `CREATED_FROM` reference.
+- An item's timeline shows a reference only to people who can open its channel, so a private channel never leaks through an item everyone can see.
+
+### D-090: Sidebar indicators use their own query keys and mount on the client only
+
+**Decision:** the badge and dot use `["inbox", ws, "counts", "badge"]` and `["chat", ws, "channels", "dot"]`. Invalidating the parent key by prefix refreshes both.
+**Why:** the sidebar and the page sit in different Suspense boundaries. A query created by one of them, even an empty pending one, made TanStack's `HydrationBoundary` defer the other's prefetched data to an effect, which caused hydration mismatches.
+
+### D-091: Operational notes from Phase 4
+
+- **Rich-text JSON:** ProseMirror attrs are null-prototype objects. Passed straight to a server action, they arrive as unreadable temporary references, so any document with a mention or heading failed to save (comments included). `RichTextEditor`'s `onChange` now emits plain JSON (a `JSON.parse(JSON.stringify())` round trip).
+- **Test hooks:** `<html data-realtime>` is `open` once the tab's own stream is connected and `relay` while another tab holds it. E2e specs wait on it before triggering events from another browser, instead of sleeping. Writes that must survive a reload go through `useMutation`, so `<html data-saving>` covers them.
+- **Notifications stay in the mutation (D-076).** The `notifications.fanout` job from the plan is still unused.
+- **Chat attachments:** `maintenance.prune` deletes chat uploads that were never sent (PENDING, no message, older than 2 days), and downloads of chat attachments check channel access.
+
+### D-092: Popovers and menus share the dialog layer
+
+**Decision:** popovers and dropdown menus use `z-index: 50`, the same as dialogs (was 40).
+**Why:** Radix portals every popover to `<body>`, so a picker opened inside a dialog (the project picker in "Convert to work item") rendered underneath it. At equal z-index, portals stack in the order they open, so a picker opened from a dialog sits on top. A popover opened from the page is dismissed when a dialog takes focus, so it never ends up over one. DESIGN_SYSTEM §3.8 is updated.
+
+### D-093: Notes on a work item's timeline
+
+- An item made from a note or from one checkbox line gets a timeline entry ("created this from a checkbox in a note") with the line or the note's opening text and a link back. The entries come from the `CREATED_FROM` references that conversion already writes, next to the chat references (D-089).
+- A reader who can't open the note (someone's private note) sees "A private note by …" without any text.
+- Notes attached to an item are listed in a Notes section above the timeline rather than as timeline entries: attaching is a sharing setting that can change, while a conversion is an event.
+
+### D-094: `#` in the notes editor
+
+- Tags are plain text, so the popup never offers the tag you just typed (new or exact). Offering it would make Enter complete it instead of starting a new line. Existing tags below or containing the query are still suggested.
+- Work items are only suggested for identifier-like queries (`#INFRA`, `#infra-4`), so `#infra` followed by Enter doesn't turn into a work-item chip.
+- In the shared suggestion list, Enter and Tab with nothing to pick keep their normal meaning (new line, send) instead of being swallowed. This applies to comments and chat too.
+
+### D-095: Note lists share structure by id; cards are memoized
+
+**Decision:** the notes list queries use a `structuralSharing` function that matches cards by id (then `replaceEqualDeep`), and `NoteCardView` is `memo`ized, with the grid's callbacks kept stable through a ref. Per-card dialogs mount only while open.
+**Why:** TanStack's default structural sharing matches arrays by index. Prepending a captured note shifted every card, so each one was compared with its neighbour and rebuilt as a new object, and the whole grid re-rendered: about 200 ms in dev, over the 100 ms acceptance target. Now a capture renders one card, about 40 ms in dev. `notes.spec.ts` measures it in the page.
+
+### D-096: The daily review is computed on read
+
+**Decision:** there's no `notes.review` job. `getReview` takes the owner's notes with `nextReviewAt <= now` (not pinned, archived or trashed) and draws up to five with a weighted sample (older and rarely reviewed notes weigh more) that is deterministic per user and day, so the set doesn't reshuffle between visits. Handled notes drop out and count towards the day's five.
+**Why:** it's a cheap indexed read for one person, and a job would need a table for the picked set and a schedule per timezone. Keep moves the next review out by 1 → 3 → 7 → 21 → 60 days (DATA_MODEL §3.5).
+
+### D-097: Trashed notes are purged after 30 days
+
+The nightly `maintenance.prune` deletes notes that have been in the trash for 30 days (D-020), then removes tags that have no notes left in their subtree, the same rule `purgeNote` applies to one note. Archived notes are kept.
+
+### D-098: Operational notes from Phase 5
+
+- **Editor keys:** the notes editor handles Esc (leave editing, close capture) in ProseMirror's `handleKeyDown`, which runs before other handlers. It was prevented before the React `onKeyDown` saw it. Editor JSON goes through `editorJson()` (D-091).
+- **Task items in the editor:** Tiptap's TaskItem node view copies only `HTMLAttributes` onto the `<li>`, not the `data-type` its `renderHTML` adds, so the notes editor sets `data-type="taskItem"` there for the task styles to apply.
+- **Relative times** ("7 minutes ago") rendered on the server can differ from the client if a minute passes before hydration. The notes, Home and timeline elements carry `suppressHydrationWarning`. The root layout stays static, so the provider can't pass a request-time `now`. Older screens still have the latent mismatch.
+- **Seed:** `pnpm db:seed` adds ten notes (Bram's, one shared by Chloé, one attached to INFRA by Dries), some due for review. `--reset` rebuilds notes and tags too.
+- **E2e:** `playwright.config.ts` takes the web server URL from `E2E_BASE_URL`, so a dev server on another port isn't mistaken for whatever listens on :3000. The setup has a 240 s budget for cold compiles and also warms the notes routes.

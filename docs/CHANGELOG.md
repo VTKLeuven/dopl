@@ -1,5 +1,100 @@
 # Changelog
 
+## Phase 5: Notes & My Work (2026-09-29)
+
+**Notes** (`/<ws>/notes`)
+
+- Quick capture from the bar on Notes and Home, or `Q` on any page (a small dialog). `⌘/Ctrl+Enter` saves; the card appears at once (optimistic, about 40 ms in dev) and the editor is ready for the next note. Markdown shortcuts, `[ ]` for a checkbox, `#` completes existing tags and `#INFRA` links a work item.
+- A masonry grid with Pinned and Others, ten card colours, pin, inline editing with autosave (Esc or clicking away closes it), a full-size note dialog (`?note=`), archive, and trash with restore and delete for good. The trash empties itself after 30 days.
+- A side column with All, Pinned, Shared with me, My to-dos, Daily review (with a count of what's due), Archive and Trash, all with counts.
+- Search across your notes and the ones shared with you, and notes in the ⌘K palette with an excerpt.
+
+**Tags**
+
+- `#tags` in the text, nested with `/` (`#infra/proxmox` shows as `infra › proxmox`), parsed on save with parents created implicitly.
+- The tag tree filters the grid by a tag and everything below it. Rename, merge into another tag, or delete (which removes the tag from the notes' text) from each tag's menu.
+
+**To-dos**
+
+- Every checkbox in a note is a to-do, keyed by a stable block id so due dates and links survive edits.
+- My to-dos (`/<ws>/notes/todos`): open ones grouped by Overdue, Today, This week, Later and No date; Done; Converted. Tick, set a due date, or open the note from each row. Ticking one here updates the note card in place.
+- Convert one checkbox line into a work item in any project you can create items in: the line is struck through with an `#INFRA-n` chip, and the item links back to the note.
+
+**Sharing and work items**
+
+- Notes are private by default. Share one with the team, or attach it to a project or a work item, to make it readable for the people who can see that. Only the owner edits.
+- Convert a whole note into a work item (its first line becomes the title, the note the description).
+- A work item lists its notes (attached, or the note it came from), and its timeline shows "created this from a note", without the text when the reader can't open that note.
+
+**Daily review** (`/<ws>/notes/review`)
+
+- Up to five older notes a day, drawn so older and rarely reviewed notes come up more often. Keep (back in 1, 3, 7, 21, then 60 days), snooze (1, 3 or 7 days), archive, or convert to a work item. A progress bar, and "N notes come back tomorrow" when you're done.
+
+**Home / My Work** (`/<ws>/home`)
+
+- The capture bar, a week strip with items and to-dos due each day, Today's focus (in-progress items and what's due today), Assigned to me by due date, a review reminder, My to-dos, an Inbox summary and recent notes. On phones the week strip shows a count per day.
+
+**Fixes**
+
+- Enter right after a `#tag` started a new line only if the popup had nothing to offer; now an empty suggestion list never swallows Enter or Tab (comments and chat included).
+- Pickers opened inside a dialog were hidden behind it; popovers and menus now share the dialog layer.
+- CI's e2e setup ran out of time compiling routes on a cold dev server; it has a 240 s budget and warms the notes routes too.
+
+**Seed**
+
+- Ten notes: Bram's with nested tags, to-dos with due dates, colours, a pinned and an archived note, and older notes due for review; one Chloé shares with the team and one Dries attached to INFRA. `--reset` rebuilds them.
+
+**Tests**
+
+- Vitest: tag parsing and rewriting, the to-do projection, the review schedule and pick, the notes policy, and the notes service (create, update, share, toggle, convert a line or a note, review, tags, trash), including the timeline reference and its privacy. 229 tests in total.
+- Playwright (`notes.spec.ts`): capture in under 100 ms timed in the page, a nested tag in the tree, ticking a to-do on Home updating the card in place, converting a checkbox line (chip, strike-through, timeline link), and `Q` from another page.
+- Decisions D-092 to D-098.
+
+## Phase 4: Inbox & messages (2026-09-29)
+
+**Realtime**
+
+- One stream per browser: tabs elect a leader with Web Locks, and it relays events to the other tabs over a `BroadcastChannel`. When the leader closes, the next tab takes over and resumes from the last event id any tab saw.
+- A watchdog reopens a dead stream (the keepalive is now a named `ping` event), and the stream reopens when the browser comes back online.
+- Typing indicators travel as ephemeral events on a second `LISTEN` (`dopl_ephemeral`): never stored or replayed, and permission-checked like the rest.
+- `channel:<id>` topics follow the chat policy. Live events that arrive during a `Last-Event-ID` replay are held back and sent after it, without duplicates.
+
+**Notifications**
+
+- Subscribers hear about state changes, grouped into one row per item with an "N updates" count, and update notifications carry the item's identifier.
+- Mentions and thread replies in chat reach the Inbox. Hooks are ready for email assignments and mentions (Phase 7) and agent approvals (Phase 8).
+- Settings → Notifications: per type, in the Inbox and/or by email.
+- The `email.digest` job runs every 10 minutes and sends each person one `inbox.digest` email with their unread notifications that haven't been emailed yet.
+
+**Inbox** (`/<ws>/inbox`)
+
+- A list next to a reader. The reader shows the work item (the same detail as the peek), the chat thread for message notifications, or a short card with a link.
+- All/Unread, a type filter, Snoozed and Archived. Opening a notification marks it read.
+- Archive, snooze presets and read/unread on a row, in the reader or on a selection; optimistic with rollback, and archive has an undo toast.
+- Keyboard: `J`/`K`, `X`, `E`, `U`, `Z`, `Esc`; `G I` goes to the Inbox and `G M` to Messages.
+- A realtime unread badge in the sidebar and a "(n)" prefix in the tab title.
+
+**Messages** (`/<ws>/messages`)
+
+- Project channels, public and private custom channels, DMs and group DMs.
+- Unread tracking (bold, dot or count) and @mention counts.
+- Threads in a side panel, with follow/unfollow.
+- The composer has @mentions, `#INFRA-42` chips (state icon and title), reactions, attachments (paste or drop), edit, and delete with undo.
+- Typing indicators disappear within about 4 s of stopping.
+- "Create work item from message" makes the item and a `CREATED_FROM` reference, shown as a chip under the message and on the item's timeline. `#item` mentions show on the timeline too.
+- DMs with the AI teammate are stored, with a notice that replies come in a later phase.
+
+**Fixes**
+
+- The rich-text editor now emits plain JSON. ProseMirror attrs are null-prototype objects and reached server actions as unreadable references, so any document with a mention or a heading failed to save, comments included.
+- Notification preference switches now survive an immediate reload (the write is tracked like every other mutation).
+
+**Tests**
+
+- Vitest: the chat policy, channels, messages, unread and read positions, notifications and the digest. 192 tests in total.
+- Playwright: a mention reaching the Inbox live and triaged by keyboard, unread counts across tabs, preferences, a new channel with a thread, reaction and work item, two people with live messages and typing, and 30 s offline with missed messages replayed without a reload. Specs wait on `<html data-realtime>` instead of sleeping.
+- Decisions D-080 to D-091.
+
 ## Phase 3: Intake (2026-09-29)
 
 **Triage queue** (`/<ws>/p/<IDENT>/intake`)
