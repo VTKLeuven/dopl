@@ -455,7 +455,13 @@
       "title": "Keyboard shortcuts"
     },
     "doneHiddenPending": "Done hidden",
-    "projectSettings": "Project settings"
+    "projectSettings": "Project settings",
+    "attachments": "Attachments",
+    "attach": "Attach files",
+    "dropFiles": "Drop files to attach",
+    "uploading": "Uploading {name}…",
+    "uploadFailed": "Couldn't upload {name}.",
+    "tooLarge": "{name} is larger than 25 MB."
   },
   "projectSettings": {
     "title": "Project settings",

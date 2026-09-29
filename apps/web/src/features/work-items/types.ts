@@ -101,6 +101,7 @@ export interface WorkItemDetail extends WorkItemRow {
   children: WorkItemRow[];
   relations: RelationView[];
   links: Array<{ id: string; url: string; title: string | null }>;
+  attachments: Array<{ id: string; filename: string; mimeType: string; size: number; createdAt: string; uploadedByName: string | null }>;
   comments: CommentView[];
   activities: ActivityView[];
   subscribed: boolean;

@@ -128,3 +128,18 @@ test("drag a card to another column on the board", async ({ page }) => {
   await expect(page.getByRole("region", { name: "In progress" }).getByTestId("board-card").filter({ hasText: id })).toBeVisible();
   await page.getByRole("radio", { name: "List" }).click();
 });
+
+test("attach a file to an item and download it", async ({ page }) => {
+  await page.goto("/vtk/p/INFRA/items?peek=INFRA-3");
+  const peek = page.getByTestId("peek");
+  await expect(peek).toBeVisible();
+  const name = `notes-${uniq()}.txt`;
+  await peek.getByTestId("attachment-input").setInputFiles({ name, mimeType: "text/plain", buffer: Buffer.from("hello from e2e") });
+  const link = peek.getByRole("link", { name: new RegExp(name) });
+  await expect(link).toBeVisible();
+  const href = await link.getAttribute("href");
+  const res = await page.request.get(href ?? "");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-disposition"]).toContain("attachment");
+  expect(await res.text()).toBe("hello from e2e");
+});

@@ -50,6 +50,7 @@ import { createCommentAction, editCommentAction, setCommentDeletedAction, toggle
 import { keys, useDeleteItems, useItemSearch, useProjectMeta, useUpdateItem, useWorkItemDetail } from "./data";
 import { AssigneePicker, DatePicker, LabelPicker, PriorityPicker, StatePicker, TypePicker } from "./pickers";
 import { useEditorSources } from "./editor-sources";
+import { Attachments } from "./attachments";
 import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
 
 export function ItemDetail({ ws, itemRef, mode, onClose }: { ws: string; itemRef: string; mode: "peek" | "page"; onClose?: () => void }) {
@@ -199,6 +200,7 @@ function DetailBody({ ws, item, meta, mode, onClose }: { ws: string; item: Detai
             <SubItems ws={ws} item={item} meta={meta} canEdit={canEdit} onCreated={refresh} />
             <Relations ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
             <Links ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
+            <Attachments ws={ws} item={item} canEdit={canEdit} onChanged={refresh} />
             <Timeline ws={ws} item={item} meta={meta} onChanged={refresh} />
           </div>
         </div>

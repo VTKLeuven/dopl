@@ -164,6 +164,11 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
       relationsOut: { select: { id: true, type: true, target: { select: { id: true, sequence: true, title: true, stateGroup: true, project: { select: { identifier: true } } } } } },
       relationsIn: { select: { id: true, type: true, source: { select: { id: true, sequence: true, title: true, stateGroup: true, project: { select: { identifier: true } } } } } },
       links: { select: { id: true, url: true, title: true }, orderBy: { createdAt: "asc" } },
+      attachments: {
+        where: { deletedAt: null, status: "READY" },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, filename: true, mimeType: true, size: true, createdAt: true, uploadedBy: { select: { name: true } } },
+      },
       comments: {
         where: { deletedAt: null, ...(access.role === "GUEST" ? { visibility: "PUBLIC" } : {}) },
         orderBy: { createdAt: "asc" },
@@ -225,6 +230,7 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
     children: item.children.map((c) => toRow(c, ident)),
     relations,
     links: item.links,
+    attachments: item.attachments.map((a) => ({ id: a.id, filename: a.filename, mimeType: a.mimeType, size: a.size, createdAt: a.createdAt.toISOString(), uploadedByName: a.uploadedBy?.name ?? null })),
     comments,
     activities,
     subscribed: item.subscribers.length > 0 && !item.subscribers[0]?.muted,

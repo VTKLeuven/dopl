@@ -11,6 +11,8 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@better-auth/prisma-adapter": "1.7.6",
     "@better-auth/sso": "1.7.6",
     "@date-fns/tz": "^1.5.0",
