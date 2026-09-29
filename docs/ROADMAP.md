@@ -12,7 +12,7 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 
 ---
 
-## Phase 0: Foundations & plan ✅ (awaiting approval)
+## Phase 0: Foundations & plan ✅ (approved 2026-09-29)
 
 - [x] Research: Plane (work items, states, views, intake, stickies) and Blinko (notes, tags, to-dos, review), used as inspiration only. Next.js 16.3, Prisma 7 (v7 docs), Better Auth, Hermes Agent (programmatic integration, API server, security, MCP) and Gmail API (push, sync) docs.
 - [x] `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/DESIGN_SYSTEM.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, `docs/OPEN_QUESTIONS.md`
@@ -23,7 +23,25 @@ Acceptance criteria are written so they can be checked; each one maps to a test 
 
 ---
 
-## Phase 1: Core
+## Phase 1: Core ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Every section below is built. Screenshots are in `docs/screenshots/phase-1/`; see the CHANGELOG for the summary. Tests: 85 Vitest (unit + integration on real Postgres) and 12 Playwright e2e tests plus the sign-in setup.
+
+Deliberate deviations (recorded in DECISIONS):
+
+- No e2e credential provider; tests sign in with the real password flow (D-055), so the "build fails if the e2e provider is enabled" check is moot.
+- Attachments use local disk by default, S3-compatible optional; no Garage in the dev compose file (D-060).
+- Email templates are plain functions for now, not React Email (D-059).
+- `apps/web` stays on ESLint 9 because `eslint-plugin-react` crashes on ESLint 10 (D-058).
+
+**Not done yet, carried into Phase 2:**
+
+- [ ] Playwright visual baselines (`toHaveScreenshot`) and an axe check on `/dev/ui`
+- [ ] A lint rule against raw hex values outside `globals.css`
+- [ ] SSO sign-in tested end to end against a local mock OIDC IdP (SSO registration works; the flow is untested)
+- [ ] e2e tests for: 2FA enrolment being forced for password-based Admins, the auth rate limit, archive/restore
+- [ ] Board swimlanes
+- [ ] The 2,000-item scroll trace (virtualization is in place; the trace isn't automated). Folded into the Phase 2 performance pass.
 
 ### 1.1 Monorepo scaffold
 

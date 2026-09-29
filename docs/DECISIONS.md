@@ -632,7 +632,7 @@ Buckets are never public; downloads always go through a policy check and a signe
 
   Screenshots are saved to `docs/screenshots/phase-N/` for review.
 
-- Test auth uses a dev-only credential provider behind `DOPL_E2E=1`. It is never enabled in production builds; a build-time assertion enforces that.
+- ~~Test auth uses a dev-only credential provider behind `DOPL_E2E=1`.~~ Superseded by D-055: tests sign in with the real password flow.
 
 ### D-047: Deployment: Compose, standalone Next, one-shot migrate service
 
@@ -753,3 +753,47 @@ Prisma 8 is also a rewrite:
 
 It's a display option rather than a filter rule, so it composes with any filter. Setting it to "show" can still be combined with an explicit `stateGroup` filter.
 **Acceptance (Phase 1.7):** opening any project list hides done items by default. One click shows them, and the choice survives a reload.
+
+## Decisions made while building Phase 1 (2026-09-29)
+
+### D-054: Reads go through internal JSON routes; writes go through server actions
+
+**Context:** TanStack Query needs a fetcher for refetches, pagination and cache invalidation. Server actions are serialized per client and are POST-only, which makes them a poor fit for parallel reads.
+**Decision:** Client reads call internal route handlers under `/api/v1/[ws]/…` (`projects/[projectId]/items`, `projects/[projectId]/meta`, `items/[ref]`, `search/items`, `files/[id]`). Every handler resolves the session and workspace through `requireWorkspaceCtx` and runs the same policy checks as the services. Writes stay in server actions (`src/server/actions/*`) that return the `ActionResult` shape. The first page is still rendered on the server where it matters (D-009).
+These routes are **internal**: they have no stability promise. The public REST API with tokens (Phase 8/MCP) will be a separate, versioned surface.
+
+### D-055: No e2e auth backdoor; tests sign in with the real password flow (supersedes part of D-046)
+
+**Context:** D-046 planned a dev-only credential provider behind `DOPL_E2E=1`. On a public deployment (D-051), any bypass that could be switched on by an environment variable is a risk.
+**Decision:** There is no e2e provider. Playwright's global setup signs in as a seeded member (`bram@dopl.test`) with the normal email + password form and saves the storage state. The seed, which refuses to run when `NODE_ENV=production`, gives the seeded people a dev password. The roadmap's "production build fails if the e2e provider is enabled" check is therefore unnecessary.
+
+### D-056: e2e tests run in their own sandbox project
+
+**Context:** e2e tests that edit, drag and delete seeded items made the seed data drift, which broke screenshots and made test order matter.
+**Decision:** The global setup creates an **E2E sandbox** project (identifier `E2E`) if it doesn't exist, and every mutating test works there with items it creates itself. `pnpm db:seed -- --reset` (dev only, refuses in production) deletes the seeded projects, including the sandbox, plus view preferences, and rebuilds them.
+
+### D-057: pnpm 10, not pnpm 11+
+
+**Context:** pnpm 12 is a Rust rewrite and still settling; our lockfile, `onlyBuiltDependencies` and catalogs are pnpm 10 features.
+**Decision:** Pin `packageManager: pnpm@10.34.6` and set `manage-package-manager-versions=true` in `.npmrc`, so everyone uses the same version. Revisit once pnpm 12 is stable.
+
+### D-058: ESLint 10 for packages, ESLint 9 for `apps/web`
+
+**Context:** `eslint-plugin-react` (pulled in by `eslint-config-next`) crashes on ESLint 10.
+**Decision:** The root flat config (packages and worker) uses ESLint 10 with `typescript-eslint` strict type-checked rules. `apps/web` keeps its own `eslint.config.mjs` on ESLint 9 with `eslint-config-next`. Move web to ESLint 10 once the React plugin supports it. Seeds, tests and `testing/` helpers may use non-null assertions.
+
+### D-059: Plain template functions for email for now (amends D-045)
+
+**Context:** Phase 1 only sends four transactional emails (invite, magic link, password reset, email verification).
+**Decision:** Templates are plain TypeScript functions in `packages/shared/src/emails/templates.ts` that return `{ subject, html, text }` with escaped interpolation and one shared layout. The web app enqueues an `email.send` job inside the mutation transaction; the worker renders and sends it over SMTP (Mailpit in dev, the Workspace relay in production). React Email stays the plan for the richer Phase 4 notification digests; the job payload (template id + data) doesn't change when we switch.
+
+### D-060: Attachments: local disk by default, S3-compatible optional
+
+**Context:** D-032 planned Garage in the dev compose file. For a single-server deployment a mounted volume is simpler.
+**Decision:** `src/server/storage` has a `BlobStore` interface with a `local` driver (default; `STORAGE_LOCAL_DIR`, `.data/uploads`) and an `s3` driver (`STORAGE_DRIVER=s3` + the usual S3 variables, works with Garage, MinIO or R2). Uploads go through `/api/v1/[ws]/items/[ref]/attachments`, which checks the item policy and the size limit; downloads go through `/api/v1/[ws]/files/[id]`, which checks the item's policy on every request (and redirects to a short-lived signed URL on S3), so files are never publicly addressable.
+
+### D-061: Operational notes for AI-assisted development
+
+- **Prisma refuses destructive commands (`migrate reset`) when it detects an AI agent** unless the user types an explicit consent phrase. Agents must not work around this. Tests use `migrate deploy` on `DATABASE_URL_TEST` and isolate data per test with their own workspaces.
+- **Building the Docker images locally crashed the OrbStack daemon twice** during `next build`. Images are built in CI (the `images` job pushes to GHCR); locally, use `pnpm build` for a smoke build.
+- After `pnpm add` in `apps/web`, Turbopack can serve stale modules. Restart `pnpm dev` and delete `apps/web/.next/dev`.
