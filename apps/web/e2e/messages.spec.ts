@@ -53,13 +53,21 @@ test("two people: live messages, typing indicator, unread dot", async ({ page, b
   await openChannel(chloe.page, SANDBOX);
 
   // Typing shows up, and goes away within 5 s of stopping.
-  await compose(chloe.page, ["typing something"]);
+  const warmup = `typing ${uniq()}`;
+  await compose(chloe.page, [warmup]);
   const typing = page.getByTestId("typing-indicator");
   await expect(typing).toContainText("Chloé is typing", { timeout: 3_000 });
   await expect(typing).toHaveText("", { timeout: 5_000 });
 
+  // The first live message may still compile routes on a cold dev server
+  // (CI), so it isn't timed; the next one is.
+  await chloe.page.keyboard.press("Enter");
+  await expect(page.getByTestId("message").filter({ hasText: warmup })).toBeVisible({
+    timeout: 15_000,
+  });
+
   // A message arrives live.
-  const text = ` live ${uniq()}`;
+  const text = `live ${uniq()}`;
   await chloe.page.keyboard.type(text);
   await chloe.page.keyboard.press("Enter");
   await expect(page.getByTestId("message").filter({ hasText: text.trim() })).toBeVisible({
