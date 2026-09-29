@@ -46,7 +46,11 @@ const itemSelect = {
   assignees: { select: { userId: true } },
   labels: { select: { labelId: true } },
 } satisfies Prisma.WorkItemSelect;
-type ItemSelected = Prisma.WorkItemGetPayload<{ select: typeof itemSelect }>;
+type ItemSelected = Omit<
+  Prisma.WorkItemGetPayload<{ select: typeof itemSelect }>,
+  "assignees" | "labels"
+> &
+  Partial<Pick<Prisma.WorkItemGetPayload<{ select: typeof itemSelect }>, "assignees" | "labels">>;
 
 const toItemRow = (r: ItemSelected): ItemRow => ({
   id: r.id,
@@ -58,8 +62,8 @@ const toItemRow = (r: ItemSelected): ItemRow => ({
   createdAt: r.createdAt,
   startedAt: r.startedAt,
   completedAt: r.completedAt,
-  assigneeIds: r.assignees.map((a) => a.userId),
-  labelIds: r.labels.map((l) => l.labelId),
+  assigneeIds: r.assignees?.map((a) => a.userId) ?? [],
+  labelIds: r.labels?.map((l) => l.labelId) ?? [],
 });
 
 /**
@@ -117,7 +121,11 @@ export async function runMetric(ctx: WorkspaceCtx, raw: unknown): Promise<Metric
     data = aggregate(spec, { intake }, agg);
     previous = aggregate({ ...spec, xAxis: "none", segment: null }, { intake }, prev).total;
   } else {
-    const items = await loadItems(ctx, spec.metric, projects, filter, agg, prev);
+    const dims = [spec.xAxis, spec.segment];
+    const items = await loadItems(ctx, spec.metric, projects, filter, agg, prev, {
+      assignees: dims.includes("assignee"),
+      labels: dims.includes("label"),
+    });
     data = aggregate(spec, { items }, agg);
     if (def.dateField)
       previous = aggregate({ ...spec, xAxis: "none", segment: null }, { items }, prev).total;
@@ -133,6 +141,8 @@ async function loadItems(
   filter: Prisma.WorkItemWhereInput,
   agg: AggregateContext,
   prev: AggregateContext,
+  /** Join assignees/labels only when the chart groups by them (a year of rows at 50k: 1 s → less). */
+  joins: { assignees: boolean; labels: boolean },
 ): Promise<ItemRow[]> {
   const tz = agg.timeZone;
   const span = {
@@ -169,10 +179,14 @@ async function loadItems(
       project: projects,
       AND: [scope, filter],
     },
-    select: itemSelect,
+    select: {
+      ...itemSelect,
+      assignees: joins.assignees ? itemSelect.assignees : false,
+      labels: joins.labels ? itemSelect.labels : false,
+    },
     take: ROW_CAP,
   });
-  return rows.map(toItemRow);
+  return rows.map((r) => toItemRow(r as ItemSelected));
 }
 
 /**

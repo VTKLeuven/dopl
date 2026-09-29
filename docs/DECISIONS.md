@@ -1049,3 +1049,66 @@ The nightly `maintenance.prune` deletes notes that have been in the trash for 30
 - **Relative times** ("7 minutes ago") rendered on the server can differ from the client if a minute passes before hydration. The notes, Home and timeline elements carry `suppressHydrationWarning`. The root layout stays static, so the provider can't pass a request-time `now`. Older screens still have the latent mismatch.
 - **Seed:** `pnpm db:seed` adds ten notes (Bram's, one shared by Chloé, one attached to INFRA by Dries), some due for review. `--reset` rebuilds notes and tags too.
 - **E2e:** `playwright.config.ts` takes the web server URL from `E2E_BASE_URL`, so a dev server on another port isn't mistaken for whatever listens on :3000. The setup has a 240 s budget for cold compiles and also warms the notes routes.
+
+### D-099: Chart series order, checked for colour-blind separation (amends DESIGN_SYSTEM §6)
+
+**Decision:** categorical series use `--color-chart-1…8`: sky-500, amber, pink, lime, lavender-500, orange, purple, teal (the tag palette's solid steps). "None" and "Other" are grey.
+**Why:** the order in §6 (sky, lavender, teal, amber…) puts sky next to lavender, and under deuteranopia those two are nearly the same colour (ΔE 2.3, below the 8 target). A search over orderings of the same tokens, keeping sky first and leaving out red and green (reserved for status), found this order: the worst adjacent pair clears ΔE 18 under protan and deutan simulation, and every pair stays apart for normal vision.
+**Colour follows the entity, never its rank:** state groups use the state tokens, states and projects/labels/types their own colour, people the colour of their avatar, and fixed enums (priority, intake status or source) the series colour for their position. Filtering never repaints the remaining series.
+
+### D-100: Metrics are aggregated from scoped rows in TypeScript
+
+**Decision:** `runMetric` loads the rows a chart needs, then `@dopl/shared/domain/analytics` counts, buckets and takes percentiles. The rows are limited to:
+
+- the reader's projects (`accessibleProjectsWhere`),
+- the chart's filter (the views' filter AST through `compileFilter`),
+- the date window and the window before it (for deltas).
+
+This replaces "SQL per metric" from the plan.
+**Why:** one path for policy and filters (the same compiler the views use), time buckets in the workspace time zone and percentiles in one tested place, and fixtures that are just arrays. Rows are capped at 100,000 per chart, and assignees and labels are joined only when a chart groups by them.
+
+**Measured** (`analytics.perf.ts`, 50,000 items over a year, p50 on the dev machine):
+
+| Chart                           | p50    |
+| ------------------------------- | ------ |
+| open items by project           | 213 ms |
+| open items by assignee          | 363 ms |
+| created per week, 90 days       | 268 ms |
+| created vs completed, 12 months | 711 ms |
+| cycle time per week             | 55 ms  |
+| overdue                         | 97 ms  |
+| open over time                  | 28 ms  |
+
+The benchmark first found `todayIn` building an `Intl.DateTimeFormat` per call: 515 ms and over a gigabyte for 5,000 rows. It now caches one formatter per zone. If the current-state counts get slow, move them to SQL `GROUP BY`.
+
+### D-101: Built-in dashboards live in code
+
+The workspace and project overviews are lists of widget specs in `@dopl/shared/domain/dashboards`. They need no migration or seed, every project has one, and they're read-only. "Duplicate" copies one into an editable dashboard, with the titles in the reader's language.
+
+### D-102: Dashboard layout is an ordered list with widths
+
+**Decision:** a widget's `position` is `{ key, w }`: a fractional sort key for reading order and a width of 4, 6, 8 or 12 columns on a 12-column grid (one column on phones, where small number tiles pair up). Widgets reorder by drag (dnd-kit sortable) and resize from their menu. This replaces the free `{ x, y, w, h }` grid in the schema comment.
+**Why:** it covers "lay it out on a grid" without collision handling or a grid-layout library, reflows on every screen size, and reorders the same way lists and boards already do.
+
+### D-103: Charts don't listen to realtime events
+
+Chart data is computed on read and cached for a minute (then refetched on focus). One edit would otherwise refetch every chart on every open dashboard. Dashboards themselves (names, sharing, layout) do update live through `dashboard.*` events. Changing the period keeps the old chart visible until the new data arrives.
+
+### D-104: Sharing a dashboard shares the layout, not the data
+
+A shared dashboard is readable by every member (not guests) and editable only by its owner; admins may delete shared ones. Each reader sees the charts computed with their own project access, so sharing never reveals items from a private project. Guests have no analytics at all.
+
+### D-105: Snapshots for "open items over time"
+
+- `analytics.snapshot` runs at 23:55 in the workspace's zone and writes one `project_daily_stats` row per project and day (re-runs overwrite).
+- Charts add today's live numbers, so the latest point is current before the first night and between runs.
+- Filters don't apply to this metric (snapshots store totals); the builder says so.
+- The dev seed backfills 120 days, approximated from each item's created, started and completed dates, since there's no state history to replay.
+
+### D-106: Operational notes from Phase 6
+
+- **Hidden routes in e2e:** Next keeps the previous page mounted but hidden, so `getByTestId("widget")` and region lookups filter on `visible: true`.
+- **Timed e2e checks warm up first:** the chat message and note capture specs now send one untimed warm-up before the timed check. On a cold dev server (CI) the first one also compiles or mounts code, and CI measured 145 ms (capture) and over 2 s (chat) once. The thresholds are unchanged.
+- **Keyboard reorder** on a dashboard works between rows in the middle of the grid, but a widget alone on the last row found no target moving up in the e2e run. The spec drags with the pointer; the keyboard case is a carry-over.
+- **Chart data requests** use `GET …/analytics/query?q=<json>`; a malformed `q` is a 400, not a 500.
+- **Email metrics** (first response, resolution) are defined in the schema comment but not in the registry: they need Phase 7's mailbox access rules.
