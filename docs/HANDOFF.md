@@ -1,10 +1,10 @@
 # Dopl: handoff
 
-Where the project stands and how to pick it up. Updated 2026-09-29, after Phases 3–4. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
+Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 5. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
 
 **To start a new session**, open Claude Code in the repo and paste:
 
-> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 5 (ROADMAP §Phase 5), starting from the unfinished work on the `wip/phase-5-notes` branch (HANDOFF §1.2), and stop for my review when it's done.
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 6 (ROADMAP §Phase 6) and stop for my review when it's done.
 
 ---
 
@@ -27,14 +27,15 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 | 2 Views           | ✅ approved                   | Filters, table/calendar/timeline, saved + workspace views, ⌘K, shortcuts, bulk, realtime, perf   |
 | 3 Intake          | ✅ built, **awaiting review** | Triage queue, public forms + embeds, status page, guest requests, contacts, Discord webhooks     |
 | 4 Inbox & chat    | ✅ built, **awaiting review** | Notifications, Inbox, preferences + digests, channels, DMs, threads, typing, leader-tab realtime |
-| 5 Notes & My Work | **next**, WIP branch (§1.2)   | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work                   |
-| 6–8               | planned                       | Analytics · Shared mailbox · AI teammate                                                         |
+| 5 Notes & My Work | ✅ built, **awaiting review** | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work (5b waits on Q-6) |
+| 6 Analytics       | **next**                      | Metrics engine, daily stats, dashboards, chart builder                                           |
+| 7–8               | planned                       | Shared mailbox · AI teammate                                                                     |
 
 - **What each phase delivered:** `docs/CHANGELOG.md`.
 - **What's left over from each phase:** the unticked boxes under each phase in `docs/ROADMAP.md`.
-- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-4/`.
+- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-5/`.
 
-**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Both are built and merged; their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` and `docs/screenshots/phase-4/` at the start of the next session. Phase 5 was started in parallel and stopped halfway (budget); its work is on the `wip/phase-5-notes` branch, not on `main` (§1.2).
+**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3, 4 and 5 are built and merged; their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-5/` at the start of the next session.
 
 Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
 
@@ -62,38 +63,16 @@ Phase 4 was built by a background agent in a worktree and merged into `main` tog
 - **Open questions it raised:** Q-25 to Q-28 (DMs in the Inbox, email defaults, chat for guests, chat retention). The defaults are in use.
 - **The chat e2e tests** use Chloé (`chloe@dopl.test`) as the second person, because Ann is asked to enrol in 2FA. They write only in the "E2E sandbox" channel and in new `e2e-*` channels.
 
-### 1.2 Phase 5: unfinished work on `wip/phase-5-notes`
+### 1.2 Phase 5 status
 
-A background agent started Phase 5 in parallel and was stopped halfway to save budget. Its two commits are pushed to **`wip/phase-5-notes`** (not merged). Build on them rather than starting over.
+Phase 5 was built on `claude/phase-5` from the unfinished `wip/phase-5-notes` branch (its domain, services and tests were kept; the UI was finished, fixed and verified) and merged into `main`.
 
-- **Base:** `5c43e89` (the Phase 2 handoff), so the branch predates Phases 3 and 4.
-- **`e282188` Add the notes domain (solid):**
-  - `packages/shared/src/domain/notes.ts`: inline `#tag` parsing (nested, lowercased, parents implicit), tag rename/delete rewriting, stable task `blockId`s, the `NoteTodo` projection, marking a converted line, the 1-3-7-21-60 review schedule with a deterministic weighted daily pick.
-  - `packages/shared/src/schemas/notes.ts` and `canNote` in the policy module.
-  - `server/services/notes.ts`: create, update, archive, trash and purge notes; toggle to-dos and set due dates; convert a line or a note into a work item with a `CREATED_FROM` reference; daily review actions; tag rename, merge and delete. Every write runs in `withMutation`.
-  - `server/queries/notes.ts` and routes under `/api/v1/[ws]/notes` (grid, one note, tags, to-dos, review, summary, search), plus `server/actions/notes.ts`.
-  - Tests: `domain/notes.test.ts`, `policy/notes.test.ts`, `services/notes.test.ts`.
-- **`5736494` WIP UI (unverified):** `/[ws]/notes` (grid, sidebar with tags, editor, quick capture, convert dialog), `/[ws]/notes/todos`, `/[ws]/notes/review`, Home widgets, notes in the ⌘K palette, the realtime hookup and about 270 `en.json` strings. **Nothing in this commit was typechecked, linted, tested or looked at.** Expect bugs.
-
-**How to pick it up:**
-
-1. Branch from `main` and merge the WIP into it:
-
-   ```bash
-   git checkout -b claude/phase-5 origin/main
-   git merge origin/wip/phase-5-notes
-   ```
-
-   Five files conflict, all small and additive: `components/shell/global-shortcuts.tsx`, `components/shell/sidebar.tsx`, `features/realtime/realtime-provider.tsx`, `features/work-items/item-detail.tsx` and `server/services/work-items.ts`. Keep both sides. `en.json`, the shortcut registry and the policy module merge cleanly.
-
-2. Adapt the notes code to what Phases 3–4 changed:
-   - `withMutation` now hands the callback `m` with `m.webhook`, and `MutationActor` has a `type`.
-   - Notifications go through `notify()`.
-   - The sidebar has Inbox and Messages entries and new props (`intakePending`, `showRequests`, `showContacts`, `canChat`).
-   - The realtime provider uses `SharedEventSource`. Specs should wait on `<html data-realtime>`.
-   - Home may already read the Inbox summary for its notifications widget.
-3. Run `pnpm typecheck && pnpm lint && pnpm test`, then go screen by screen: fix, screenshot, compare with the Spott reference, and add e2e specs for the Phase 5 acceptance list.
-4. Phase 5b (embeddings, semantic search) still waits on Q-6.
+- **What's in it:** Notes (`/vtk/notes`: quick capture, masonry grid, colours, pins, inline editing, archive, trash, sharing, search), the tag tree with rename/merge/delete, My to-dos (`/vtk/notes/todos`), converting a line or a note into a work item, the daily review (`/vtk/notes/review`), `Q` from any page, notes in ⌘K, and Home rebuilt as My Work. Details are in `docs/CHANGELOG.md`; decisions are D-092 to D-098; carry-overs are unticked under Phase 5 in `docs/ROADMAP.md`.
+- **No migrations, no new env vars, no new queues.** The nightly `maintenance.prune` now also purges notes trashed 30 days ago.
+- **Seed:** ten notes (§2). The e2e tests capture their own notes as Bram with unique text, so seeded notes don't get in the way.
+- **Screenshots:** `docs/screenshots/phase-5/` (18, including two at phone width).
+- **Open question it raised:** Q-29 (can teammates edit shared notes?). The default (read-only) is in use.
+- **5b** (embeddings, semantic search, "Ask my notes") still waits on Q-6.
 
 ### What the user has decided so far
 
@@ -125,7 +104,7 @@ pnpm i
 cp .env.example .env          # already present on the dev Mac; every variable is commented
 pnpm db:up                    # Postgres 17 + pgvector on :54320, Mailpit SMTP :1025 / UI :8025
 pnpm db:deploy && pnpm db:generate
-pnpm db:seed                  # workspace "VTK IT" at /vtk, 5 projects, ~300 items
+pnpm db:seed                  # workspace "VTK IT" at /vtk, 5 projects, ~300 items, 10 notes
 pnpm dev                      # web on :3000 + worker (email, webhooks, snooze wake-ups, maintenance)
 ```
 
@@ -143,6 +122,8 @@ Mail sent in dev (invites, magic links, resets) lands in Mailpit: <http://localh
 
 **Manual testing changes seed data** (priorities, layouts, filters, saved views). `pnpm db:seed -- --reset` rebuilds the seeded projects and clears view preferences; users and contacts are kept.
 
+Phase 5 seed data: Bram has eight notes (nested `#infra/proxmox` tags, to-dos due today and this week, a pinned and an archived note, five due for the daily review); Chloé shares an on-call note with the team, and Dries has a note attached to INFRA.
+
 Phase 3 seed data: the HELP project has a published form at <http://localhost:3000/f/it-support>, a draft form on INFRA, seven contacts (one blocked) and twelve requests in every triage state (`/vtk/p/HELP/intake`).
 
 **Admin screens without 2FA in dev:** seeded admins use passwords, so they must enrol TOTP first. To look at admin-only pages quickly, delete the admin's credential row in the dev DB and sign in with a magic link from Mailpit (`DELETE FROM accounts a USING users u WHERE a."userId" = u.id AND u.email = 'ann@dopl.test' AND a."providerId" = 'credential';`). `pnpm db:seed` puts the password back.
@@ -152,8 +133,8 @@ Phase 3 seed data: the HELP project has a published form at <http://localhost:30
 ## 3. Checks
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test     # 192 Vitest tests after Phase 4; integration tests use DATABASE_URL_TEST
-pnpm e2e                                      # 31 Playwright tests + setup after Phase 4; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
+pnpm typecheck && pnpm lint && pnpm test     # 229 Vitest tests after Phase 5; integration tests use DATABASE_URL_TEST
+pnpm e2e                                      # 36 Playwright tests + setup after Phase 5; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
 pnpm perf                                     # 50k-item benchmark on the test DB (~40 s, not in CI)
 pnpm db:drift                                 # schema vs migrations must be empty
 ```
@@ -177,14 +158,14 @@ apps/web/src
   app/(public)/s/[token]       contact status page
   app/embed.js                 floating "Feedback" button script
   app/api/public/…             form submit + uploads, status-page replies/uploads/files (rate-limited)
-  app/(app)/[ws]/…             home, inbox, messages, projects, p/[ident]/items|views|settings|intake(/forms), views,
+  app/(app)/[ws]/…             home (My Work), notes (+ todos, review), inbox, messages, projects, p/[ident]/items|views|settings|intake(/forms), views,
                                i/[ref], requests (guests), contacts, settings (… integrations, notifications)
   app/api/auth/[...all]        Better Auth
   app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054), /realtime (SSE), channels/[id]/typing
   server/
     services/                  every write: zod → policy → withMutation (Activity + realtime outbox + webhooks)
                                intake (triage), public-intake (forms, status page), intake-forms, contacts, webhooks,
-                               inbox (notifications, preferences), channels + messages (chat)
+                               inbox (notifications, preferences), channels + messages (chat), notes (+ tags, to-dos, review)
     intake/core.ts             creating triage items, notifying triagers and submitters, status links
     notifications/notify.ts    the one way to create Inbox notifications (prefs, grouping, realtime)
     webhooks/dispatch.ts       matches events to webhooks, coalesces, enqueues webhook.deliver
@@ -196,6 +177,8 @@ apps/web/src
   features/
     intake/                    triage queue + bar, request panel, form builder, public form, request thread, contacts
     inbox/                     list + reader, filters, bulk actions, badge
+    notes/                     grid, card (memoized), editor (#tags, task block ids), capture + Q dialog, sidebar + tag
+                               tree, to-dos, review, convert dialog, sharing, item notes + timeline entry, data hooks
     messages/                  channel list, conversation, composer, threads, typing, create-item-from-message
     work-items/                list, board (+ swimlanes), table, calendar, timeline, peek/detail, pickers, data hooks
     filters/                   builder + chip bar
@@ -284,6 +267,12 @@ The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later 
 - **Wait for the realtime stream before triggering events from another browser:** `await expect(page.locator("html[data-realtime=open]")).toBeAttached()`. A follower tab shows `relay`.
 - **`next dev` compiles a route on its first request**, which can take several seconds, and CI's e2e runs against a cold dev server. Tests that time a realtime update (an event, then a refetch) need that route compiled first. `e2e/global.setup.ts` warms the inbox and chat routes; add any new route that a timed check refetches.
 - **Don't `pkill -f "pnpm dev"`** from an agent shell: the pattern matches the shell's own command line and kills it. Kill by PID, or use `pgrep -f "[n]ext dev"`.
+- **This dev machine's :3000 belongs to another app.** Run Dopl on another port: `PORT=3100 pnpm dev` with `APP_URL`/`BETTER_AUTH_URL` set to `http://localhost:3100` in `.env`, and `E2E_BASE_URL=http://localhost:3100 pnpm e2e`. The worker's health port is `WORKER_HEALTH_PORT=3101`.
+- **Tiptap node views drop `renderHTML` attributes.** TaskItem's node view copies only `HTMLAttributes` onto the `<li>`, so styles keyed on `data-type` need it set there (D-098).
+- **Esc inside an editor** can be prevented before React's `onKeyDown` sees it. Handle editor keys in ProseMirror's `editorProps.handleKeyDown`.
+- **TanStack structural sharing matches arrays by index.** Inserting at the top of a cached list rebuilds every row object and defeats `memo`. Lists where rows move use an id-based `structuralSharing` (D-095).
+- **Popovers inside dialogs** work since D-092 (same z layer). Don't give a popover a higher layer than dialogs; the open order does the stacking.
+- **Relative times** need `suppressHydrationWarning` on their element; server and client can straddle a minute.
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---
@@ -300,6 +289,7 @@ Carried forward (also ticked off in ROADMAP as they get done):
 - Moved items' old identifiers don't redirect (Q-23).
 - Phase 3 carry-overs (ROADMAP): email-to-intake (needs Phase 7), deleting bytes of abandoned uploads, Turnstile verified with real keys, contact pages listing email threads.
 - Phase 4 carry-overs (ROADMAP): per-channel mute, per-project notification preferences in the UI, `DUE_SOON` notifications, chat search and image previews, a chat seed, mobile screenshots, agent replies in DMs (Phase 8).
+- Phase 5 carry-overs (ROADMAP): 5b (Q-6), the mobile layout of Home's "Assigned to me" rows, and relative times on older screens that can mismatch at hydration.
 
 Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block upcoming work:
 
@@ -307,15 +297,15 @@ Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block
 - **Q-6:** the embeddings endpoint, model and dimensions (Phase 5b).
 - **Q-20:** who sets up the Google Cloud pieces (OAuth, service account, Pub/Sub).
 - **Q-16, Q-17, Q-18:** mailbox, Warpgate and model details (Phases 7–8).
-- **Q-25 to Q-28** (chat and notification defaults) don't block anything, but are worth a quick answer during the Phase 4 review.
+- **Q-25 to Q-29** (chat, notification and shared-note defaults) don't block anything, but are worth a quick answer during the Phase 4 and 5 reviews.
 
 ---
 
 ## 7. Next steps
 
-1. Show the owner the Phase 3 and Phase 4 screenshots and fix what they flag.
-2. **Phase 5: Notes & My Work** (ROADMAP §Phase 5). **Start from `wip/phase-5-notes`** (§1.2): the domain, services, queries and tests exist; the UI is drafted but unverified. Follow DATA_MODEL §3.5 and D-022 (to-dos are a projection keyed by the task node's `blockId`, which the rich-text sanitizer already allows). Home (`/vtk/home`) gets rebuilt as My Work, and its notifications summary can read the Inbox. 5b (embeddings, semantic search) waits on Q-6.
-3. **Phase 6: Analytics**, then **Phase 7: Shared mailbox** (also unlocks email-to-intake and mail events for Discord: `email_thread.created`, `email_message.received` are already defined in `WEBHOOK_EVENTS`), then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033).
+1. Show the owner the Phase 3, 4 and 5 screenshots and fix what they flag.
+2. **Phase 6: Analytics** (ROADMAP §Phase 6): the metrics engine with policy scoping, nightly `project_daily_stats`, default dashboards and the chart builder (DESIGN_SYSTEM §6). Every chart needs its empty, loading and error states.
+3. Then **Phase 7: Shared mailbox** (also unlocks email-to-intake and mail events for Discord: `email_thread.created`, `email_message.received` are already defined in `WEBHOOK_EVENTS`), then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033). **Phase 5b** (embeddings) whenever Q-6 is answered.
 4. Keep the phase routine:
    - Build in small commits.
    - Take screenshots into `docs/screenshots/phase-N/`.
