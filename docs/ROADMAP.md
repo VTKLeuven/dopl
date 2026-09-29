@@ -354,7 +354,24 @@ Where it differs from the plan below:
 
 ---
 
-## Phase 6: Analytics
+## Phase 6: Analytics ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Items 1–5 are built, except the email metrics, which need Phase 7's mailbox. The CHANGELOG has the summary; decisions D-099 to D-106 record the choices. The acceptance checks are covered by Vitest (hand-computed fixtures for every metric) and Playwright (`analytics.spec.ts`: loading, empty and error states).
+
+Where it differs from the plan below:
+
+- **Metrics engine:** rows are loaded with the policy scope, the filter and the window, then aggregated in TypeScript (D-100), instead of SQL per metric.
+- **Default dashboards** are defined in code and read-only; "Duplicate" makes an editable copy (D-101).
+- **Grid layout** is an ordered list with widths on a 12-column grid (drag to reorder, resize from the menu), not free x/y placement (D-102).
+- **The fixtures** are built in the tests (fixed items and dates, computed by hand), not taken from the random dev seed.
+- **Series colours:** a different order than DESIGN_SYSTEM §6, which failed the colour-blind check (D-099).
+
+**Not done yet, carried forward:**
+
+- [ ] Email first-response and resolution metrics (Phase 7)
+- [ ] Keyboard reordering for a widget alone on the last row (the pointer works; D-106)
+- [ ] Dashboards scoped to one project are listed with the others in Analytics, not on the project's page
+- [ ] Dark-mode chart colours (no dark mode yet)
 
 1. **Metrics engine:** SQL per metric with policy scoping:
    - created vs. completed over time

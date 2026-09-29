@@ -80,6 +80,12 @@ export function RealtimeProvider() {
         return;
       }
       if (handleNotesEvent(qc, ws, ev.type)) return;
+      // Dashboards (Phase 6): the list and layouts; charts refresh on their own schedule.
+      if (ev.type.startsWith("dashboard.")) {
+        void qc.invalidateQueries({ queryKey: ["analytics", ws, "dashboards"] });
+        void qc.invalidateQueries({ queryKey: ["analytics", ws, "dashboard"] });
+        return;
+      }
       const [kind, id] = ev.topic.split(":");
       comms.push(...commsInvalidations(ws, ev));
       if (kind === "project" && id) {

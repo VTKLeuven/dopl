@@ -1,10 +1,10 @@
 # Dopl: handoff
 
-Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 5. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
+Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 6. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
 
 **To start a new session**, open Claude Code in the repo and paste:
 
-> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 6 (ROADMAP §Phase 6) and stop for my review when it's done.
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 7 (ROADMAP §Phase 7) and stop for my review when it's done. Phase 7 needs answers to Q-16 and Q-20 first; ask for them if they're still open.
 
 ---
 
@@ -28,14 +28,15 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 | 3 Intake          | ✅ built, **awaiting review** | Triage queue, public forms + embeds, status page, guest requests, contacts, Discord webhooks     |
 | 4 Inbox & chat    | ✅ built, **awaiting review** | Notifications, Inbox, preferences + digests, channels, DMs, threads, typing, leader-tab realtime |
 | 5 Notes & My Work | ✅ built, **awaiting review** | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work (5b waits on Q-6) |
-| 6 Analytics       | **next**                      | Metrics engine, daily stats, dashboards, chart builder                                           |
-| 7–8               | planned                       | Shared mailbox · AI teammate                                                                     |
+| 6 Analytics       | ✅ built, **awaiting review** | Metrics, nightly snapshots, built-in and custom dashboards, chart builder                        |
+| 7 Shared mailbox  | **next** (needs Q-16, Q-20)   | Gmail sync, collaborative inbox, promote to work item, replies                                   |
+| 8                 | planned                       | AI teammate                                                                                      |
 
 - **What each phase delivered:** `docs/CHANGELOG.md`.
 - **What's left over from each phase:** the unticked boxes under each phase in `docs/ROADMAP.md`.
-- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-5/`.
+- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-6/`.
 
-**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3, 4 and 5 are built and merged; their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-5/` at the start of the next session.
+**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 6 are built and merged (the owner asked for Phase 6 right after 5); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-6/` at the start of the next session.
 
 Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
 
@@ -73,6 +74,16 @@ Phase 5 was built on `claude/phase-5` from the unfinished `wip/phase-5-notes` br
 - **Screenshots:** `docs/screenshots/phase-5/` (18, including two at phone width).
 - **Open question it raised:** Q-29 (can teammates edit shared notes?). The default (read-only) is in use.
 - **5b** (embeddings, semantic search, "Ask my notes") still waits on Q-6.
+
+### 1.3 Phase 6 status
+
+Phase 6 was built on `claude/phase-6` and merged into `main`.
+
+- **What's in it:** Analytics at `/vtk/analytics` (the built-in overview, your dashboards, shared ones) and `/vtk/p/<IDENT>/analytics` (a project's overview), the chart builder, eleven metrics, and the nightly `analytics.snapshot` job. Details are in `docs/CHANGELOG.md`; decisions are D-099 to D-106; carry-overs are unticked under Phase 6 in `docs/ROADMAP.md`.
+- **No migrations, no new env vars.** New worker queue: `analytics.snapshot` (23:55 daily). New dependency: `recharts` 3 (and `react-is`, its peer).
+- **Seed:** 120 days of approximated `project_daily_stats`.
+- **Screenshots:** `docs/screenshots/phase-6/` (9, including the builder, the chart states and a phone).
+- **Performance:** `PERF_FILE=apps/web/src/server/queries/analytics.perf.ts pnpm perf` times the heaviest charts at 50,000 items (numbers in D-100).
 
 ### What the user has decided so far
 
@@ -133,9 +144,9 @@ Phase 3 seed data: the HELP project has a published form at <http://localhost:30
 ## 3. Checks
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test     # 229 Vitest tests after Phase 5; integration tests use DATABASE_URL_TEST
-pnpm e2e                                      # 36 Playwright tests + setup after Phase 5; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
-pnpm perf                                     # 50k-item benchmark on the test DB (~40 s, not in CI)
+pnpm typecheck && pnpm lint && pnpm test     # 254 Vitest tests after Phase 6; integration tests use DATABASE_URL_TEST
+pnpm e2e                                      # 40 Playwright tests + setup after Phase 6; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
+pnpm perf                                     # 50k-item benchmarks on the test DB (items ~40 s, analytics ~3 min; PERF_FILE=… for one)
 pnpm db:drift                                 # schema vs migrations must be empty
 ```
 
@@ -144,7 +155,7 @@ CI (`.github/workflows/ci.yml`):
 - It runs typecheck, lint (including `prettier --check`), Vitest, the drift check, `pnpm build` and the Playwright suite against a freshly seeded database, with Mailpit as a service and the worker running in the background (the intake e2e reads confirmation emails).
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
-- **Last verified:** `main` at `cfd5800` (Phase 3) passed every job, images included. The Phase 4 merge on top of it passed typecheck, lint, 192 Vitest tests, the drift check and the full Playwright suite (31 tests, cold dev server) locally before it was pushed. Check its CI run first thing. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
+- **Last verified:** `main` at `53d5d48` passed every job, images included. Later pushes fixed two timing flakes on CI's cold dev server (D-106). The Phase 6 merge passed typecheck, lint, 254 Vitest tests, the drift check and the full Playwright suite (40 tests + setup) locally before it was pushed; check its CI run first thing. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
 - Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
@@ -158,14 +169,14 @@ apps/web/src
   app/(public)/s/[token]       contact status page
   app/embed.js                 floating "Feedback" button script
   app/api/public/…             form submit + uploads, status-page replies/uploads/files (rate-limited)
-  app/(app)/[ws]/…             home (My Work), notes (+ todos, review), inbox, messages, projects, p/[ident]/items|views|settings|intake(/forms), views,
+  app/(app)/[ws]/…             home (My Work), notes (+ todos, review), analytics, inbox, messages, projects, p/[ident]/items|views|settings|intake(/forms), views,
                                i/[ref], requests (guests), contacts, settings (… integrations, notifications)
   app/api/auth/[...all]        Better Auth
   app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054), /realtime (SSE), channels/[id]/typing
   server/
     services/                  every write: zod → policy → withMutation (Activity + realtime outbox + webhooks)
                                intake (triage), public-intake (forms, status page), intake-forms, contacts, webhooks,
-                               inbox (notifications, preferences), channels + messages (chat), notes (+ tags, to-dos, review)
+                               inbox (notifications, preferences), channels + messages (chat), notes (+ tags, to-dos, review), dashboards
     intake/core.ts             creating triage items, notifying triagers and submitters, status links
     notifications/notify.ts    the one way to create Inbox notifications (prefs, grouping, realtime)
     webhooks/dispatch.ts       matches events to webhooks, coalesces, enqueues webhook.deliver
@@ -177,6 +188,7 @@ apps/web/src
   features/
     intake/                    triage queue + bar, request panel, form builder, public form, request thread, contacts
     inbox/                     list + reader, filters, bulk actions, badge
+    analytics/                 chart view (Recharts), widget card + states, dashboards (built-in, custom, dnd), builder
     notes/                     grid, card (memoized), editor (#tags, task block ids), capture + Q dialog, sidebar + tag
                                tree, to-dos, review, convert dialog, sharing, item notes + timeline entry, data hooks
     messages/                  channel list, conversation, composer, threads, typing, create-item-from-message
@@ -273,6 +285,8 @@ The Gmail, Turnstile, embeddings, Hermes and Warpgate variables belong to later 
 - **TanStack structural sharing matches arrays by index.** Inserting at the top of a cached list rebuilds every row object and defeats `memo`. Lists where rows move use an id-based `structuralSharing` (D-095).
 - **Popovers inside dialogs** work since D-092 (same z layer). Don't give a popover a higher layer than dialogs; the open order does the stacking.
 - **Relative times** need `suppressHydrationWarning` on their element; server and client can straddle a minute.
+- **Timed e2e checks need a warm-up** on CI's cold dev server: send one untimed message or capture first, then time the next (D-106). Don't loosen the thresholds.
+- **Chart colours are tokens** (`--color-chart-1…8`, D-099). Use `features/analytics/colors.ts` so colour follows the entity; don't pick colours by index for entities.
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---
@@ -290,6 +304,7 @@ Carried forward (also ticked off in ROADMAP as they get done):
 - Phase 3 carry-overs (ROADMAP): email-to-intake (needs Phase 7), deleting bytes of abandoned uploads, Turnstile verified with real keys, contact pages listing email threads.
 - Phase 4 carry-overs (ROADMAP): per-channel mute, per-project notification preferences in the UI, `DUE_SOON` notifications, chat search and image previews, a chat seed, mobile screenshots, agent replies in DMs (Phase 8).
 - Phase 5 carry-overs (ROADMAP): 5b (Q-6), the mobile layout of Home's "Assigned to me" rows, and relative times on older screens that can mismatch at hydration.
+- Phase 6 carry-overs (ROADMAP): email metrics (Phase 7), keyboard reorder for a lone last-row widget, project-scoped dashboards on the project page, dark-mode chart colours.
 
 Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block upcoming work:
 
@@ -303,9 +318,9 @@ Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block
 
 ## 7. Next steps
 
-1. Show the owner the Phase 3, 4 and 5 screenshots and fix what they flag.
-2. **Phase 6: Analytics** (ROADMAP §Phase 6): the metrics engine with policy scoping, nightly `project_daily_stats`, default dashboards and the chart builder (DESIGN_SYSTEM §6). Every chart needs its empty, loading and error states.
-3. Then **Phase 7: Shared mailbox** (also unlocks email-to-intake and mail events for Discord: `email_thread.created`, `email_message.received` are already defined in `WEBHOOK_EVENTS`), then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033). **Phase 5b** (embeddings) whenever Q-6 is answered.
+1. Show the owner the Phase 3 to 6 screenshots and fix what they flag.
+2. **Phase 7: Shared mailbox** (ROADMAP §Phase 7). It needs Q-16 (which mailbox) and Q-20 (who sets up the Google Cloud pieces) first. It also unlocks email-to-intake, the email metrics in Analytics, and mail events for Discord (`email_thread.created` and `email_message.received` are already defined in `WEBHOOK_EVENTS`).
+3. Then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033). **Phase 5b** (embeddings) whenever Q-6 is answered.
 4. Keep the phase routine:
    - Build in small commits.
    - Take screenshots into `docs/screenshots/phase-N/`.

@@ -23,6 +23,7 @@ const GO: Record<string, string> = {
   i: "inbox",
   m: "messages",
   n: "notes",
+  a: "analytics",
 };
 const SCOPE_ORDER: ShortcutScope[] = [
   "global",
