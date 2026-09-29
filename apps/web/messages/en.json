@@ -437,7 +437,11 @@
       "title": "Notes",
       "untitled": "Untitled note",
       "source": "Source note",
-      "attached": "Attached"
+      "attached": "Attached",
+      "someone": "Someone",
+      "createdFromNote": "created this from a note",
+      "createdFromLine": "created this from a checkbox in a note",
+      "privateNote": "A private note by {owner}"
     },
     "palette": {
       "group": "Notes",

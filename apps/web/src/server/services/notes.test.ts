@@ -11,6 +11,7 @@ import {
   listTags,
   listTodos,
 } from "../queries/notes";
+import { getWorkItemDetail } from "../queries/work-items";
 import { makeMember, makeProject, makeWorkspace } from "../testing/fixtures";
 import {
   convertNote,
@@ -174,6 +175,41 @@ describe("notes service", () => {
     await expect(
       convertTodo(admin, { noteId: card.id, blockId: todo!.blockId, projectId: project.id }),
     ).rejects.toThrow("already_converted");
+  });
+
+  it("puts the source note on the item's timeline, without a private note's text", async () => {
+    const { admin, other, project } = await setup();
+    const card = await createNote(admin, { content: doc(list(task("Renew the wildcard cert"))) });
+    const [todo] = await listTodos(admin, "open");
+    const res = await convertTodo(admin, {
+      noteId: card.id,
+      blockId: todo!.blockId,
+      projectId: project.id,
+    });
+    const mine = await getWorkItemDetail(admin, res.item.identifier);
+    expect(mine.references).toEqual([
+      expect.objectContaining({
+        source: "note",
+        kind: "CREATED_FROM",
+        note: expect.objectContaining({
+          id: card.id,
+          line: expect.stringContaining("Renew the wildcard cert"),
+        }),
+      }),
+    ]);
+    // A teammate sees the item but not the owner's private note.
+    const theirs = await getWorkItemDetail(other, res.item.identifier);
+    expect(theirs.references).toEqual([
+      expect.objectContaining({
+        source: "note",
+        note: expect.objectContaining({ excerpt: null, line: null, ownerName: "Ann Admin" }),
+      }),
+    ]);
+    await updateNote(admin, { id: card.id, sharing: { kind: "workspace" } });
+    const shared = await getWorkItemDetail(other, res.item.identifier);
+    expect(shared.references[0]).toMatchObject({
+      note: { excerpt: expect.stringContaining("Renew the wildcard cert") },
+    });
   });
 
   it("converts a whole note and shows it on the item", async () => {

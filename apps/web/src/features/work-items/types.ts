@@ -130,12 +130,17 @@ export interface RequestInfo {
 }
 
 /** A chat message that mentions the item or that it was created from (Phase 4). */
-export interface ReferenceView {
+interface ReferenceBase {
   id: string;
   kind: "MENTIONED" | "LINKED" | "CREATED_FROM";
   createdAt: string;
   actorId: string | null;
   actorName: string | null;
+}
+
+/** A chat message that mentions the item or that it was created from. */
+export interface MessageReferenceView extends ReferenceBase {
+  source: "message";
   message: {
     id: string;
     channelId: string;
@@ -147,6 +152,21 @@ export interface ReferenceView {
     authorName: string | null;
   };
 }
+
+/** A note (or one checkbox line of it) the item was created from. */
+export interface NoteReferenceView extends ReferenceBase {
+  source: "note";
+  note: {
+    id: string;
+    ownerName: string | null;
+    /** null when the reader can't open the note (someone's private note). */
+    excerpt: string | null;
+    /** The checkbox line, for items made from one line. */
+    line: string | null;
+  };
+}
+
+export type ReferenceView = MessageReferenceView | NoteReferenceView;
 
 export interface WorkItemDetail extends WorkItemRow {
   request: RequestInfo | null;

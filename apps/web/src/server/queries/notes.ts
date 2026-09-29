@@ -494,8 +494,11 @@ export async function searchNotes(ctx: WorkspaceCtx, q: string): Promise<NoteSea
     },
   });
   return rows.map((r) => {
-    const i = r.contentText.toLowerCase().indexOf(q.toLowerCase());
-    const excerpt = i > 40 ? `…${r.contentText.slice(i - 30, i + 60)}` : r.contentText.slice(0, 90);
+    // The first line is the title; the excerpt comes from the rest.
+    const nl = r.contentText.indexOf("\n");
+    const body = nl < 0 ? "" : r.contentText.slice(nl + 1).trim();
+    const i = body.toLowerCase().indexOf(q.toLowerCase());
+    const excerpt = i > 40 ? `…${body.slice(i - 30, i + 60)}` : body.slice(0, 90);
     return {
       id: r.id,
       title: noteTitle(r.contentText, 70),

@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { Shortcut } from "./kbd";
 
 export const menuContentClasses = cn(
-  "z-[40] min-w-[200px] overflow-hidden rounded-card border border-border bg-surface p-1 text-body text-fg shadow-popover",
+  "z-[50] min-w-[200px] overflow-hidden rounded-card border border-border bg-surface p-1 text-body text-fg shadow-popover",
   "origin-[var(--radix-dropdown-menu-content-transform-origin)]",
   "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]",
   "data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1",
