@@ -27,7 +27,7 @@ export const AgentProfileSchema = z.object({
     .int()
     .min(60)
     .max(24 * 3600),
-  /** Characters of trusted context sent with a request (D-121). */
+  /** Characters of trusted context sent with a request (D-118). */
   contextBudgetChars: z.number().int().min(2000).max(400_000),
 });
 export type AgentProfileInput = z.infer<typeof AgentProfileSchema>;

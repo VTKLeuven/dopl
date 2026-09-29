@@ -1,6 +1,6 @@
 import type { Prisma, TransactionClient } from "@dopl/db";
 import { notify } from "@dopl/server/notify";
-import { textToDoc } from "@dopl/shared/rich-text";
+import { docToPlainText, markdownToDoc } from "@dopl/shared/rich-text";
 import { formatIdentifier } from "@dopl/shared/schemas/work-item";
 import { emitRealtime } from "../realtime";
 
@@ -22,8 +22,10 @@ export interface ReplyRun {
  * as the web's services.
  */
 export async function postAgentReply(tx: TransactionClient, run: ReplyRun, text: string) {
-  const body = textToDoc(text) as unknown as Prisma.InputJsonValue;
-  const bodyText = text.slice(0, 20_000);
+  // Models answer in Markdown: code blocks, inline code, lists.
+  const doc = markdownToDoc(text.slice(0, 50_000));
+  const body = doc as unknown as Prisma.InputJsonValue;
+  const bodyText = docToPlainText(doc);
   const emit = (e: { topic: string; type: string; payload: Prisma.InputJsonValue }) =>
     emitRealtime(tx, { workspaceId: run.workspaceId, ...e });
   const notifyCtx = { tx, workspaceId: run.workspaceId, actor: { userId: run.agentUserId }, emit };

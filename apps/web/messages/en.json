@@ -594,7 +594,10 @@
         "GUEST": "Submit requests and follow their own"
       },
       "lastOwner": "A workspace needs at least one owner.",
-      "alreadyMember": "{email} is already a member."
+      "alreadyMember": "{email} is already a member.",
+      "approver": "Approves Dopl",
+      "makeApprover": "Let them approve Dopl's actions",
+      "removeApprover": "Stop them approving Dopl's actions"
     },
     "auth": {
       "title": "Authentication",

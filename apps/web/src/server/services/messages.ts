@@ -4,6 +4,7 @@ import { ForbiddenError } from "@dopl/shared/policy";
 import { uuidv7 } from "@dopl/shared/ids";
 import {
   docToPlainText,
+  docToPromptText,
   extractItemRefs,
   extractMentions,
   isEmptyDoc,
@@ -272,7 +273,7 @@ export async function sendMessage(ctx: WorkspaceCtx, raw: unknown) {
         await queueAgentRun(m, {
           agent,
           trigger: agentMembers.length > 0 ? "DIRECT_MESSAGE" : "MESSAGE_MENTION",
-          request: docToPlainText(body),
+          request: docToPromptText(body),
           channelId: c.id,
           threadRootId: root?.id ?? null,
           triggerMessageId: message.id,

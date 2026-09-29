@@ -26,7 +26,7 @@ export function ActiveRuns({
       data-testid="active-runs"
     >
       {active.map((r) => (
-        <RunCard key={r.id} ws={ws} run={r} variant="compact" />
+        <RunCard key={r.id} ws={ws} run={r} variant="chat" />
       ))}
     </ul>
   );

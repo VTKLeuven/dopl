@@ -1,10 +1,10 @@
 # Dopl: handoff
 
-Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 7. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
+Where the project stands and how to pick it up. Updated 2026-09-29, after Phase 8. If you're a new Claude Code session: read this first, then `CLAUDE.md` (conventions and version gotchas), then the relevant part of `docs/ROADMAP.md`.
 
 **To start a new session**, open Claude Code in the repo and paste:
 
-> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then build Phase 8 (ROADMAP §Phase 8) and stop for my review when it's done. Phase 8 needs answers to Q-17 and Q-18 first; ask for them if they're still open.
+> Read `docs/HANDOFF.md`, then `CLAUDE.md` and `PROMPT.md`. Start the dev services (`pnpm db:up`, then `pnpm dev` in the background), check that `pnpm typecheck && pnpm test` pass and what CI says about the latest commit on `main`, and summarise where the project stands. Then continue with what §7 lists and stop for my review after each phase.
 
 ---
 
@@ -30,13 +30,13 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 | 5 Notes & My Work | ✅ built, **awaiting review** | Quick capture, notes grid, tags, to-dos, sharing, daily review, Home / My Work (5b waits on Q-6) |
 | 6 Analytics       | ✅ built, **awaiting review** | Metrics, nightly snapshots, built-in and custom dashboards, chart builder                        |
 | 7 Shared mailbox  | ✅ built, **awaiting review** | Gmail sync (fake Gmail in dev), Mail views and reader, promote/link to items, replies            |
-| 8 AI teammate     | **next** (needs Q-17, Q-18)   | Hermes runs, MCP tools, `infra_exec` with approvals                                              |
+| 8 AI teammate     | ✅ built, **awaiting review** | Hermes runs, MCP tools, `infra_exec` with approvals, taint, Pause/Stop, audit log                |
 
 - **What each phase delivered:** `docs/CHANGELOG.md`.
 - **What's left over from each phase:** the unticked boxes under each phase in `docs/ROADMAP.md`.
-- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-7/`.
+- **Screenshots:** `docs/screenshots/phase-1/` to `docs/screenshots/phase-8/`.
 
-**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 7 are built and merged (the owner asked for Phases 6 and 7 right after the one before); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-7/` at the start of the next session.
+**The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 8 are built and merged (the owner asked for Phases 6, 7 and 8 right after the one before, and then for 5b and the carry-overs); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-8/` at the start of the next session.
 
 Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
 
@@ -95,6 +95,17 @@ Phase 7 was built on `claude/phase-7` and merged into `main`.
 - **Seed:** the `it@vtk.be` mailbox ("IT support", members Bram and Chloé, replies on) with six conversations. The worker connects it on its next poll, up to 5 minutes after seeding.
 - **Screenshots:** `docs/screenshots/phase-7/` (10, including two at phone width).
 
+### 1.5 Phase 8 status
+
+Phase 8 was built on `claude/phase-8` and merged into `main`.
+
+- **What's in it:** @Dopl in comments and chat, DMs and assignment start runs; the worker drives Hermes' Runs API; Dopl's MCP server at `/api/mcp`; `infra_exec` over SSH via Warpgate with the host allowlist, read-only/DENY rules and approvals; taint tracking; Stop and Pause; run cards on item timelines, in chat and in the Inbox; the Dopl page (`/vtk/agent`); Settings → AI teammate and Audit log; "Approves Dopl" in Members. Details are in `docs/CHANGELOG.md`; decisions are D-115 to D-124; carry-overs are unticked under Phase 8 in `docs/ROADMAP.md`; the real setup is `docs/ops/agent-setup.md`.
+- **No real Hermes or Warpgate yet.** Dev and CI use the worker's fake Hermes and fake executor (D-121): `.env` has `HERMES_FAKE_PORT=8643`, `HERMES_FAKE_MCP_TOKEN=…` and `AGENT_EXEC_FAKE=true`, and `pnpm db:seed` points the agent at the fake and registers the token. Ask the fake things like "run \`uptime\` on lab-01", "read the email", "list hosts" (see the file's header).
+- **No migrations.** **New env:** worker.env gets `HERMES_API_KEY`, `WARPGATE_HOST`, `WARPGATE_PORT`, `WARPGATE_HOST_KEY`, `AGENT_SSH_USER`, `AGENT_SSH_KEY_FILE`, `AGENT_EXEC_TIMEOUT_SEC`. **New queues:** `agent.run`, `agent.exec` (never retried), `agent.runtime-approval`, `agent.stop`, `agent.check`, `agent.reconcile` (every minute). **New dependencies:** `@modelcontextprotocol/sdk` (web, worker), `ssh2` (worker).
+- **Seed:** the agent's profile (on), three hosts (`lab-01`, `staging-01`, `app-01` production), 13 default rules, and Bram may approve (so the e2e tests can). It also runs on an already-seeded database.
+- **Screenshots:** `docs/screenshots/phase-8/` (12, including phone width).
+- **Deployment:** add `/api/mcp` to Caddy's unbuffered block (see `docs/ops/agent-setup.md` §1).
+
 ### What the user has decided so far
 
 These answers shape the plan; the details are in `docs/OPEN_QUESTIONS.md` (answered table) and `docs/DECISIONS.md`.
@@ -109,6 +120,7 @@ These answers shape the plan; the details are in `docs/OPEN_QUESTIONS.md` (answe
 - **Discord webhooks** for updates, new tickets and new mail (D-052, Phase 3 onward).
 - **Realtime** was pulled forward into Phase 2 (Q-9's default).
 - **Q-16's default is in use** (one mailbox, 90-day import, no label mirroring); Q-20 is still open, so no real mailbox is connected.
+- **Q-7, Q-17, Q-18 answered (defaults):** Hermes' own terminal tools off; one Warpgate user `dopl-agent` with key auth and per-target roles; Qwen 3.8 27B with a 128k context (D-115 to D-124).
 - **Q-12, Q-19, Q-22 defaults are in use:** simplified public status wording; guests see only their own requests; Discord webhooks send titles and links only unless "Include content" is on, with events chosen per webhook.
 
 ---
@@ -157,8 +169,8 @@ Phase 3 seed data: the HELP project has a published form at <http://localhost:30
 ## 3. Checks
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test     # 280 Vitest tests after Phase 7; integration tests use DATABASE_URL_TEST
-pnpm e2e                                      # 45 Playwright tests + setup after Phase 7; needs `pnpm dev` (web + worker), Mailpit and the seeded DB
+pnpm typecheck && pnpm lint && pnpm test     # 328 Vitest tests after Phase 8; integration tests use DATABASE_URL_TEST
+pnpm e2e                                      # 50 Playwright tests + setup after Phase 8; needs `pnpm dev` (web + worker with the dev fakes), Mailpit and the seeded DB
 pnpm perf                                     # 50k-item benchmarks on the test DB (items ~40 s, analytics ~3 min; PERF_FILE=… for one)
 pnpm db:drift                                 # schema vs migrations must be empty
 ```
@@ -185,7 +197,8 @@ apps/web/src
   app/(app)/[ws]/…             home (My Work), notes (+ todos, review), analytics, inbox, messages, mail, projects, p/[ident]/items|views|settings|intake(/forms), views,
                                i/[ref], requests (guests), contacts, settings (… integrations, notifications, mailboxes)
   app/api/auth/[...all]        Better Auth
-  app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054), /realtime (SSE), channels/[id]/typing
+  app/api/v1/[ws]/…            internal JSON reads for TanStack Query (D-054), /realtime (SSE), channels/[id]/typing, agent, audit (+ export)
+  app/api/mcp                  Dopl's MCP server for the AI teammate (bearer MCP token + per-run run_token, D-032)
   server/
     services/                  every write: zod → policy → withMutation (Activity + realtime outbox + webhooks)
                                intake (triage), public-intake (forms, status page), intake-forms, contacts, webhooks,
@@ -196,8 +209,10 @@ apps/web/src
     queries/                   reads: work-items (lists, detail), filters (AST → Prisma), views, palette, workspace-items
     actions/                   thin server actions over services, return ActionResult
     realtime/                  LISTEN hub (stored + dopl_ephemeral) + per-connection topic access (D-063, D-085)
+    agent/                     runs (queue + trusted context), mcp (tools), mcp-auth, infra (infra_exec/wait), approvals, wait
     mutation.ts, session.ts, auth.ts, api.ts
   features/
+    agent/                     run cards + steps, approval cards, Dopl page, run page, active runs in chat, settings, audit log
     mail/                      mail view, thread reader + composer, sandboxed email frame, presence, mailbox settings,
                                item-timeline entries
     intake/                    triage queue + bar, request panel, form builder, public form, request thread, contacts
@@ -215,10 +230,11 @@ apps/web/src
   lib/shortcuts/registry.ts    the one shortcut registry (D-068)
 packages/shared/src            zod schemas (work-item, view, filters, intake, webhooks…), policy, dates, sort keys,
                                rich text, Discord renderer, secret box, email templates
-packages/server                server-only code for web and worker: storage, notify (Inbox notifications), webhooks (dispatch)
+packages/server                server-only code for web and worker: storage, notify (Inbox notifications), webhooks (dispatch), agent (steps, cancel)
 packages/db                    schema.prisma (all phases), migrations, client, seed (+ seed/intake.ts, seed/mail.ts), bootstrap
 apps/worker                    pg-boss: email.send, email.digest, webhook.deliver, snooze.wake, maintenance.prune, analytics.snapshot,
-                               gmail.* (src/gmail: Google and fake clients, sync, ingest, sanitize, Pub/Sub pull, send)
+                               gmail.* (src/gmail: Google and fake clients, sync, ingest, sanitize, Pub/Sub pull, send),
+                               agent.* (src/agent: HermesRuntime, fake Hermes, Warpgate + fake executor, run loop, reply, reconcile)
 ```
 
 Patterns to follow (details in `CLAUDE.md`):
@@ -274,7 +290,7 @@ Patterns to follow (details in `CLAUDE.md`):
 
 - `GMAIL_FAKE_DIR` (dev and CI only: the fake Gmail's directory, relative to the repo root)
 
-The worker's secrets (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_TOPIC`, `GMAIL_PUBSUB_SUBSCRIPTION`, later `AGENT_SSH_KEY_FILE`) go in `worker.env`, never `.env` (D-110). The Turnstile, embeddings, Hermes and Warpgate variables belong to later phases.
+The worker's secrets (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_*`, `HERMES_API_KEY`, `WARPGATE_*`, `AGENT_SSH_*`) go in `worker.env`, never `.env` (D-110). `HERMES_FAKE_PORT`, `HERMES_FAKE_MCP_TOKEN` and `AGENT_EXEC_FAKE` are dev/CI fakes in `.env`.
 
 ## 5. Gotchas learned the hard way
 
@@ -309,6 +325,10 @@ The worker's secrets (`GOOGLE_SERVICE_ACCOUNT_KEY_FILE`, `GMAIL_PUBSUB_TOPIC`, `
 - **Email HTML can't be measured or scripted** in its frame (D-028, D-109). Don't add `allow-same-origin` or `allow-scripts` to fix a layout issue; the e2e test fails if you do.
 - **Admins must enrol 2FA before they see admin pages.** For quick admin screenshots in dev, set Bram's role to ADMIN and `users."twoFactorEnabled"` to true in the dev DB, then set both back (or use the magic-link workaround in §2).
 - **A new workspace package** needs its `package.json` copied in `docker/Dockerfile`'s deps stage; `deploy.test.ts` fails until it is.
+- **Rich text loses backticks in plain text.** The editor turns \`x\` into inline code, and `docToPlainText` drops the mark. Text for the agent goes through `docToPromptText`; the agent's Markdown answers through `markdownToDoc`.
+- **Server pages can't import from `"use client"` modules** (they get a client reference). Query keys shared with server prefetch live in a plain `keys.ts` (`features/agent/keys.ts`, `features/inbox/keys.ts`).
+- **The agent e2e needs the worker with the dev fakes**, the same as mail. `apps/web/src/server/agent/agent.test.ts` calls the MCP route handler directly with a real token; set `DOPL_MCP_WAIT_MS` low there.
+- **`psql` isn't installed on this machine:** `docker exec -i dopl-dev-postgres-1 psql -U dopl -d dopl`.
 - **Background agents in worktrees** (`.claude/worktrees/`, git- and prettier-ignored) work well if each gets its own databases (`CREATE DATABASE dopl_pN`), its own `.env` and its own ports.
 
 ---
@@ -328,13 +348,13 @@ Carried forward (also ticked off in ROADMAP as they get done):
 - Phase 5 carry-overs (ROADMAP): 5b (Q-6), the mobile layout of Home's "Assigned to me" rows, and relative times on older screens that can mismatch at hydration.
 - Phase 6 carry-overs (ROADMAP): email metrics (the data exists now), keyboard reorder for a lone last-row widget, project-scoped dashboards on the project page, dark-mode chart colours.
 
+- Phase 8 carry-overs (ROADMAP): a test against a real Hermes and Warpgate, Discord posts for approvals, approval shortcuts, more than one run at a time.
 - Phase 7 carry-overs (ROADMAP): Gmail label mirroring, loading remote images (needs an image proxy), inline `cid:` images, email-to-intake, email metrics, and a test against a real mailbox.
 
 Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block upcoming work:
 
 - **Q-21:** which SSO identity provider.
 - **Q-6:** the embeddings endpoint, model and dimensions (Phase 5b).
-- **Q-17, Q-18:** Warpgate and model details (Phase 8).
 - **Q-20 (and Q-16):** who sets up the Google Cloud pieces (OAuth, service account, Pub/Sub) and which mailbox, to connect a real mailbox.
 - **Q-25 to Q-29** (chat, notification and shared-note defaults) don't block anything, but are worth a quick answer during the Phase 4 and 5 reviews.
 
@@ -344,8 +364,9 @@ Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block
 
 1. Show the owner the Phase 3 to 7 screenshots and fix what they flag.
 2. Connect the real mailbox once Q-20 is answered: follow `docs/ops/gmail-setup.md`, then watch the status page and the sync log. Only `GoogleGmail` (`apps/worker/src/gmail/client.ts`) hasn't run against Google yet.
-3. Then **Phase 8: AI teammate** (untrusted-content rules: items with `untrusted = true` taint runs, D-033). **Phase 5b** (embeddings) whenever Q-6 is answered.
-4. Keep the phase routine:
+3. Connect the real Hermes and Warpgate: follow `docs/ops/agent-setup.md`, then Settings → AI teammate → Check connection and a first `uptime` on a lab host.
+4. **Phase 5b** (embeddings) and the carry-overs (see the ROADMAP and §6).
+5. Keep the phase routine:
    - Build in small commits.
    - Take screenshots into `docs/screenshots/phase-N/`.
    - Add a CHANGELOG entry, a ROADMAP status block and DECISIONS entries (next free number: see the end of `docs/DECISIONS.md`).

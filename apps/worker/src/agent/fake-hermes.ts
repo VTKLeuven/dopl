@@ -113,7 +113,7 @@ export function startFakeHermes(opts: FakeHermesOptions): Promise<Server> {
         r = await call("infra_wait", { approval_id: r.approval_id });
       if (r.status === "completed")
         lines.push(
-          `Ran \`${command}\` on ${host} (exit ${text(r.exit_code)}):\n${text(r.output ?? "").trim() || "(no output)"}`,
+          `Ran \`${command}\` on ${host} (exit ${text(r.exit_code)}):\n\n\`\`\`\n${text(r.output ?? "").trim() || "(no output)"}\n\`\`\``,
         );
       else
         lines.push(

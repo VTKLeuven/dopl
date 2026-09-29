@@ -229,7 +229,7 @@ export function RunCard({
 }: {
   ws: string;
   run: AgentRunSummary;
-  variant?: "timeline" | "page" | "compact";
+  variant?: "timeline" | "page" | "compact" | "chat";
 }) {
   const t = useTranslations("agent.run");
   const tTrigger = useTranslations("agent.trigger");
@@ -255,7 +255,10 @@ export function RunCard({
 
   return (
     <li
-      className={cn("relative flex gap-2", variant === "compact" && "list-none")}
+      className={cn(
+        "relative flex gap-2",
+        (variant === "compact" || variant === "chat") && "list-none",
+      )}
       data-testid="agent-run"
       data-run-id={run.id}
       data-status={status}
@@ -287,7 +290,7 @@ export function RunCard({
                 {run.workItem?.identifier ?? `#${run.channel?.name ?? t("directMessage")}`}
               </span>
             ) : null}
-            <span className="min-w-0 truncate text-fg-muted">
+            <span className="hidden min-w-0 truncate text-fg-muted sm:inline">
               {tTrigger(run.trigger as "MANUAL", { name: who ?? t("someone") })}
             </span>
             <span className="shrink-0 text-fg-muted tabular" suppressHydrationWarning>
@@ -302,9 +305,10 @@ export function RunCard({
               onClick={() => stop.mutate(run.id)}
               disabled={stop.isPending}
               data-testid="stop-run"
+              aria-label={t("stop")}
             >
               <CircleStop />
-              {t("stop")}
+              <span className="hidden sm:inline">{t("stop")}</span>
             </Button>
           ) : null}
           {variant !== "page" ? (

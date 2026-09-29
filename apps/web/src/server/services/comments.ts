@@ -7,7 +7,13 @@ import {
   formatIdentifier,
   ReactionSchema,
 } from "@dopl/shared/schemas/work-item";
-import { docToPlainText, extractMentions, isEmptyDoc, sanitizeDoc } from "@dopl/shared/rich-text";
+import {
+  docToPlainText,
+  docToPromptText,
+  extractMentions,
+  isEmptyDoc,
+  sanitizeDoc,
+} from "@dopl/shared/rich-text";
 import { ConflictError, NotFoundError } from "../action-result";
 import { db } from "../db";
 import { notifySubmitter } from "../intake/core";
@@ -152,7 +158,7 @@ export async function createComment(ctx: WorkspaceCtx, raw: unknown) {
         await queueAgentRun(m, {
           agent,
           trigger: "COMMENT_MENTION",
-          request: docToPlainText(body),
+          request: docToPromptText(body),
           workItemId: item.id,
           triggerCommentId: comment.id,
           // Asking about this item is asking about its content (D-033).

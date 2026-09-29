@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   docToPlainText,
+  docToPromptText,
+  markdownToDoc,
   extractItemRefs,
   extractMentions,
   sanitizeDoc,
@@ -114,5 +116,66 @@ describe("docToHtml (outgoing email)", () => {
     expect(html).toBe(
       '<p>Hi &lt;Lotte&gt; &amp; <strong>bold</strong> x<a href="https://vtk.be/it"> docs</a>@BramINFRA-7</p><ul><li><p>one</p></li></ul>',
     );
+  });
+});
+
+describe("docToPromptText", () => {
+  it("keeps inline code and code blocks recognisable for the agent", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { id: "a", label: "Dopl" } },
+            { type: "text", text: " run " },
+            { type: "text", text: "uptime", marks: [{ type: "code" }] },
+            { type: "text", text: " on lab-01" },
+          ],
+        },
+        { type: "codeBlock", content: [{ type: "text", text: "df -h" }] },
+      ],
+    };
+    expect(docToPromptText(doc)).toBe("@Dopl run `uptime` on lab-01\n```\ndf -h\n```");
+    expect(docToPlainText(doc)).toBe("@Dopl run uptime on lab-01\ndf -h");
+  });
+});
+
+describe("markdownToDoc", () => {
+  it("turns an agent's Markdown answer into a doc", () => {
+    const doc = markdownToDoc(
+      [
+        "Ran `uptime` on **lab-01**:",
+        "",
+        "```",
+        " 14:02 up 41 days",
+        "```",
+        "",
+        "- disk is fine",
+        "- see [the runbook](https://wiki.vtk.be/x)",
+        "",
+        "## Next",
+        "1. restart",
+      ].join("\n"),
+    );
+    expect(doc.content?.map((n) => n.type)).toEqual([
+      "paragraph",
+      "codeBlock",
+      "bulletList",
+      "heading",
+      "orderedList",
+    ]);
+    expect(doc.content?.[0]?.content?.[1]).toEqual({
+      type: "text",
+      text: "uptime",
+      marks: [{ type: "code" }],
+    });
+    expect(doc.content?.[1]?.content?.[0]?.text).toBe(" 14:02 up 41 days");
+    expect(docToPlainText(doc)).toContain("see the runbook");
+  });
+
+  it("drops unsafe links and keeps plain text as it is", () => {
+    const doc = markdownToDoc("[x](javascript:alert(1)) and a * star");
+    expect(docToPlainText(doc)).toBe("[x](javascript:alert(1)) and a * star");
   });
 });

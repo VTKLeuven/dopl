@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useRelativeTime } from "@/lib/use-relative-time";
 import {
   changeRoleAction,
+  setApproverAction,
   inviteMembersAction,
   resendInviteAction,
   revokeInviteAction,
@@ -50,6 +51,7 @@ interface Props {
     role: Role;
     status: "ACTIVE" | "INVITED" | "DEACTIVATED";
     joinedAt: string;
+    canApproveAgentActions: boolean;
     user: { id: string; name: string; email: string; image: string | null };
   }>;
   invites: Array<{ id: string; email: string; role: Role; expiresAt: string }>;
@@ -147,6 +149,14 @@ export function MembersView(props: Props) {
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    {m.role === "MEMBER" && m.canApproveAgentActions ? (
+                      <span
+                        className="ml-1 rounded-[6px] bg-lavender-50 px-1.5 py-0.5 text-caption font-medium text-lavender-700"
+                        data-testid="approver-badge"
+                      >
+                        {t("approver")}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="hidden sm:table-cell">
                     <span
@@ -174,6 +184,20 @@ export function MembersView(props: Props) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {m.role === "MEMBER" ? (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                act(() =>
+                                  setApproverAction(props.ws, {
+                                    memberId: m.id,
+                                    canApprove: !m.canApproveAgentActions,
+                                  }),
+                                )
+                              }
+                            >
+                              {m.canApproveAgentActions ? t("removeApprover") : t("makeApprover")}
+                            </DropdownMenuItem>
+                          ) : null}
                           {m.status === "DEACTIVATED" ? (
                             <DropdownMenuItem
                               onSelect={() =>

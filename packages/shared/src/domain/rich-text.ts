@@ -131,6 +131,33 @@ export function docToPlainText(doc: PMNode | null | undefined, max = 20_000): st
     .slice(0, max);
 }
 
+/**
+ * Plain text for the AI teammate's prompt: like docToPlainText, but inline
+ * code keeps its backticks and code blocks their fences, so "run `uptime`"
+ * still says which part is the command.
+ */
+export function docToPromptText(doc: PMNode | null | undefined, max = 20_000): string {
+  if (!doc) return "";
+  const parts: string[] = [];
+  const walk = (n: PMNode) => {
+    if (n.type === "text" && n.text)
+      parts.push(n.marks?.some((m) => m.type === "code") ? `\`${n.text}\`` : n.text);
+    else if (n.type === "mention") parts.push(`@${str(n.attrs?.label)}`);
+    else if (n.type === "workItemRef") parts.push(str(n.attrs?.identifier) || str(n.attrs?.label));
+    else if (n.type === "hardBreak") parts.push("\n");
+    if (n.type === "codeBlock") parts.push("```\n");
+    n.content?.forEach(walk);
+    if (n.type === "codeBlock") parts.push("\n```");
+    if (BLOCK_BREAK.has(n.type)) parts.push("\n");
+  };
+  walk(doc);
+  return parts
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, max);
+}
+
 export function isEmptyDoc(doc: PMNode | null | undefined): boolean {
   return docToPlainText(doc).length === 0;
 }
@@ -172,6 +199,98 @@ export function textToDoc(text: string): PMNode {
         }))
       : [{ type: "paragraph" }],
   };
+}
+
+/* ───────────────────────── Markdown (the agent's answers) ───────────────────────── */
+
+/** `code`, **bold**, *italic* and [links](https://…) inside one line. */
+function inlineMarkdown(line: string): PMNode[] {
+  const out: PMNode[] = [];
+  const re =
+    /`([^`]+)`|\*\*([^*]+)\*\*|(?<![\w*])\*([^*\s][^*]*)\*(?!\w)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  let last = 0;
+  for (const m of line.matchAll(re)) {
+    if (m.index > last) out.push({ type: "text", text: line.slice(last, m.index) });
+    if (m[1] !== undefined) out.push({ type: "text", text: m[1], marks: [{ type: "code" }] });
+    else if (m[2] !== undefined) out.push({ type: "text", text: m[2], marks: [{ type: "bold" }] });
+    else if (m[3] !== undefined)
+      out.push({ type: "text", text: m[3], marks: [{ type: "italic" }] });
+    else if (m[4] !== undefined)
+      out.push({ type: "text", text: m[4], marks: [{ type: "link", attrs: { href: m[5] } }] });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push({ type: "text", text: line.slice(last) });
+  return out;
+}
+
+function paragraph(lines: string[]): PMNode {
+  const content = lines.flatMap((line, i): PMNode[] => [
+    ...(i > 0 ? [{ type: "hardBreak" }] : []),
+    ...inlineMarkdown(line),
+  ]);
+  return content.length ? { type: "paragraph", content } : { type: "paragraph" };
+}
+
+/**
+ * The small Markdown subset models write (fenced code, `inline code`, bold,
+ * italic, links, "- " and "1. " lists, "#" headings) → a sanitized doc, so
+ * the agent's answer reads like a teammate's comment. Anything else stays text.
+ */
+export function markdownToDoc(markdown: string): PMNode {
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const blocks: PMNode[] = [];
+  let para: string[] = [];
+  const flush = () => {
+    if (para.length) blocks.push(paragraph(para));
+    para = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const fence = line.match(/^```\s*([\w+-]*)\s*$/);
+    if (fence) {
+      flush();
+      const code: string[] = [];
+      while (i + 1 < lines.length && !/^```\s*$/.test(lines[i + 1] ?? ""))
+        code.push(lines[++i] ?? "");
+      i++; // the closing fence
+      blocks.push({
+        type: "codeBlock",
+        attrs: { language: fence[1] || null },
+        ...(code.join("\n") ? { content: [{ type: "text", text: code.join("\n") }] } : {}),
+      });
+      continue;
+    }
+    const list = line.match(/^\s*([-*]|\d+\.)\s+(.*)$/);
+    if (list) {
+      flush();
+      const ordered = /\d/.test(list[1] ?? "");
+      const items: PMNode[] = [];
+      let j = i;
+      while (j < lines.length) {
+        const m = (lines[j] ?? "").match(/^\s*([-*]|\d+\.)\s+(.*)$/);
+        if (!m || /\d/.test(m[1] ?? "") !== ordered) break;
+        items.push({ type: "listItem", content: [paragraph([m[2] ?? ""])] });
+        j++;
+      }
+      i = j - 1;
+      blocks.push({ type: ordered ? "orderedList" : "bulletList", content: items });
+      continue;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    if (heading) {
+      flush();
+      blocks.push({
+        type: "heading",
+        attrs: { level: heading[1]?.length ?? 2 },
+        content: inlineMarkdown(heading[2] ?? ""),
+      });
+      continue;
+    }
+    if (line.trim() === "") flush();
+    else para.push(line);
+  }
+  flush();
+  return sanitizeDoc({ type: "doc", content: blocks.length ? blocks : [{ type: "paragraph" }] });
 }
 
 /* ───────────────────────── HTML (outgoing email) ───────────────────────── */
