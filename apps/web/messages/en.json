@@ -448,6 +448,7 @@
     },
     "shortcuts": {
       "title": "Keyboard shortcuts"
-    }
+    },
+    "doneHiddenPending": "Done hidden"
   }
 }

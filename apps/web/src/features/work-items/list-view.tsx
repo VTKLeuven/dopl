@@ -158,7 +158,7 @@ function GroupHeader({
 }) {
   const user = group.userId ? meta.members.find((m) => m.id === group.userId) : null;
   return (
-    <div className="group/header flex h-10 items-center gap-2 border-b border-border bg-surface-muted pl-3 pr-3">
+    <div data-testid="group-header" data-group={group.label} className="group/header flex h-10 items-center gap-2 border-b border-border bg-surface-muted pl-3 pr-3">
       <button
         type="button"
         onClick={onToggle}

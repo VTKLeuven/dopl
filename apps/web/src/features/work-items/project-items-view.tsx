@@ -53,7 +53,7 @@ export function ProjectItemsView({
   const t = useTranslations("items");
   const [options, setOptionsState] = useState<DisplayOptions>(initialOptions);
   const { data: meta = initialMeta } = useProjectMeta(ws, projectId, initialMeta);
-  const { data: items } = useProjectItems(ws, projectId, options.completed, options.completed === initialOptions.completed ? initialItems : undefined);
+  const { data: items, isPlaceholderData } = useProjectItems(ws, projectId, options.completed, options.completed === initialOptions.completed ? initialItems : undefined);
   const update = useUpdateItem(ws, projectId);
   const bulk = useBulkUpdate(ws, projectId);
   const move = useMoveItem(ws, projectId);
@@ -258,7 +258,13 @@ export function ProjectItemsView({
         <Tooltip content={options.completed === "show" ? t("completedMode.hide") : t("completedMode.show")} shortcut="shift+h">
           <Chip active={options.completed !== "show"} onClick={toggleDone} data-testid="done-toggle">
             {options.completed === "show" ? <Eye /> : <EyeOff />}
-            {options.completed === "show" ? t("doneShown") : options.completed === "recent" ? t("doneRecent") : t("doneHidden", { count: hidden })}
+            {options.completed === "show"
+              ? t("doneShown")
+              : options.completed === "recent"
+                ? t("doneRecent")
+                : isPlaceholderData
+                  ? t("doneHiddenPending")
+                  : t("doneHidden", { count: hidden })}
           </Chip>
         </Tooltip>
       </div>

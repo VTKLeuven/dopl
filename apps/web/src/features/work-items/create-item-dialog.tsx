@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -45,6 +45,7 @@ export function CreateItemDialog({
   const create = useCreateItems(ws, meta.project.id);
   const sources = useEditorSources(ws, meta);
   const initialState = () => defaults.stateId ?? meta.states.find((s) => s.isDefault)?.id ?? meta.states[0]?.id ?? "";
+  // The parent mounts this dialog fresh on every open, so state starts from `defaults`.
   const [title, setTitle] = useState("");
   const [lines, setLines] = useState<string[] | null>(null);
   const [description, setDescription] = useState<unknown>(null);
@@ -57,22 +58,6 @@ export function CreateItemDialog({
   const [dueDate, setDueDate] = useState<string | null>(defaults.dueDate ?? null);
   const [more, setMore] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
-
-  // Reset when the dialog opens with new defaults.
-  useEffect(() => {
-    if (!open) return;
-    setTitle("");
-    setLines(null);
-    setDescription(null);
-    setEditorKey((k) => k + 1);
-    setStateId(initialState());
-    setPriority(defaults.priority ?? "NONE");
-    setAssigneeIds(defaults.assigneeIds ?? []);
-    setLabelIds(defaults.labelIds ?? []);
-    setTypeId(defaults.typeId ?? meta.types.find((x) => x.isDefault)?.id ?? null);
-    setDueDate(defaults.dueDate ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
 
   const titles = lines ?? (title.trim() ? [title.trim()] : []);
 

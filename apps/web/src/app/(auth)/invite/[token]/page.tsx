@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { TriangleAlert } from "lucide-react";
@@ -28,7 +29,7 @@ async function Invite({ params }: { params: PageProps<"/invite/[token]">["params
         </div>
         <h1 className="text-title-lg font-semibold">{t("inviteInvalidTitle")}</h1>
         <p className="text-body text-fg-muted">{t("inviteInvalid")}</p>
-        <a href="/sign-in" className="text-body text-link hover:underline">{t("backToSignIn")}</a>
+        <Link href="/sign-in" className="text-body text-link hover:underline">{t("backToSignIn")}</Link>
       </div>
     );
   }

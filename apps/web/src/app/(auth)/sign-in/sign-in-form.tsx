@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -124,9 +125,9 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">{t("password")}</Label>
-              <a href="/reset-password" className="text-small text-link hover:underline">
+              <Link href="/reset-password" className="text-small text-link hover:underline">
                 {t("forgotPassword")}
-              </a>
+              </Link>
             </div>
             <Input
               id="password"

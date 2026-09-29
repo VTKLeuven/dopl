@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -39,10 +40,10 @@ export function ResetPasswordForm() {
   }
 
   const back = (
-    <a href="/sign-in" className="inline-flex items-center gap-1.5 text-body text-link hover:underline">
+    <Link href="/sign-in" className="inline-flex items-center gap-1.5 text-body text-link hover:underline">
       <ArrowLeft className="size-4" />
       {t("backToSignIn")}
-    </a>
+    </Link>
   );
 
   if (state === "sent") {
