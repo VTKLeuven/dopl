@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { SidebarSkeleton } from "@/components/shell/sidebar-skeleton";
 import { CommandPalette } from "@/components/shell/command-palette";
+import { GlobalShortcuts } from "@/components/shell/global-shortcuts";
 import { SidebarLoader } from "./sidebar-loader";
 
 /**
@@ -24,6 +25,7 @@ export default function WorkspaceLayout({ children, params }: LayoutProps<"/[ws]
       </main>
       <Suspense fallback={null}>
         <CommandPalette />
+        <GlobalShortcuts />
       </Suspense>
     </div>
   );

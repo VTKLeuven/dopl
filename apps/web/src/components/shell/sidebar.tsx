@@ -238,7 +238,7 @@ export function Sidebar({
                   href={`${href}/items`}
                   icon={<ProjectBadge name={p.name} color={p.color} />}
                   label={p.name}
-                  active={open && !pathname.startsWith(`${href}/`)}
+                  active={isActive(`${href}/items`)}
                   onNavigate={onNavigate}
                   trailing={
                     <span className="text-caption font-medium text-fg-muted tabular opacity-0 transition-opacity group-hover:opacity-100">
@@ -247,20 +247,12 @@ export function Sidebar({
                   }
                 />
                 {open ? (
-                  <>
-                    <SubItem
-                      href={`${href}/items`}
-                      label={t("items")}
-                      active={isActive(`${href}/items`)}
-                      onNavigate={onNavigate}
-                    />
-                    <SubItem
-                      href={`${href}/views`}
-                      label={t("projectViews")}
-                      active={isActive(`${href}/views`)}
-                      onNavigate={onNavigate}
-                    />
-                  </>
+                  <SubItem
+                    href={`${href}/views`}
+                    label={t("projectViews")}
+                    active={isActive(`${href}/views`)}
+                    onNavigate={onNavigate}
+                  />
                 ) : null}
               </div>
             );

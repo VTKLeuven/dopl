@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryState, parseAsString } from "nuqs";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
@@ -35,6 +37,9 @@ import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
 import { EMPTY_FILTER, isEmptyFilter, type FilterGroup } from "@dopl/shared/schemas/filters";
 import { FilterBar } from "@/features/filters/filter-bar";
 import { FilterButton } from "@/features/filters/filter-builder";
+import { setCreateHandler, setPaletteItem } from "@/features/palette/context";
+import { recordVisitAction } from "@/server/actions/recents";
+import { isTypingTarget, resolveShortcut, type ShortcutId } from "@/lib/shortcuts/registry";
 import { FavoriteButton, ViewMenu, ViewStateActions } from "@/features/views/view-controls";
 import type { ViewDetail } from "@/server/queries/views";
 import { cn } from "@/lib/cn";
@@ -116,17 +121,19 @@ const PROPERTY_KEYS: PropertyKey[] = [
   "updatedAt",
 ];
 const NO_RELATIONS: BlockingRelation[] = [];
-/** Keys the table handles itself (grid navigation and cell editing). */
-const TABLE_KEYS = new Set(["j", "k", "ArrowDown", "ArrowUp", "Enter", "s", "p", "a", "l", "d"]);
-
-function isTypingTarget(el: EventTarget | null) {
-  if (!(el instanceof HTMLElement)) return false;
-  return (
-    el.isContentEditable ||
-    ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
-    Boolean(el.closest("[role=dialog],[role=listbox],[cmdk-root]"))
-  );
-}
+/** Shortcuts that the table, calendar and timeline handle themselves. */
+const GRID_OWNED = new Set<ShortcutId>([
+  "down",
+  "up",
+  "downArrow",
+  "upArrow",
+  "open",
+  "state",
+  "priority",
+  "assign",
+  "labels",
+  "due",
+]);
 
 export function ProjectItemsView({
   ws,
@@ -173,6 +180,7 @@ export function ProjectItemsView({
   const move = useMoveItem(ws, key);
   const del = useDeleteItems(ws, key);
 
+  const router = useRouter();
   const [peek, setPeek] = useQueryState("peek", parseAsString);
   const [, setFilterParam] = useQueryState("f", parseAsString);
   const [search, setSearch] = useState("");
@@ -312,12 +320,20 @@ export function ProjectItemsView({
     [],
   );
 
-  // Keyboard layer (DESIGN_SYSTEM §7.1)
+  // Keyboard layer (DESIGN_SYSTEM §7.1), resolved through the shortcut registry.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || isTypingTarget(e.target) || creating) return;
+      if (e.defaultPrevented || creating) return;
+      const id = resolveShortcut(e, ["list"]);
+      if (!id) return;
       const mod = e.metaKey || e.ctrlKey;
+      // While typing, only Esc and ⌘ combos pass (and ⌘A stays the field's own).
+      if (isTypingTarget(e.target) && (!mod || id === "selectAll")) return;
+      // Table, calendar and timeline own row navigation and cell editing.
+      if (options.layout !== "LIST" && options.layout !== "BOARD" && GRID_OWNED.has(id)) return;
       const order = orderRef.current;
+      const focused = focusedId ? rowById.get(focusedId) : undefined;
+      const targets = selection.size ? [...selection] : focusedId ? [focusedId] : [];
       const focusAt = (delta: number) => {
         const i = focusedId ? order.indexOf(focusedId) : -1;
         const next = order[Math.min(order.length - 1, Math.max(0, i + delta))];
@@ -329,63 +345,103 @@ export function ProjectItemsView({
           }
         }
       };
-      if (mod && e.key === "Backspace") {
-        const ids = selection.size ? [...selection] : focusedId ? [focusedId] : [];
-        if (ids.length && meta.can.delete) {
-          e.preventDefault();
-          del.mutate(ids);
-          setSelection(new Set());
-        }
-        return;
-      }
-      if (mod || e.altKey) return;
-      if (options.layout !== "LIST" && options.layout !== "BOARD" && TABLE_KEYS.has(e.key)) return;
-      switch (e.key) {
-        case "j":
-        case "ArrowDown":
+      const copy = (text: string) =>
+        void navigator.clipboard.writeText(text).then(() => toast.success(t("copied")));
+      switch (id) {
+        case "down":
+        case "downArrow":
           e.preventDefault();
           focusAt(1);
           break;
-        case "k":
-        case "ArrowUp":
+        case "up":
+        case "upArrow":
           e.preventDefault();
           focusAt(-1);
           break;
-        case "Enter": {
-          const r = focusedId ? rowById.get(focusedId) : null;
-          if (r) void setPeek(r.identifier);
+        case "open":
+          if (focused) void setPeek(focused.identifier);
           break;
-        }
-        case "Escape":
+        case "openFull":
+          if (focused) {
+            e.preventDefault();
+            router.push(`/${ws}/i/${focused.identifier}` as never);
+          }
+          break;
+        case "clear":
           if (peek) void setPeek(null);
           else setSelection(new Set());
           break;
-        case "x":
+        case "select":
           if (focusedId) toggleSelect(focusedId);
           break;
-        case "c":
+        case "selectAll":
+          e.preventDefault();
+          setSelection(new Set(order));
+          break;
+        case "create":
           if (meta.can.create) {
             e.preventDefault();
             createInGroup(undefined);
           }
           break;
-        case "/":
+        case "search":
           e.preventDefault();
           searchRef.current?.focus();
           break;
-        case "H":
-          if (e.shiftKey) toggleDone();
+        case "toggleDone":
+          toggleDone();
           break;
-        case "s":
-        case "p":
-        case "a":
-        case "l":
-        case "d": {
+        case "assignMe": {
+          if (!meta.can.edit || targets.length === 0) break;
+          e.preventDefault();
+          // One item toggles you; a selection adds you everywhere.
+          const single = targets.length === 1 ? rowById.get(targets[0] ?? "") : undefined;
+          const remove = single?.assigneeIds.includes(meta.me) ?? false;
+          for (const tid of targets) {
+            const r = rowById.get(tid);
+            if (!r) continue;
+            const next = remove
+              ? r.assigneeIds.filter((a) => a !== meta.me)
+              : Array.from(new Set([...r.assigneeIds, meta.me]));
+            if (next.length !== r.assigneeIds.length) onUpdate(tid, { assigneeIds: next });
+          }
+          break;
+        }
+        case "copyLink":
+          if (focused) {
+            e.preventDefault();
+            copy(`${window.location.origin}/${ws}/i/${focused.identifier}`);
+          }
+          break;
+        case "copyId":
+          if (focused) {
+            e.preventDefault();
+            copy(focused.identifier);
+          }
+          break;
+        case "delete":
+          if (targets.length && meta.can.delete) {
+            e.preventDefault();
+            del.mutate(targets);
+            setSelection(new Set());
+          }
+          break;
+        case "state":
+        case "priority":
+        case "assign":
+        case "labels":
+        case "due": {
           if (!focusedId || !meta.can.edit || options.layout !== "LIST") break;
           e.preventDefault();
           const kind = (
-            { s: "state", p: "priority", a: "assignee", l: "label", d: "due" } as const
-          )[e.key];
+            {
+              state: "state",
+              priority: "priority",
+              assign: "assignee",
+              labels: "label",
+              due: "due",
+            } as const
+          )[id];
           setOpenPicker({ id: focusedId, kind });
           break;
         }
@@ -394,19 +450,45 @@ export function ProjectItemsView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
+    ws,
+    router,
+    t,
     focusedId,
     peek,
     rowById,
     selection,
     meta.can,
+    meta.me,
     options.layout,
     creating,
     del,
+    onUpdate,
     setPeek,
     toggleSelect,
     toggleDone,
     createInGroup,
   ]);
+
+  // ⌘K: the focused row is the palette's item unless peek has one open, and
+  // "New item" opens this view's create dialog.
+  const focusedRow = focusedId ? rowById.get(focusedId) : undefined;
+  useEffect(() => {
+    if (peek) return;
+    setPaletteItem(
+      focusedRow
+        ? { id: focusedRow.id, identifier: focusedRow.identifier, title: focusedRow.title }
+        : null,
+    );
+  }, [peek, focusedRow]);
+  useEffect(() => {
+    if (!meta.can.create) return;
+    setCreateHandler(() => createInGroup(undefined));
+    return () => setCreateHandler(null);
+  }, [meta.can.create, createInGroup]);
+  useEffect(() => {
+    if (view) void recordVisitAction(ws, { type: "VIEW", id: view.id });
+    else if (projectId) void recordVisitAction(ws, { type: "PROJECT", id: projectId });
+  }, [ws, view, projectId]);
 
   const projectIdentifier = scope.kind === "project" ? meta.project.identifier : null;
   const listHref = projectIdentifier ? `/${ws}/p/${projectIdentifier}/views` : `/${ws}/views`;

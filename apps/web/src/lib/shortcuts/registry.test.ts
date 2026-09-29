@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import messages from "../../../messages/en.json";
 import { comboOf, findConflicts, SHORTCUTS } from "./registry";
 
 const ev = (
@@ -37,6 +38,15 @@ describe("shortcut registry", () => {
     expect(comboOf(ev("ArrowDown"))).toBe("down");
     expect(comboOf(ev("Backspace", { metaKey: true }))).toBe("mod+backspace");
     expect(comboOf(ev(" "))).toBe("space");
+  });
+
+  it("every shortcut and scope has a label for the ? overlay", () => {
+    const labels = messages.shortcuts.label as Record<string, string>;
+    const scopes = messages.shortcuts.scope as Record<string, string>;
+    for (const s of SHORTCUTS) {
+      expect(labels[s.id], s.id).toBeTruthy();
+      expect(scopes[s.scope], s.scope).toBeTruthy();
+    }
   });
 
   it("every shortcut id is unique", () => {

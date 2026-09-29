@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { instant } from "@next/playwright";
 
-const content = "[data-testid=item-row], [data-testid=board-card]";
+// Whatever layout the member last used for the project.
+const content =
+  "[data-testid=item-row], [data-testid=board-card], [data-testid=table-row], [data-testid=timeline-row]";
 
 /**
  * Instant Navigations (D-005): the app shell must render the moment a link is
