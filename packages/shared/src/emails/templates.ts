@@ -41,6 +41,23 @@ export const emailTemplates = {
     excerpt: z.string(),
     statusUrl: z.url(),
   }),
+  // Inbox (Phase 4): unread notifications batched by the email.digest job.
+  "inbox.digest": z.object({
+    workspaceName: z.string(),
+    total: z.number().int().min(1),
+    items: z
+      .array(
+        z.object({
+          headline: z.string(),
+          detail: z.string(),
+          url: z.url(),
+        }),
+      )
+      .min(1)
+      .max(20),
+    inboxUrl: z.url(),
+    settingsUrl: z.url(),
+  }),
 } as const;
 
 export type EmailTemplateKey = keyof typeof emailTemplates;
@@ -191,6 +208,32 @@ export function renderEmail<K extends EmailTemplateKey>(
           cta: { label: "Read and reply", url: d.statusUrl },
         }),
         text: `${d.authorName} replied on "${d.title}":\n\n${d.excerpt}\n\nRead and reply: ${d.statusUrl}`,
+      };
+    }
+    case "inbox.digest": {
+      const d = data as EmailTemplateData<"inbox.digest">;
+      const more = d.total - d.items.length;
+      const rows = d.items
+        .map(
+          (i) =>
+            `<tr><td style="padding:10px 0;border-top:1px solid #ECECEE"><a href="${esc(i.url)}" style="color:#18181B;text-decoration:none;font-weight:600">${esc(i.headline)}</a>${i.detail ? `<br><span style="color:#6B6B73">${esc(i.detail)}</span>` : ""}</td></tr>`,
+        )
+        .join("");
+      const noun = d.total === 1 ? "notification" : "notifications";
+      return {
+        subject: `${d.total} unread ${noun} in ${d.workspaceName}`,
+        html: layout({
+          appUrl,
+          heading: `You have ${d.total} unread ${noun}`,
+          body: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>${more > 0 ? `<p style="margin:12px 0 0;color:#6B6B73">and ${more} more in your Inbox.</p>` : ""}`,
+          cta: { label: "Open Inbox", url: d.inboxUrl },
+          footnote: `You get this digest because email is on for these notifications. <a href="${esc(d.settingsUrl)}" style="color:#6B6B73">Change your notification settings</a>.`,
+        }),
+        text: `You have ${d.total} unread ${noun} in ${d.workspaceName}:\n\n${d.items
+          .map((i) => `- ${i.headline}${i.detail ? `\n  ${i.detail}` : ""}\n  ${i.url}`)
+          .join(
+            "\n",
+          )}${more > 0 ? `\n\nand ${more} more.` : ""}\n\nOpen your Inbox: ${d.inboxUrl}\nNotification settings: ${d.settingsUrl}`,
       };
     }
     default:
