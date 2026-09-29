@@ -35,7 +35,8 @@ export type WorkspaceAction =
   | "contact.view"
   | "contact.edit"
   | "contact.merge"
-  | "agent.pause";
+  | "agent.pause"
+  | "analytics.view";
 
 const isAdmin = (r: WorkspaceRole) => r === "OWNER" || r === "ADMIN";
 
@@ -54,6 +55,8 @@ export function canWorkspace(actor: PolicyActor, action: WorkspaceAction): boole
     // Contacts are people outside the team: never visible to guests.
     case "contact.view":
     case "contact.edit":
+    // Analytics count across projects; guests only ever see their own requests.
+    case "analytics.view":
     case "project.create":
     case "view.workspace.create":
       return actor.kind === "HUMAN" && actor.workspaceRole !== "GUEST";
@@ -305,5 +308,40 @@ export function canNote(actor: PolicyActor, note: PolicyNote, action: NoteAction
     case "note.share":
     case "note.convert":
       return owner && !guest && actor.kind !== "SYSTEM";
+  }
+}
+
+/* ───────────────────────── dashboards (Phase 6) ───────────────────────── */
+
+export interface PolicyDashboard {
+  ownerId: string;
+  visibility: "PRIVATE" | "WORKSPACE";
+}
+
+export type DashboardAction =
+  | "dashboard.view"
+  | "dashboard.edit" // name, sharing, widgets, layout
+  | "dashboard.delete";
+
+/**
+ * A dashboard is its owner's; shared ones are readable by every member (not
+ * guests). The charts on it are still computed with the reader's own project
+ * access, so sharing a dashboard never shares data. Admins may delete shared
+ * dashboards (clean-up), not edit them.
+ */
+export function canDashboard(
+  actor: PolicyActor,
+  dashboard: PolicyDashboard,
+  action: DashboardAction,
+): boolean {
+  if (actor.kind !== "HUMAN" || actor.workspaceRole === "GUEST") return false;
+  const owner = dashboard.ownerId === actor.userId;
+  switch (action) {
+    case "dashboard.view":
+      return owner || dashboard.visibility === "WORKSPACE";
+    case "dashboard.edit":
+      return owner;
+    case "dashboard.delete":
+      return owner || (dashboard.visibility === "WORKSPACE" && isAdmin(actor.workspaceRole));
   }
 }
