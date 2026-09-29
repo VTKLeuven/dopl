@@ -168,7 +168,7 @@ CI (`.github/workflows/ci.yml`):
 - It runs typecheck, lint (including `prettier --check`), Vitest, the drift check, `pnpm build` and the Playwright suite against a freshly seeded database, with Mailpit as a service and the worker running in the background (the intake e2e reads confirmation emails).
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
-- **Last verified:** `main` at `53d5d48` passed every job, images included. Later pushes fixed two timing flakes on CI's cold dev server (D-106). The Phase 6 merge passed typecheck, lint, 254 Vitest tests, the drift check and the full Playwright suite (40 tests + setup) locally before it was pushed; check its CI run first thing. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
+- **Last verified:** `main` at `53d5d48` passed every job. From `46b88a3` to the Phase 6 merge, CI's e2e step failed on a different timing-sensitive test each run (the cold dev server, D-114); Playwright now retries once on CI. The Phase 7 merge passed typecheck, lint, 279 Vitest tests and the drift check locally. The full Playwright suite passed except the note-capture timing check, which exceeds 100 ms only while this machine is swapping. Check the merge's CI run first thing. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
 - Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
