@@ -22,9 +22,7 @@ import {
   Settings,
   Sheet,
   SlidersHorizontal,
-  Trash,
   Users,
-  X,
 } from "lucide-react";
 import {
   DisplayOptionsSchema,
@@ -65,7 +63,9 @@ import {
   filterKey,
   scopeKey,
   useBlockingRelations,
+  useArchiveItems,
   useBulkUpdate,
+  useMoveToProject,
   useDeleteItems,
   useItems,
   useMoveItem,
@@ -77,13 +77,13 @@ import {
 } from "./data";
 import { defaultsForGroup, groupRows, sortRows, type ItemGroup } from "./grouping";
 import { TableView } from "./table-view";
+import { SelectionBar } from "./selection-bar";
 import { CalendarView } from "./calendar-view";
 import { TimelineView } from "./timeline-view";
 import { ListView, type PickerKind } from "./list-view";
 import { BoardView } from "./board-view";
 import { CreateItemDialog, type CreateDefaults } from "./create-item-dialog";
 import { PeekPanel } from "./peek-panel";
-import { AssigneePicker, LabelPicker, PriorityPicker, StatePicker } from "./pickers";
 import type { ProjectMeta, WorkItemRow } from "./types";
 
 const GROUP_KEYS: GroupKey[] = ["state", "priority", "assignee", "label", "type", "none"];
@@ -177,6 +177,8 @@ export function ProjectItemsView({
     options.layout === "TIMELINE" && Boolean(projectId),
   );
   const bulk = useBulkUpdate(ws, key);
+  const archive = useArchiveItems(ws, key);
+  const moveTo = useMoveToProject(ws, key);
   const move = useMoveItem(ws, key);
   const del = useDeleteItems(ws, key);
 
@@ -287,6 +289,10 @@ export function ProjectItemsView({
   );
 
   const rowById = useMemo(() => new Map((items?.rows ?? []).map((r) => [r.id, r])), [items]);
+  const selectedRows = useMemo(
+    () => [...selection].flatMap((id) => rowById.get(id) ?? []),
+    [selection, rowById],
+  );
   // `mutate` is stable, so memoized rows don't re-render when a mutation starts.
   const onUpdate = useCallback(
     (id: string, patch: Record<string, unknown>) => updateItem({ id, ...patch }),
@@ -802,14 +808,23 @@ export function ProjectItemsView({
         />
       )}
 
-      {selection.size > 0 ? (
+      {selectedRows.length > 0 ? (
         <SelectionBar
-          count={selection.size}
+          ws={ws}
+          rows={selectedRows}
           meta={meta}
           onClear={() => setSelection(new Set())}
-          onPatch={(patch) => bulk.mutate({ ids: [...selection], patch })}
+          onPatch={(patch) => bulk.mutate({ rows: selectedRows, patch })}
+          onArchive={() => {
+            archive.mutate(selectedRows.map((r) => r.id));
+            setSelection(new Set());
+          }}
           onDelete={() => {
-            del.mutate([...selection]);
+            del.mutate(selectedRows.map((r) => r.id));
+            setSelection(new Set());
+          }}
+          onMove={(target) => {
+            moveTo.mutate({ ids: selectedRows.map((r) => r.id), projectId: target });
             setSelection(new Set());
           }}
         />
@@ -1003,68 +1018,4 @@ function Select({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-function SelectionBar({
-  count,
-  meta,
-  onClear,
-  onPatch,
-  onDelete,
-}: {
-  count: number;
-  meta: ProjectMeta;
-  onClear: () => void;
-  onPatch: (patch: Record<string, unknown>) => void;
-  onDelete: () => void;
-}) {
-  const t = useTranslations("items");
-  return (
-    <div
-      className="absolute bottom-4 left-1/2 z-[35] flex -translate-x-1/2 items-center gap-1 rounded-card border border-border bg-surface px-2 py-1.5 shadow-dialog"
-      role="toolbar"
-      aria-label={t("selected", { count })}
-    >
-      <span className="px-2 text-body font-medium tabular">{t("selected", { count })}</span>
-      <span className="h-5 w-px bg-border" />
-      {meta.can.edit ? (
-        <>
-          <StatePicker
-            variant="pill"
-            meta={meta}
-            value={meta.states[0]?.id ?? ""}
-            onChange={(stateId) => onPatch({ stateId })}
-          />
-          <PriorityPicker
-            variant="pill"
-            value="NONE"
-            onChange={(priority) => onPatch({ priority })}
-          />
-          <AssigneePicker
-            meta={meta}
-            value={[]}
-            onChange={(assigneeIds) => onPatch({ assigneeIds })}
-          />
-          <LabelPicker meta={meta} value={[]} onChange={(labelIds) => onPatch({ labelIds })} />
-        </>
-      ) : null}
-      {meta.can.delete ? (
-        <Tooltip content={t("delete")} shortcut="mod+backspace">
-          <Button variant="danger-ghost" size="icon-sm" aria-label={t("delete")} onClick={onDelete}>
-            <Trash />
-          </Button>
-        </Tooltip>
-      ) : null}
-      <DropdownMenuSeparatorLike />
-      <Tooltip content={t("cancel")} shortcut="esc">
-        <Button variant="ghost" size="icon-sm" aria-label={t("cancel")} onClick={onClear}>
-          <X />
-        </Button>
-      </Tooltip>
-    </div>
-  );
-}
-
-function DropdownMenuSeparatorLike() {
-  return <span className="h-5 w-px bg-border" aria-hidden />;
 }

@@ -56,7 +56,7 @@ pnpm db:drift          # prisma migrate diff migrations→schema; must print an 
 - **Styling uses design tokens only.** No hex colours or magic pixel values in components. Use Tailwind v4 utilities backed by `@theme` variables.
 - **Design review loop** for every UI task: run the app, take Playwright screenshots, compare them yourself against `docs/design/spott-reference.png`, fix alignment/spacing/type, then save to `docs/screenshots/phase-N/`. Fix inconsistencies you notice without being asked.
 - **States:** every screen has designed empty, loading (skeleton, no layout shift) and error states.
-- **Commits:** small and focused, imperative subject ("Add board drag between columns"). Branch off `main`. Commit or push only when asked.
+- **Commits:** small and focused, imperative subject ("Add board drag between columns"). Branch off `main`. Commit or push only when asked. **No AI attribution:** never add `Co-Authored-By: Claude` or similar trailers to commits or PRs.
 - **Secrets** come from env vars only, and `.env.example` stays complete and commented. The Google service-account key and the agent SSH key are mounted **only in the worker** (D-027).
 
 ## Version gotchas: don't code from memory

@@ -11,8 +11,11 @@ import {
   moveWorkItem,
   removeLink,
   removeRelation,
+  moveToProject,
+  patchManyWorkItems,
   setArchived,
-  setDeleted,
+  setArchivedMany,
+  setDeletedMany,
   setSubscribed,
   updateWorkItem,
 } from "../services/work-items";
@@ -48,10 +51,19 @@ export async function setArchivedAction(ws: string, id: string, archived: boolea
 }
 export async function setDeletedAction(ws: string, ids: string[], deleted: boolean) {
   const ctx = await requireWorkspaceCtx(ws);
-  return run(async () => {
-    for (const id of ids) await setDeleted(ctx, id, deleted);
-    return { count: ids.length };
-  });
+  return run(() => setDeletedMany(ctx, ids, deleted));
+}
+export async function setArchivedManyAction(ws: string, ids: string[], archived: boolean) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => setArchivedMany(ctx, ids, archived));
+}
+export async function patchManyWorkItemsAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => patchManyWorkItems(ctx, input));
+}
+export async function moveToProjectAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => moveToProject(ctx, input));
 }
 export async function addRelationAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);

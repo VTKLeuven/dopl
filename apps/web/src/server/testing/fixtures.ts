@@ -64,9 +64,10 @@ export async function makeMember(
 
 export async function makeProject(
   ctx: WorkspaceCtx,
+  // The tail of uniq() varies per call; its head is the (shared) timestamp.
   identifier = `P${uniq()
     .replace(/[^a-z0-9]/gi, "")
-    .slice(0, 6)
+    .slice(-6)
     .toUpperCase()}`,
 ) {
   const p = await createProject(ctx, { name: `Project ${identifier}`, identifier });

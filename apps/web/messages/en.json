@@ -512,7 +512,11 @@
     "uploading": "Uploading {name}…",
     "uploadFailed": "Couldn't upload {name}.",
     "tooLarge": "{name} is larger than 25 MB.",
-    "tableTitle": "Title"
+    "tableTitle": "Title",
+    "bulkUpdated": "{count, plural, one {# item updated} other {# items updated}}",
+    "archivedMany": "{count, plural, one {Item archived} other {# items archived}}",
+    "movedMany": "{count, plural, one {Item moved} other {# items moved}}",
+    "moveTo": "Move to project"
   },
   "projectSettings": {
     "title": "Project settings",
