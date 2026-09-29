@@ -1,6 +1,7 @@
 /** Serializable shapes shared by server queries and client views. */
 import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
 import type { PublicStatus } from "@dopl/shared/schemas/intake";
+import type { AgentRunSummary } from "@/server/queries/agent";
 
 export interface WorkItemRow {
   id: string;
@@ -209,4 +210,9 @@ export interface WorkItemDetail extends WorkItemRow {
   references: ReferenceView[];
   subscribed: boolean;
   archivedAt: string | null;
+  /** Written outside the team (intake, email): taints agent runs until reviewed (D-033). */
+  untrusted: boolean;
+  origin: string;
+  /** The AI teammate's runs about this item (Phase 8). */
+  agentRuns: AgentRunSummary[];
 }

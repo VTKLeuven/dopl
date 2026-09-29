@@ -190,3 +190,17 @@ export async function cancelRun(
   await emitAgentEvent(emit, run, "agentRun.updated", { status });
   return true;
 }
+
+/** Active humans who may approve: admins, and members with the flag (canApproveAgentAction). */
+export async function approverIds(tx: TransactionClient, workspaceId: string): Promise<string[]> {
+  const rows = await tx.workspaceMember.findMany({
+    where: {
+      workspaceId,
+      status: "ACTIVE",
+      user: { kind: "HUMAN" },
+      OR: [{ role: { in: ["OWNER", "ADMIN"] } }, { role: "MEMBER", canApproveAgentActions: true }],
+    },
+    select: { userId: true },
+  });
+  return rows.map((r) => r.userId);
+}

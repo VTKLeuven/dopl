@@ -1,4 +1,5 @@
 import "server-only";
+import { listRunsForItem } from "./agent";
 import type { Prisma } from "@dopl/db";
 import {
   DONE_GROUPS,
@@ -407,6 +408,8 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
       description: true,
       createdById: true,
       archivedAt: true,
+      untrusted: true,
+      origin: true,
       parent: { select: { id: true, sequence: true, title: true } },
       children: { where: { deletedAt: null }, select: rowSelect, orderBy: { sortKey: "asc" } },
       relationsOut: {
@@ -583,5 +586,8 @@ export async function getWorkItemDetail(ctx: WorkspaceCtx, ref: string): Promise
     activities,
     references: await loadItemReferences(ctx, item.id),
     subscribed: item.subscribers.length > 0 && !item.subscribers[0]?.muted,
+    untrusted: item.untrusted,
+    origin: item.origin,
+    agentRuns: await listRunsForItem(ctx, item.id),
   };
 }

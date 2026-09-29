@@ -1,6 +1,7 @@
 import "server-only";
-import type { ApprovalKind, Prisma, TransactionClient } from "@dopl/db";
+import type { ApprovalKind, Prisma } from "@dopl/db";
 import {
+  approverIds,
   createStep,
   emitAgentEvent,
   runRefSelect,
@@ -10,20 +11,6 @@ import {
 import { audit, withMutation, type Mutation } from "../mutation";
 import { notifyApprovalRequested } from "../notifications/hooks";
 import type { WorkspaceCtx } from "../session";
-
-/** Active humans who may approve: admins, and members with the flag (canApproveAgentAction). */
-export async function approverIds(tx: TransactionClient, workspaceId: string): Promise<string[]> {
-  const rows = await tx.workspaceMember.findMany({
-    where: {
-      workspaceId,
-      status: "ACTIVE",
-      user: { kind: "HUMAN" },
-      OR: [{ role: { in: ["OWNER", "ADMIN"] } }, { role: "MEMBER", canApproveAgentActions: true }],
-    },
-    select: { userId: true },
-  });
-  return rows.map((r) => r.userId);
-}
 
 export interface ApprovalRequest {
   kind: ApprovalKind;
