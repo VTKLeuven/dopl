@@ -49,7 +49,9 @@ export async function runPubSubPull(
   });
   const base = `https://pubsub.googleapis.com/v1/${opts.subscription}`;
   let backoff = 1_000;
-  while (!opts.signal.aborted) {
+  // A function, so the check after an await isn't narrowed away.
+  const stopped = () => opts.signal.aborted;
+  while (!stopped()) {
     try {
       const { token } = await jwt.getAccessToken();
       const headers = {
@@ -87,7 +89,7 @@ export async function runPubSubPull(
         });
       backoff = 1_000;
     } catch (err) {
-      if (opts.signal.aborted) return;
+      if (stopped()) return;
       deps.logger.warn({ err }, "pubsub pull failed; retrying");
       await new Promise((r) => setTimeout(r, backoff));
       backoff = Math.min(backoff * 2, 60_000);
@@ -109,11 +111,13 @@ export function watchFakeMailboxes(deps: PushDeps, dir: string): () => void {
       address,
       setTimeout(() => {
         timers.delete(address);
-        queueSyncFor(deps, address).catch((err: unknown) =>
-          deps.logger.warn({ err, address }, "fake push failed"),
-        );
+        queueSyncFor(deps, address).catch((err: unknown) => {
+          deps.logger.warn({ err, address }, "fake push failed");
+        });
       }, 150),
     );
   });
-  return () => watcher.close();
+  return () => {
+    watcher.close();
+  };
 }

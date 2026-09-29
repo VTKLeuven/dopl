@@ -91,13 +91,12 @@ export class GoogleGmail implements GmailApi {
 
   private async call<T>(path: string, init: RequestInit = {}): Promise<T> {
     const { token } = await this.jwt.getAccessToken();
+    const headers = new Headers(init.headers);
+    headers.set("authorization", `Bearer ${token ?? ""}`);
+    if (!headers.has("content-type")) headers.set("content-type", "application/json");
     const res = await fetch(`${this.base}${path}`, {
       ...init,
-      headers: {
-        authorization: `Bearer ${token ?? ""}`,
-        "content-type": "application/json",
-        ...(init.headers ?? {}),
-      },
+      headers,
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) {

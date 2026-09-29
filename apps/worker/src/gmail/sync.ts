@@ -218,7 +218,7 @@ export async function sync(
       const addresses = await gmail.sendAs();
       const from = mailbox.historyId as string;
       let token: string | null = null;
-      let latest = from;
+      let latest: string;
       const ids = new Set<string>();
       const labelChanges = new Map<string, string[]>();
       do {

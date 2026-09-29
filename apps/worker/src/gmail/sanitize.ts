@@ -13,7 +13,7 @@ import { JSDOM } from "jsdom";
  * - links open in a new tab without an opener or referrer
  */
 const window = new JSDOM("").window;
-const purify = createDOMPurify(window as unknown as Parameters<typeof createDOMPurify>[0]);
+const purify = createDOMPurify(window);
 
 const REMOTE = /^\s*(https?:)?\/\//i;
 
@@ -26,7 +26,7 @@ export function sanitizeEmailHtml(raw: string): SanitizedHtml {
   let hasRemoteImages = false;
   purify.removeAllHooks();
   purify.addHook("afterSanitizeAttributes", (node) => {
-    const el = node as Element;
+    const el = node;
     if (el.tagName === "IMG") {
       const src = el.getAttribute("src") ?? "";
       if (REMOTE.test(src)) {

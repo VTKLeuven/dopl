@@ -83,7 +83,7 @@ export async function registerMailHandlers(ctx: {
     if (!job) return;
     const { messageId } = queues["gmail.send"].parse(job.data);
     const r = await sendReply(deps, messageId, {
-      retryCount: job.retryCount ?? 0,
+      retryCount: job.retryCount,
       retryLimit: queueOptions.retryLimit,
     });
     logger.info({ messageId, r }, "gmail.send");
@@ -120,9 +120,9 @@ export async function registerMailHandlers(ctx: {
   await boss.schedule("gmail.watch-renew", "40 3 * * *", {}, tz);
   await boss.work("gmail.watch-renew", async () => {
     for (const mailboxId of await activeMailboxIds(db))
-      await renewWatch(deps, mailboxId).catch((err: unknown) =>
-        logger.warn({ err, mailboxId }, "watch renew failed"),
-      );
+      await renewWatch(deps, mailboxId).catch((err: unknown) => {
+        logger.warn({ err, mailboxId }, "watch renew failed");
+      });
   });
 
   // Push: the fake directory in dev/tests, Pub/Sub in production.
@@ -142,7 +142,9 @@ export async function registerMailHandlers(ctx: {
         signal: abort.signal,
       },
     );
-    return () => abort.abort();
+    return () => {
+      abort.abort();
+    };
   }
   return () => {};
 }

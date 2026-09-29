@@ -246,7 +246,12 @@ function SearchBox({ value, onChange }: { value: string; onChange: (q: string) =
   const t = useTranslations("mail");
   const [draft, setDraft] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => setDraft(value), [value]);
+  // Follow outside changes to the query (a view switch clears it).
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    setSeen(value);
+    setDraft(value);
+  }
   return (
     <label className="relative block">
       <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-icon" />

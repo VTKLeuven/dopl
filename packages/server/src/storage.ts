@@ -46,8 +46,8 @@ class LocalStore implements BlobStore {
     await stat(p);
     return Readable.toWeb(createReadStream(p)) as ReadableStream;
   }
-  async signedUrl() {
-    return null;
+  signedUrl() {
+    return Promise.resolve(null);
   }
   async delete(key: string) {
     await rm(this.file(key), { force: true });
@@ -72,8 +72,8 @@ class S3Store implements BlobStore {
       new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }),
     );
   }
-  async stream() {
-    return null;
+  stream() {
+    return Promise.resolve(null);
   }
   async signedUrl(
     key: string,

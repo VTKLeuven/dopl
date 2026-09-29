@@ -201,10 +201,13 @@ const BLOCK_TAG: Record<string, string> = {
  */
 export function docToHtml(raw: unknown): string {
   const doc = sanitizeDoc(raw);
+  const attr = (n: PMNode, key: string): string => {
+    const v = n.attrs?.[key];
+    return typeof v === "string" || typeof v === "number" ? String(v) : "";
+  };
   const inline = (n: PMNode): string => {
-    if (n.type === "mention") return escapeHtml(`@${String(n.attrs?.label ?? "")}`);
-    if (n.type === "workItemRef")
-      return escapeHtml(String(n.attrs?.identifier ?? n.attrs?.label ?? ""));
+    if (n.type === "mention") return escapeHtml(`@${attr(n, "label")}`);
+    if (n.type === "workItemRef") return escapeHtml(attr(n, "identifier") || attr(n, "label"));
     if (n.type === "hardBreak") return "<br>";
     let out = escapeHtml(n.text ?? "");
     for (const m of n.marks ?? []) {

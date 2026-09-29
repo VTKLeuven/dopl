@@ -28,7 +28,7 @@ export async function seedMail(
     select: { id: true },
   });
   if (existing) await db.mailbox.delete({ where: { id: existing.id } });
-  const mailbox = await db.mailbox.create({
+  await db.mailbox.create({
     data: {
       workspaceId: opts.workspaceId,
       emailAddress: SEED_MAILBOX,
@@ -43,7 +43,6 @@ export async function seedMail(
         },
       },
     },
-    select: { id: true },
   });
 
   const rel = process.env.GMAIL_FAKE_DIR;

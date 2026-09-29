@@ -41,8 +41,9 @@ async function setup() {
     },
   });
   const jobs: Array<{ queue: string; payload: unknown }> = [];
-  const enqueue: TxEnqueue = async (_tx, queue, payload) => {
+  const enqueue: TxEnqueue = (_tx, queue, payload) => {
     jobs.push({ queue, payload });
+    return Promise.resolve();
   };
   const deps: SyncDeps = {
     db,

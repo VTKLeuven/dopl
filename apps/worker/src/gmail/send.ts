@@ -4,8 +4,9 @@ import { emitRealtime } from "../realtime";
 import type { SyncDeps } from "./sync";
 
 type Addr = { email: string; name: string | null };
-const list = (v: unknown): Addr[] =>
-  Array.isArray(v) ? v.filter((a): a is Addr => typeof a?.email === "string") : [];
+const isAddr = (a: unknown): a is Addr =>
+  typeof a === "object" && a !== null && typeof (a as { email?: unknown }).email === "string";
+const list = (v: unknown): Addr[] => (Array.isArray(v) ? v.filter(isAddr) : []);
 
 /**
  * Phase 7b: sends one queued reply through the mailbox (users.messages.send)

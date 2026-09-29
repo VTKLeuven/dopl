@@ -29,12 +29,12 @@ export class FakeGmail implements GmailApi {
     return { emailAddress: this.address, historyId: String(s.historyId) };
   }
 
-  async labels() {
-    return [
+  labels() {
+    return Promise.resolve([
       { id: "INBOX", name: "INBOX", type: "system" },
       { id: "SENT", name: "SENT", type: "system" },
       { id: "UNREAD", name: "UNREAD", type: "system" },
-    ];
+    ]);
   }
 
   async sendAs() {
@@ -73,9 +73,9 @@ export class FakeGmail implements GmailApi {
     };
   }
 
-  async attachment(_messageId: string, attachmentId: string) {
+  attachment(_messageId: string, attachmentId: string) {
     const data = attachmentId.slice(attachmentId.indexOf(":") + 1);
-    return Buffer.from(data, "base64url");
+    return Promise.resolve(Buffer.from(data, "base64url"));
   }
 
   async watch() {

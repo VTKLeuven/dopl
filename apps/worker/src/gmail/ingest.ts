@@ -182,7 +182,7 @@ export async function ingestMessage(
             : {}),
           ...(p.attachments.some((a) => !a.isInline) ? { hasAttachments: true } : {}),
           gmailLabelIds: [...new Set([...thread.gmailLabelIds, ...labels])],
-          participants: participants as unknown as Prisma.InputJsonValue,
+          participants: participants,
           ...(opts.live && next.reopened ? { status: next.status, solvedAt: null } : {}),
           ...(!thread.contactId && contact ? { contactId: contact.id } : {}),
         },
@@ -256,7 +256,7 @@ export async function ingestMessage(
     });
   } catch (err) {
     // Another sync stored the same message first: that's the idempotency we want.
-    if ((err as { code?: string })?.code === "P2002") return "updated";
+    if ((err as { code?: string }).code === "P2002") return "updated";
     throw err;
   }
   return "created";
