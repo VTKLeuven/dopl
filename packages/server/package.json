@@ -6,7 +6,8 @@
   "description": "Server-only code shared by apps/web and apps/worker (blob storage, webhook dispatch). Never import it from client components.",
   "exports": {
     "./storage": "./src/storage.ts",
-    "./webhooks": "./src/webhooks.ts"
+    "./webhooks": "./src/webhooks.ts",
+    "./notify": "./src/notify.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
