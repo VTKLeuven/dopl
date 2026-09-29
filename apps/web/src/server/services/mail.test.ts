@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ForbiddenError } from "@dopl/shared/policy";
 import { db } from "../db";
 import { getThread, listMailboxes, listThreads } from "../queries/mail";
+import { getWorkItemDetail } from "../queries/work-items";
 import { makeMember, makeProject, makeWorkspace } from "../testing/fixtures";
 import {
   addEmailComment,
@@ -159,6 +160,21 @@ describe("shared mailbox", () => {
       sourceType: "EMAIL_THREAD",
       emailThreadId: thread.id,
     });
+
+    // The item's timeline shows the conversation to mailbox readers only.
+    const mine = await getWorkItemDetail(mia, item.identifier);
+    const emailRef = mine.references.find((r) => r.source === "email");
+    expect(emailRef?.source === "email" && emailRef.thread.messages.map((m) => m.excerpt)).toEqual([
+      expect.stringContaining("Every 10 minutes"),
+    ]);
+    const otto = await makeMember(
+      await db.workspace.findUniqueOrThrow({ where: { id: thread.workspaceId } }),
+      "MEMBER",
+      "Otto",
+    );
+    const theirs = await getWorkItemDetail(otto, item.identifier);
+    const hidden = theirs.references.find((r) => r.source === "email");
+    expect(hidden).toMatchObject({ thread: { readable: false, subject: "", messages: [] } });
 
     // Linking the same item again is a no-op (one reference per item and thread).
     await linkThread(mia, { threadId: thread.id, item: item.identifier });

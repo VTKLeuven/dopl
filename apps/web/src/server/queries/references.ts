@@ -1,6 +1,7 @@
 import "server-only";
 import { canChannel } from "@dopl/shared/policy";
 import type {
+  EmailReferenceView,
   MessageReferenceView,
   NoteReferenceView,
   ReferenceView,
@@ -8,6 +9,7 @@ import type {
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
 import { channelAccessSelect, toPolicyChannel } from "./channels";
+import { readableMailboxIds } from "./mail";
 import { visibleNotesWhere } from "./notes";
 
 /**
@@ -69,8 +71,9 @@ export async function loadItemReferences(
     });
   }
   const notes = await loadNoteReferences(ctx, workItemId);
+  const emails = await loadEmailReferences(ctx, workItemId);
   // The timeline merges and orders every entry by time.
-  return [...out, ...notes];
+  return [...out, ...notes, ...emails];
 }
 
 async function loadNoteReferences(
@@ -119,4 +122,80 @@ async function loadNoteReferences(
       },
     ];
   });
+}
+
+/**
+ * Email conversations on the item (Phase 7): the link itself, and each
+ * message, so replies that arrive later show up on the timeline. Readers who
+ * aren't members of the mailbox only see that a conversation is linked.
+ */
+async function loadEmailReferences(
+  ctx: WorkspaceCtx,
+  workItemId: string,
+): Promise<EmailReferenceView[]> {
+  const rows = await db.workItemReference.findMany({
+    where: { workItemId, emailThreadId: { not: null } },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+    select: {
+      id: true,
+      kind: true,
+      createdAt: true,
+      createdBy: { select: { id: true, name: true } },
+      emailThread: {
+        select: {
+          id: true,
+          subject: true,
+          mailboxId: true,
+          mailbox: { select: { emailAddress: true, displayName: true } },
+        },
+      },
+    },
+  });
+  if (rows.length === 0) return [];
+  const readable = new Set(await readableMailboxIds(ctx));
+  const out: EmailReferenceView[] = [];
+  for (const r of rows) {
+    const t = r.emailThread;
+    if (!t) continue;
+    const canRead = readable.has(t.mailboxId);
+    const messages = canRead
+      ? await db.emailMessage.findMany({
+          where: { threadId: t.id },
+          orderBy: { sentAt: "asc" },
+          take: 50,
+          select: {
+            id: true,
+            direction: true,
+            fromAddress: true,
+            fromName: true,
+            sentAt: true,
+            snippet: true,
+            bodyText: true,
+          },
+        })
+      : [];
+    out.push({
+      source: "email",
+      id: r.id,
+      kind: r.kind,
+      createdAt: r.createdAt.toISOString(),
+      actorId: r.createdBy?.id ?? null,
+      actorName: r.createdBy?.name ?? null,
+      thread: {
+        id: t.id,
+        subject: canRead ? t.subject : "",
+        mailbox: t.mailbox.displayName ?? t.mailbox.emailAddress,
+        readable: canRead,
+        messages: messages.map((m) => ({
+          id: m.id,
+          direction: m.direction,
+          from: m.fromName ?? m.fromAddress,
+          sentAt: m.sentAt.toISOString(),
+          excerpt: (m.bodyText ?? m.snippet).slice(0, 400),
+        })),
+      },
+    });
+  }
+  return out;
 }

@@ -91,7 +91,14 @@ import { Attachments } from "./attachments";
 import { ReferenceEntry } from "@/features/messages/reference-entry";
 import { ItemNotes } from "@/features/notes/item-notes";
 import { NoteReferenceEntry } from "@/features/notes/note-reference-entry";
-import type { ActivityView, CommentView, ProjectMeta, WorkItemDetail as Detail } from "./types";
+import { EmailMessageEntry, EmailReferenceEntry } from "@/features/mail/timeline";
+import type {
+  ActivityView,
+  CommentView,
+  EmailReferenceView,
+  ProjectMeta,
+  WorkItemDetail as Detail,
+} from "./types";
 
 export type DetailMode = "peek" | "page" | "triage";
 
@@ -1016,8 +1023,20 @@ function Timeline({
       | { kind: "comment"; at: string; c: CommentView }
       | { kind: "activity"; at: string; a: ActivityView }
       | { kind: "reference"; at: string; r: Detail["references"][number] }
+      | {
+          kind: "email";
+          at: string;
+          r: EmailReferenceView;
+          m: EmailReferenceView["thread"]["messages"][number];
+        }
     > = [
       ...(item.references ?? []).map((r) => ({ kind: "reference" as const, at: r.createdAt, r })),
+      // Each message of a linked conversation, so later replies land on the timeline too.
+      ...(item.references ?? []).flatMap((r) =>
+        r.source === "email"
+          ? r.thread.messages.map((m) => ({ kind: "email" as const, at: m.sentAt, r, m }))
+          : [],
+      ),
       ...item.comments.map((c) => ({ kind: "comment" as const, at: c.createdAt, c })),
       ...item.activities
         .filter((a) => a.verb !== "commented")
@@ -1040,9 +1059,13 @@ function Timeline({
               onChanged={onChanged}
               hasSubmitter={Boolean(item.request?.submitter)}
             />
+          ) : e.kind === "email" ? (
+            <EmailMessageEntry key={`${e.r.id}:${e.m.id}`} ws={ws} r={e.r} m={e.m} />
           ) : e.kind === "reference" ? (
             e.r.source === "note" ? (
               <NoteReferenceEntry key={e.r.id} ws={ws} r={e.r} />
+            ) : e.r.source === "email" ? (
+              <EmailReferenceEntry key={e.r.id} ws={ws} r={e.r} />
             ) : (
               <ReferenceEntry key={e.r.id} ws={ws} r={e.r} />
             )

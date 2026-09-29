@@ -2155,6 +2155,14 @@
       "generic": "Something went wrong. Try again.",
       "forbidden": "You can't do that in this mailbox.",
       "assigneeCannotRead": "That person can't read this mailbox. Add them to it first."
+    },
+    "timeline": {
+      "someone": "Someone",
+      "createdFrom": "created this from the email",
+      "linked": "linked the email",
+      "private": "a conversation in {mailbox} (you're not a member)",
+      "wrote": "wrote",
+      "replied": "replied"
     }
   },
   "mailboxes": {
