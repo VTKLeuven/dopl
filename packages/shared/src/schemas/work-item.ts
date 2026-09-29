@@ -69,6 +69,8 @@ export const UpdateWorkItemSchema = z.object({
   startDate: DateOnlySchema.nullable().optional(),
   dueDate: DateOnlySchema.nullable().optional(),
   estimate: z.number().min(0).max(1000).nullable().optional(),
+  /** Assigning the AI teammate to an item with untrusted content needs this (D-033). */
+  confirmUntrusted: z.boolean().optional(),
 });
 export type UpdateWorkItemInput = z.input<typeof UpdateWorkItemSchema>;
 

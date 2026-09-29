@@ -36,6 +36,7 @@ export type WorkspaceAction =
   | "contact.edit"
   | "contact.merge"
   | "agent.pause"
+  | "agent.manage" // profile, hosts, command rules, MCP tokens, marking content reviewed
   | "analytics.view";
 
 const isAdmin = (r: WorkspaceRole) => r === "OWNER" || r === "ADMIN";
@@ -51,6 +52,7 @@ export function canWorkspace(actor: PolicyActor, action: WorkspaceAction): boole
     case "workspace.auth.manage":
     case "contact.merge":
     case "agent.pause":
+    case "agent.manage":
       return actor.kind === "HUMAN" && isAdmin(actor.workspaceRole);
     // Contacts are people outside the team: never visible to guests.
     // Analytics count across projects; guests only ever see their own requests.
@@ -259,6 +261,26 @@ export function canApproveAgentAction(actor: PolicyActor): boolean {
     (isAdmin(actor.workspaceRole) ||
       (actor.workspaceRole === "MEMBER" && Boolean(actor.canApproveAgentActions)))
   );
+}
+
+/**
+ * Stopping a run: whoever asked for it, anyone who may approve agent
+ * actions, and admins. Guests and agents never.
+ */
+export function canStopAgentRun(
+  actor: PolicyActor,
+  run: { triggeredById: string | null },
+): boolean {
+  if (actor.kind !== "HUMAN" || actor.workspaceRole === "GUEST") return false;
+  return run.triggeredById === actor.userId || canApproveAgentAction(actor);
+}
+
+/**
+ * Asking the agent for something (mention, DM, assignment, "Ask Dopl"):
+ * team members only. Guests can't, so nothing a guest writes starts a run.
+ */
+export function canAskAgent(actor: PolicyActor): boolean {
+  return actor.kind === "HUMAN" && actor.workspaceRole !== "GUEST";
 }
 
 export class ForbiddenError extends Error {

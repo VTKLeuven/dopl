@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   canApproveAgentAction,
+  canAskAgent,
+  canStopAgentRun,
   canEditComment,
   canProject,
   canSeeRequest,
@@ -193,5 +195,34 @@ describe("contacts and requests", () => {
         submitterUserId: "u2",
       }),
     ).toBe(false);
+  });
+});
+
+describe("AI teammate", () => {
+  it("only human admins manage and pause the agent", () => {
+    expect(canWorkspace(actor("ADMIN"), "agent.manage")).toBe(true);
+    expect(canWorkspace(actor("MEMBER"), "agent.manage")).toBe(false);
+    expect(canWorkspace(actor("ADMIN", { kind: "AGENT" }), "agent.manage")).toBe(false);
+    expect(canWorkspace(actor("ADMIN", { kind: "AGENT" }), "agent.pause")).toBe(false);
+  });
+  it("approvers are admins or members with the flag, never agents or guests", () => {
+    expect(canApproveAgentAction(actor("ADMIN"))).toBe(true);
+    expect(canApproveAgentAction(actor("MEMBER"))).toBe(false);
+    expect(canApproveAgentAction(actor("MEMBER", { canApproveAgentActions: true }))).toBe(true);
+    expect(canApproveAgentAction(actor("GUEST", { canApproveAgentActions: true }))).toBe(false);
+    expect(
+      canApproveAgentAction(actor("ADMIN", { kind: "AGENT", canApproveAgentActions: true })),
+    ).toBe(false);
+  });
+  it("the requester, approvers and admins stop runs", () => {
+    expect(canStopAgentRun(actor("MEMBER"), { triggeredById: "u1" })).toBe(true);
+    expect(canStopAgentRun(actor("MEMBER"), { triggeredById: "u2" })).toBe(false);
+    expect(canStopAgentRun(actor("ADMIN"), { triggeredById: "u2" })).toBe(true);
+    expect(canStopAgentRun(actor("GUEST"), { triggeredById: "u1" })).toBe(false);
+  });
+  it("guests and agents can't ask the agent", () => {
+    expect(canAskAgent(actor("MEMBER"))).toBe(true);
+    expect(canAskAgent(actor("GUEST"))).toBe(false);
+    expect(canAskAgent(actor("MEMBER", { kind: "AGENT" }))).toBe(false);
   });
 });
