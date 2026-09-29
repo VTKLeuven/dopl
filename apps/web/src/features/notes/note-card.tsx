@@ -181,6 +181,8 @@ export function NoteCardView({
           onClick={startEdit}
           className={cn(
             "px-4 pt-3.5 pb-1",
+            // Room for the pin in the top-right corner.
+            card.pinnedAt && !trashed && variant !== "dialog" && "pr-9",
             editable || onOpen ? "cursor-text" : "cursor-default",
             clamp && (variant === "compact" ? "max-h-[160px]" : "max-h-[420px]"),
             clamp && "overflow-hidden",
