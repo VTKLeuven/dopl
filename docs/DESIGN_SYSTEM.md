@@ -442,10 +442,8 @@ Every component lives in `components/ui` (primitives) or `components` (product c
 
 ## 6. Charts
 
-- Series colours:
-  - **series 1** = `--sky-500` (#3199E8)
-  - **series 2** = `--lavender-500` (#837DED)
-  - further series take the tag palette's 500-level equivalents in this order: teal, amber, pink, lime, orange, blue, red, grey
+- Series colours (`--color-chart-1…8`, D-099): sky-500, amber, pink, lime, lavender-500, orange, purple, teal. This order was checked for colour-blind separation between neighbours; sky next to lavender was not. "None" and "Other" are grey. Red and green are reserved for status.
+- Colour follows the entity, never its rank: state groups use the state tokens, states/projects/labels/types their own colour, people their avatar colour, fixed enums (priority, intake status) the series colour for their position.
 - Categories (labels, priorities, states) use their own token colours.
 - Axes: no axis lines. Ticks are `caption` in `--text-muted`, and grid lines are horizontal `--border` only.
 - The tooltip is the standard popover with tabular numbers. The legend sits top-left in `small`.

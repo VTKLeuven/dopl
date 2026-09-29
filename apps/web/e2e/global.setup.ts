@@ -77,6 +77,8 @@ setup("sign in as a seeded member and ensure the sandbox project", async ({ page
     "notes/tags",
     "notes/todos?status=open",
     "notes/summary",
+    "dashboards",
+    `analytics/query?q=${encodeURIComponent(JSON.stringify({ spec: { metric: "created", xAxis: "none", chartType: "NUMBER" } }))}`,
   ])
     await page.request.get(`/api/v1/vtk/${path}`, { timeout: 60_000 });
 

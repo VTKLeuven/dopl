@@ -5,6 +5,7 @@ import { queues } from "@dopl/shared/jobs/queues";
 import { sendOutboundEmail } from "../email/send";
 import { env } from "../env";
 import { queueOptions } from "../queues";
+import { snapshotProjects } from "./analytics";
 import { sendDigests } from "./digest";
 import { wakeSnoozed } from "./snooze";
 import { deliverWebhook } from "./webhooks";
@@ -55,6 +56,12 @@ export async function registerHandlers(ctx: JobContext): Promise<void> {
   await boss.schedule("snooze.wake", "* * * * *", {}, tz);
   await boss.work("snooze.wake", async () => {
     await wakeSnoozed(db, logger);
+  });
+
+  // Nightly, before midnight: per-project stats for "over time" charts (Phase 6).
+  await boss.schedule("analytics.snapshot", "55 23 * * *", {}, tz);
+  await boss.work("analytics.snapshot", async () => {
+    await snapshotProjects(db, logger);
   });
 
   // Nightly: prune ephemeral tables (D-023, D-025), abandoned uploads and

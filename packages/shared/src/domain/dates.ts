@@ -56,14 +56,25 @@ export function diffDays(a: string, b: string): number {
   return Math.round((toUtc(a).getTime() - toUtc(b).getTime()) / MS_DAY);
 }
 
+/**
+ * One formatter per time zone: building an Intl.DateTimeFormat is expensive
+ * (analytics formats one date per row; 50k fresh formatters took gigabytes).
+ */
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+
 /** Today's calendar date in a time zone. */
 export function todayIn(timeZone: string, now: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+  let f = dayFormatters.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    dayFormatters.set(timeZone, f);
+  }
+  return f.format(now);
 }
 
 export interface DateContext {

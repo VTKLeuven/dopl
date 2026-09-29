@@ -1,5 +1,60 @@
 # Changelog
 
+## Phase 6: Analytics (2026-09-29)
+
+**Metrics**
+
+- Eleven metrics:
+  - open and overdue items
+  - created and completed items, created vs completed, throughput
+  - cycle time and lead time as median and 85th percentile, in days
+  - intake requests and time to triage
+  - open items over time
+- Charts go over time (day, week, month) or by state group, state, priority, assignee, label, type, project, or request status and source, optionally split by a second dimension.
+- Every chart counts only what the reader can see, then applies its own filter (the views' filter builder) and the dashboard's period. Number tiles compare with the previous period of the same length; the delta is green or red depending on which way is good.
+- The nightly `analytics.snapshot` job (23:55 in the workspace's zone) records each project's open items by state group and priority, plus the day's counts, in `project_daily_stats`. "Open items over time" reads those and adds today's live numbers.
+
+**Dashboards** (`/<ws>/analytics`, and **Analytics** under each project)
+
+- A built-in overview for the workspace (13 charts) and for every project. Duplicate one to make your own copy.
+- Your own dashboards: add a chart, drag to reorder, pick a width (small, medium, large, full), view any chart as a table, rename, share with the team (read-only for others), delete.
+- The period (30 days, 90 days, 6 months, 12 months) and a project filter sit in one row above the charts and live in the URL.
+- The chart builder: metric, x-axis, split, chart type (bars, stacked bars, line, area, donut, number, table) and filters, with a live preview. It only offers combinations that make sense for the metric.
+- Every chart has a skeleton its own size while loading, an empty state, and an error with a retry. Changing the period keeps the old chart until the new one arrives.
+- Tools → Analytics in the sidebar (members only) and `G A`.
+
+**Charts**
+
+- Recharts 3 behind one `ChartView`, styled per DESIGN_SYSTEM §6:
+  - bars at most 24 px with rounded tops, and a 2 px gap between stacked segments
+  - 2 px lines, and areas as a 10% wash
+  - hairline horizontal grid, no axis lines
+  - a popover tooltip, and a legend for two or more series
+- The series order was checked for colour-blind separation and changed from §6 (D-099). Colours follow the entity (state, project, label, person), never the rank.
+
+**Fixes on `main`**
+
+- CI's chat and note-capture timing checks send one untimed warm-up first on the cold dev server (the thresholds are unchanged).
+
+**Seed**
+
+- 120 days of approximated project snapshots, so "open items over time" has history in dev.
+
+**Tests**
+
+- Vitest:
+  - the aggregation against hand-computed fixtures: time zones, week buckets, percentiles, multi-assignee counts, segments, folding into Other, snapshots
+  - the metric reads on real rows: project scope, filters, private projects, guests
+  - dashboards: duplicate, privacy, reorder, remove
+  - the dashboard policy and the snapshot job
+- A 50,000-item benchmark (`analytics.perf.ts`).
+- Playwright (`analytics.spec.ts`):
+  - the overview's 13 charts and the period in the URL
+  - loading, empty and error states (data request intercepted)
+  - duplicate, the builder with preview, drag to reorder, resize, remove
+  - a project's analytics
+- Decisions D-099 to D-106.
+
 ## Phase 5: Notes & My Work (2026-09-29)
 
 **Notes** (`/<ws>/notes`)

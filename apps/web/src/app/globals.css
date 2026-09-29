@@ -107,6 +107,17 @@
   --color-state-completed: #16a34a;
   --color-state-cancelled: #dc2626;
 
+  /* Chart series (§6, D-099): categorical order checked for colour-blind separation */
+  --color-chart-1: var(--color-sky-500);
+  --color-chart-2: var(--color-tag-amber-solid);
+  --color-chart-3: var(--color-tag-pink-solid);
+  --color-chart-4: var(--color-tag-lime-solid);
+  --color-chart-5: var(--color-lavender-500);
+  --color-chart-6: var(--color-tag-orange-solid);
+  --color-chart-7: var(--color-tag-purple-solid);
+  --color-chart-8: var(--color-tag-teal-solid);
+  --color-chart-other: var(--color-tag-grey-solid);
+
   /* Tag palette (§3.4): bg-50 / border-200 / text-700 */
   --color-tag-purple-bg: #faf5ff;
   --color-tag-purple-border: #e9d5ff;

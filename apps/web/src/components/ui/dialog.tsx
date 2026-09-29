@@ -17,7 +17,7 @@ export function DialogContent({
   closeLabel = "Close",
   ...props
 }: React.ComponentProps<typeof D.Content> & {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   hideClose?: boolean;
   closeLabel?: string;
 }) {
@@ -33,6 +33,7 @@ export function DialogContent({
           size === "sm" && "max-w-[420px]",
           size === "md" && "max-w-[560px]",
           size === "lg" && "max-w-[720px]",
+          size === "xl" && "max-w-[1040px]",
           className,
         )}
         {...props}

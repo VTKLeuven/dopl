@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  BarChart3,
   ChevronsUpDown,
   FolderKanban,
   House,
@@ -53,6 +54,7 @@ export interface SidebarProps {
   /** Guests (and anyone who asked for something) get "Requests". */
   showRequests?: boolean;
   showContacts?: boolean;
+  showAnalytics?: boolean;
   /** Team chat is for members; guests don't get Messages (Phase 4). */
   canChat?: boolean;
   onNavigate?: () => void;
@@ -149,6 +151,7 @@ export function Sidebar({
   intakePending = {},
   showRequests = false,
   showContacts = false,
+  showAnalytics = false,
   canChat = false,
   onNavigate,
 }: SidebarProps) {
@@ -315,6 +318,14 @@ export function Sidebar({
                     onNavigate={onNavigate}
                   />
                 ) : null}
+                {open && showAnalytics ? (
+                  <SubItem
+                    href={`${href}/analytics`}
+                    label={t("projectAnalytics")}
+                    active={isActive(`${href}/analytics`)}
+                    onNavigate={onNavigate}
+                  />
+                ) : null}
                 {open && p.id in intakePending ? (
                   <SubItem
                     href={`${href}/intake`}
@@ -332,6 +343,15 @@ export function Sidebar({
 
       <SectionLabel>{t("tools")}</SectionLabel>
       <div className="flex flex-col gap-0.5">
+        {showAnalytics ? (
+          <NavItem
+            href={`${base}/analytics`}
+            icon={<BarChart3 />}
+            label={t("analytics")}
+            active={isActive(`${base}/analytics`)}
+            onNavigate={onNavigate}
+          />
+        ) : null}
         {showContacts ? (
           <NavItem
             href={`${base}/contacts`}

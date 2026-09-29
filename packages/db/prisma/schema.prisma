@@ -2310,7 +2310,7 @@ model DashboardWidget {
   segment     String?
   filters     Json      @default("{}")
   options     Json      @default("{}")
-  /// Grid placement { x, y, w, h }.
+  /// Placement { key, w }: fractional reading-order key and width in 12ths (D-102).
   position    Json
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)

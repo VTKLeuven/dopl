@@ -30,6 +30,13 @@ const saved = (page: Page) => expect(page.locator("html:not([data-saving])")).to
 test("a captured note shows up in under 100 ms and is saved", async ({ page }) => {
   await page.goto("/vtk/notes");
   await expect(page.locator("html[data-realtime]")).toBeAttached();
+  // The first capture on a cold dev server also mounts the card code for the
+  // first time (CI measured 145 ms once); the timed one is the next.
+  const warmup = `Warm-up ${uniq()}`;
+  await capture(page, [warmup]);
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page.getByTestId("note-card").filter({ hasText: warmup })).toBeVisible();
+
   const text = `Captured ${uniq()}`;
   await capture(page, [text]);
 

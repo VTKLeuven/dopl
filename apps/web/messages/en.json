@@ -107,6 +107,7 @@
     "settings": "Settings",
     "workspace": "Workspace",
     "tools": "Tools",
+    "analytics": "Analytics",
     "account": "Account & security",
     "signOut": "Sign out",
     "openMenu": "Open menu",
@@ -117,6 +118,7 @@
     "views": "Views",
     "favorites": "Favorites",
     "projectViews": "Views",
+    "projectAnalytics": "Analytics",
     "requests": "Requests",
     "intake": "Intake",
     "contacts": "Contacts"
@@ -1420,6 +1422,7 @@
       "goSettings": "Go to settings",
       "goInbox": "Go to Inbox",
       "goMessages": "Go to Messages",
+      "goAnalytics": "Go to Analytics",
       "inboxDown": "Next notification",
       "inboxUp": "Previous notification",
       "inboxDownArrow": "Next notification",
@@ -1861,6 +1864,200 @@
     "errors": {
       "generic": "That didn't work. Try again.",
       "url": "Use a Discord webhook URL (https://discord.com/api/webhooks/…)."
+    }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "nav": "Analytics",
+    "pageTitle": "Analytics",
+    "overview": "Overview",
+    "projectOverview": "{project} overview",
+    "builtIn": "Built-in",
+    "yours": "Your dashboards",
+    "shared": "Shared with the team",
+    "noDashboards": "Duplicate the overview or start an empty dashboard to arrange your own charts.",
+    "newDashboard": "New dashboard",
+    "newDashboardName": "Untitled dashboard",
+    "duplicate": "Duplicate",
+    "duplicateHint": "Copy these charts into a dashboard you can change",
+    "copyName": "{name} (copy)",
+    "addChart": "Add chart",
+    "rename": "Rename",
+    "share": "Share with the team",
+    "unshare": "Make private",
+    "deleteDashboard": "Delete dashboard",
+    "deleted": "Dashboard deleted",
+    "sharedBy": "Shared by {name}",
+    "readOnly": "Only {name} can change this dashboard.",
+    "private": "Private",
+    "team": "Team",
+    "range": {
+      "label": "Period",
+      "30d": "30 days",
+      "90d": "90 days",
+      "180d": "6 months",
+      "365d": "12 months"
+    },
+    "project": {
+      "label": "Project",
+      "all": "All projects"
+    },
+    "vsPrevious": "vs previous period",
+    "median": "median",
+    "days": "{n} d",
+    "widget": {
+      "edit": "Edit chart",
+      "asTable": "View as table",
+      "asChart": "View as chart",
+      "size": "Width",
+      "sizes": {
+        "4": "Small",
+        "6": "Medium",
+        "8": "Large",
+        "12": "Full width"
+      },
+      "remove": "Remove chart",
+      "removed": "Chart removed",
+      "drag": "Drag to reorder",
+      "more": "Chart actions",
+      "empty": "No data for this period",
+      "emptyHint": "Try a longer period or fewer filters.",
+      "error": "This chart didn't load",
+      "retry": "Try again",
+      "snapshotNote": "Earlier days come from nightly snapshots."
+    },
+    "builder": {
+      "newTitle": "Add a chart",
+      "editTitle": "Edit chart",
+      "name": "Title",
+      "namePlaceholder": "Name this chart",
+      "metric": "Metric",
+      "xAxis": "X-axis",
+      "segment": "Split by",
+      "noSegment": "Nothing",
+      "chartType": "Chart",
+      "filters": "Filters",
+      "filtersNotApplied": "Snapshots can't be filtered; this chart counts every item you can see.",
+      "preview": "Preview",
+      "save": "Save chart",
+      "add": "Add to dashboard",
+      "cancel": "Cancel",
+      "dashboard": "Dashboard"
+    },
+    "metric": {
+      "open_items": "Open items",
+      "overdue": "Overdue items",
+      "created": "Items created",
+      "completed": "Items completed",
+      "flow": "Created vs completed",
+      "throughput": "Throughput",
+      "cycle_time": "Cycle time",
+      "lead_time": "Lead time",
+      "intake_volume": "Intake requests",
+      "time_to_triage": "Time to triage",
+      "open_over_time": "Open items over time"
+    },
+    "metricHint": {
+      "open_items": "Items not done or cancelled, right now",
+      "overdue": "Open items past their due date",
+      "created": "Items created in the period",
+      "completed": "Items moved to a done state in the period",
+      "flow": "Created and completed per period, side by side",
+      "throughput": "Items completed per week or month",
+      "cycle_time": "From started to done, in days (median and 85th percentile)",
+      "lead_time": "From created to done, in days (median and 85th percentile)",
+      "intake_volume": "Requests from forms and guests",
+      "time_to_triage": "From a request arriving to its first decision, in days",
+      "open_over_time": "Open items at the end of each day, by state or priority"
+    },
+    "axis": {
+      "none": "Total",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "stateGroup": "State group",
+      "state": "State",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "label": "Label",
+      "type": "Type",
+      "project": "Project",
+      "intakeStatus": "Request status",
+      "intakeSource": "Request source"
+    },
+    "chart": {
+      "BAR": "Bars",
+      "STACKED_BAR": "Stacked bars",
+      "LINE": "Line",
+      "AREA": "Area",
+      "DONUT": "Donut",
+      "NUMBER": "Number",
+      "TABLE": "Table"
+    },
+    "keys": {
+      "all": "Total",
+      "other": "Other",
+      "none": {
+        "default": "None",
+        "assignee": "Unassigned",
+        "label": "No label",
+        "type": "No type"
+      },
+      "series": {
+        "created": "Created",
+        "completed": "Completed",
+        "p50": "Median",
+        "p85": "85th percentile"
+      },
+      "stateGroup": {
+        "TRIAGE": "Triage",
+        "BACKLOG": "Backlog",
+        "UNSTARTED": "Unstarted",
+        "STARTED": "Started",
+        "COMPLETED": "Completed",
+        "CANCELLED": "Cancelled"
+      },
+      "priority": {
+        "URGENT": "Urgent",
+        "HIGH": "High",
+        "MEDIUM": "Medium",
+        "LOW": "Low",
+        "NONE": "No priority"
+      },
+      "intakeStatus": {
+        "PENDING": "Pending",
+        "ACCEPTED": "Accepted",
+        "DECLINED": "Declined",
+        "DUPLICATE": "Duplicate"
+      },
+      "intakeSource": {
+        "IN_APP": "In the app",
+        "FORM": "Form",
+        "EMAIL": "Email",
+        "API": "API"
+      }
+    },
+    "default": {
+      "open": "Open items",
+      "completed": "Completed",
+      "overdue": "Overdue",
+      "flow": "Created vs completed",
+      "openByState": "Open by state",
+      "openOverTime": "Open items over time",
+      "openByProject": "Open by project",
+      "openByPriority": "Open by priority",
+      "openByAssignee": "Open by assignee",
+      "throughput": "Throughput per week",
+      "cycleTime": "Cycle time",
+      "intakeVolume": "Intake requests",
+      "timeToTriage": "Time to triage",
+      "leadTime": "Lead time"
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "forbidden": "You can't change this dashboard.",
+      "pageTitle": "Analytics didn't load",
+      "pageDescription": "Something went wrong on our side. Try again in a moment."
     }
   }
 }
