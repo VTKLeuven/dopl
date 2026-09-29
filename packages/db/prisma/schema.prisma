@@ -269,6 +269,8 @@ enum MailboxStatus {
 }
 
 enum MailboxSyncKind {
+  /// "Test connection": a token for the mailbox and its label list (Phase 7).
+  CONNECTION_TEST
   BACKFILL
   PARTIAL
   FULL_RESYNC

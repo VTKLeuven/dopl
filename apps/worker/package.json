@@ -16,7 +16,9 @@
     "@dopl/shared": "workspace:*",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
+    "dompurify": "^3.4.16",
     "dotenv": "catalog:",
+    "jsdom": "^30.1.1",
     "nodemailer": "^10.0.12",
     "pg": "catalog:",
     "pg-boss": "^12.35.0",
@@ -24,6 +26,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "catalog:",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "catalog:",
