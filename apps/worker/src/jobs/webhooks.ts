@@ -114,9 +114,7 @@ async function loadEntity(
 
 function retryAfterMs(res: Response, body: unknown): number {
   const fromBody =
-    body && typeof body === "object" && "retry_after" in body
-      ? Number(body.retry_after)
-      : NaN;
+    body && typeof body === "object" && "retry_after" in body ? Number(body.retry_after) : NaN;
   const fromHeader = Number(res.headers.get("retry-after"));
   const seconds = Number.isFinite(fromBody)
     ? fromBody
