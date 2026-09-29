@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { SidebarSkeleton } from "@/components/shell/sidebar-skeleton";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { GlobalShortcuts } from "@/components/shell/global-shortcuts";
+import { UntrustedAssignDialog } from "@/features/agent/untrusted-confirm";
 import { RealtimeProvider } from "@/features/realtime/realtime-provider";
 import { SidebarLoader } from "./sidebar-loader";
 
@@ -28,6 +29,7 @@ export default function WorkspaceLayout({ children, params }: LayoutProps<"/[ws]
         <CommandPalette />
         <GlobalShortcuts />
         <RealtimeProvider />
+        <UntrustedAssignDialog />
       </Suspense>
     </div>
   );

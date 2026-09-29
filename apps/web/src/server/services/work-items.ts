@@ -21,6 +21,7 @@ import {
 import { docToPlainText, extractMentions, sanitizeDoc, type PMNode } from "@dopl/shared/rich-text";
 import { keyBefore, keyBetween, keysBetween } from "@dopl/shared/sort-keys";
 import { ConflictError, NotFoundError } from "../action-result";
+import { findAgent, queueAgentRun, type WorkspaceAgent } from "../agent/runs";
 import { withMutation, type BaseMutation, type Mutation } from "../mutation";
 import { notify as notifyInbox } from "../notifications/notify";
 import { projectAccessById, type ProjectAccess } from "../queries/projects";
@@ -226,6 +227,29 @@ async function loadItemForWrite(tx: TransactionClient, ctx: WorkspaceCtx, id: st
   return { item, access };
 }
 
+/* ───────────────────────── the AI teammate ───────────────────────── */
+
+const ASSIGNMENT_REQUEST =
+  "You were assigned this work item. Work on it, and reply with what you did or what you need.";
+
+/**
+ * The agent among newly added assignees, if a human added it. Untrusted
+ * items (intake, email) need an explicit confirmation first (D-033); the
+ * UI asks and retries with `confirmUntrusted`.
+ */
+async function assignedAgent(
+  m: Mutation,
+  added: Array<{ id: string }>,
+  untrusted: boolean,
+  confirmed: boolean | undefined,
+): Promise<WorkspaceAgent | null> {
+  if (added.length === 0 || m.ctx.actor.kind !== "HUMAN") return null;
+  const agent = await findAgent(m.tx, m.ctx.workspace.id);
+  if (!agent || !added.some((u) => u.id === agent.userId)) return null;
+  if (untrusted && !confirmed) throw new ConflictError("agent_untrusted");
+  return agent;
+}
+
 /* ───────────────────────── create ───────────────────────── */
 
 /** Creates one item inside the caller's mutation (also used by "create from message"). */
@@ -313,8 +337,9 @@ export async function createOne(
   for (const u of mentioned) await subscribe(tx, ctx, item.id, u, "MENTIONED");
 
   const identifier = `${access.project.identifier}-${sequence}`;
+  const agentAssigned = await assignedAgent(m, assignees, false, false);
   await notify(m, {
-    recipientIds: assignees.map((a) => a.id),
+    recipientIds: assignees.map((a) => a.id).filter((u) => u !== agentAssigned?.userId),
     type: "ASSIGNED",
     workItemId: item.id,
     projectId,
@@ -338,6 +363,13 @@ export async function createOne(
   });
   emitItem(m, projectId, "workItem.created", { id: item.id });
   m.webhook({ event: "work_item.created", entityType: "WORK_ITEM", entityId: item.id, projectId });
+  if (agentAssigned)
+    await queueAgentRun(m, {
+      agent: agentAssigned,
+      trigger: "ASSIGNMENT",
+      request: ASSIGNMENT_REQUEST,
+      workItemId: item.id,
+    });
   return { ...item, identifier };
 }
 
@@ -543,6 +575,7 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     data.parentId = input.parentId;
     act("parent", item.parentId, input.parentId);
   }
+  let agentAssigned: WorkspaceAgent | null = null;
   if (input.assigneeIds !== undefined) {
     const before = new Set(item.assignees.map((a) => a.userId));
     const after = new Set(input.assigneeIds);
@@ -571,8 +604,9 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
           projectId,
           detail: { added: addedUsers.map((u) => u.name) },
         });
+        agentAssigned = await assignedAgent(m, addedUsers, item.untrusted, input.confirmUntrusted);
         await notify(m, {
-          recipientIds: addedUsers.map((u) => u.id),
+          recipientIds: addedUsers.map((u) => u.id).filter((u) => u !== agentAssigned?.userId),
           type: "ASSIGNED",
           workItemId: item.id,
           projectId,
@@ -609,6 +643,14 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
     await tx.workItem.update({ where: { id: item.id }, data: { ...data, updatedAt: new Date() } });
     emitItem(m, projectId, "workItem.updated", { id: item.id, fields: changed });
   }
+  if (agentAssigned)
+    await queueAgentRun(m, {
+      agent: agentAssigned,
+      trigger: "ASSIGNMENT",
+      request: ASSIGNMENT_REQUEST,
+      workItemId: item.id,
+      includeUntrusted: true,
+    });
   void access;
   return { id: item.id, changed };
 }

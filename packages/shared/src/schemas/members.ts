@@ -27,3 +27,6 @@ export const InviteMembersSchema = z.object({
 export type InviteMembersInput = z.input<typeof InviteMembersSchema>;
 
 export const ChangeRoleSchema = z.object({ memberId: z.uuid(), role: WorkspaceRoleSchema });
+
+/** Members (not admins, who always can) who may approve the AI teammate's actions. */
+export const SetApproverSchema = z.object({ memberId: z.uuid(), canApprove: z.boolean() });

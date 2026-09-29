@@ -1,5 +1,40 @@
 # Changelog
 
+## Phase 8: AI teammate (2026-09-29)
+
+**Asking Dopl**
+
+- @mention Dopl in a comment or a chat message, DM it, or assign it a work item. Each request is a run: the item's timeline (or the conversation) shows it live, with Dopl's messages, the tools it used, the commands it ran with their output, approvals, and Stop.
+- The answer comes back as Dopl's comment on the item or its message in the chat (in the thread when it was mentioned in a channel), and the person who asked gets an Inbox notification.
+- Dopl is told only team-written context: the item, recent comments by members, the conversation. Text from forms, emails, contacts and guests stays out unless you ask about that item; then the run is marked **Untrusted input** (D-033, D-118).
+
+**Infrastructure, with approvals** (D-031)
+
+- Dopl reaches servers only through `infra_exec`, on hosts in Settings → AI teammate → Hosts, through Warpgate as its own low-privilege user. A host that isn't listed is refused without connecting.
+- Read-only commands matching an allow rule run at once, unless the host always asks (production) or the run read untrusted content. Everything else waits for a person. DENY rules block a command even after approval, including inside chained commands.
+- **Approval cards** show the exact command and host with its environment, Dopl's stated reason (marked unverified) and risk flags; production asks once more. They appear in the run, on the Dopl page, in the Inbox (with a sidebar badge) and work on phones. Deny with a note; Dopl is told who said no and why.
+- Output streams live, secrets are masked, long logs are kept in storage, and commands are killed after 5 minutes (configurable).
+
+**Control**
+
+- **Stop** on any run, and a **Pause** switch (Dopl page and Settings) that stops every run within seconds, cancels pending approvals and refuses new work.
+- **Dopl** page (`/<ws>/agent`): what's waiting for approval, and recent runs; `/<ws>/agent/runs/<id>` shows one run in full, including what Dopl was told.
+- **Settings → AI teammate** (admins): add Dopl, turn it on or off, the Hermes URL, key variable, model, extra instructions, timeouts and context budget, **Check connection**, hosts, command rules with a **Try a command** tester, and MCP tokens (shown once) with the Hermes config to paste.
+- **Settings → Members:** let a member approve Dopl's actions ("Approves Dopl").
+- Items written outside the team show a banner; admins can **Mark as reviewed**. Assigning Dopl to such an item asks first.
+- **Settings → Audit log** (admins): every approval with who and when, every command started, finished or refused, pauses, rule and token changes, sign-in and settings events; filters and CSV/JSON export (the export is logged too).
+
+**Under the hood**
+
+- The worker drives Hermes through the Runs API (D-115) and executes commands over SSH via Warpgate with a pinned host key (D-122). Runs survive worker restarts by re-attaching (D-119).
+- Dopl's MCP server at `/api/mcp` (Streamable HTTP): `search_work_items`, `get_work_item`, `create_work_item`, `update_work_item`, `add_comment`, `list_assigned_threads`, `get_email_thread`, `list_hosts`, `infra_exec`, `infra_wait`. Every call is a step on the run; writes in a tainted run need approval.
+- Dev and CI use a fake Hermes and a fake executor (D-121); `docs/ops/agent-setup.md` covers the real setup.
+- New env: `HERMES_API_KEY`, `WARPGATE_*`, `AGENT_SSH_*`, `AGENT_EXEC_TIMEOUT_SEC` (worker.env); `HERMES_FAKE_PORT`, `HERMES_FAKE_MCP_TOKEN`, `AGENT_EXEC_FAKE` (dev/CI). New queues: `agent.run`, `agent.exec`, `agent.runtime-approval`, `agent.stop`, `agent.check`, `agent.reconcile`. No migrations. New dependencies: `@modelcontextprotocol/sdk` (web, worker), `ssh2` (worker).
+
+**Fixes**
+
+- The agent's context wrapped an untrusted item's description but not its title; titles are now handled the same way.
+
 ## Phase 7: Shared mailbox (2026-09-29)
 
 **Connecting a mailbox** (Settings → Mailboxes, admins)

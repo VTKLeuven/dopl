@@ -47,6 +47,11 @@ export function notificationPath(ws: string, n: NotificationTarget): string | nu
     }
     case "INTEGRATION_FAILED":
       return `${base}/settings/integrations`;
+    case "AGENT_APPROVAL_REQUESTED": {
+      const run = str(n.data.runId);
+      if (run) return `${base}/agent/runs/${run}`;
+      return `${base}/agent`;
+    }
     case "EMAIL_ASSIGNED":
     case "EMAIL_MENTION":
     case "EMAIL_REPLY": {

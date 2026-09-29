@@ -47,6 +47,10 @@ jobs:
           sed -i "s|^DOPL_ENCRYPTION_KEY=.*|DOPL_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env
           # The shared-mailbox e2e tests drive a fake Gmail (no Google in CI).
           sed -i "s|^GMAIL_FAKE_DIR=.*|GMAIL_FAKE_DIR=.data/fake-gmail|" .env
+          # The AI teammate e2e tests drive a fake Hermes and fake SSH (no model or servers in CI).
+          sed -i "s|^HERMES_FAKE_PORT=.*|HERMES_FAKE_PORT=8643|" .env
+          sed -i "s|^HERMES_FAKE_MCP_TOKEN=.*|HERMES_FAKE_MCP_TOKEN=dopl_mcp_ci_$(openssl rand -hex 16)|" .env
+          sed -i "s|^AGENT_EXEC_FAKE=.*|AGENT_EXEC_FAKE=true|" .env
           PGPASSWORD=dopl psql -h localhost -p 54320 -U dopl -d dopl -c "CREATE DATABASE dopl_test"
       - run: pnpm db:generate
       - run: pnpm db:deploy

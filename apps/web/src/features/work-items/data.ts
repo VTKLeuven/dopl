@@ -17,6 +17,7 @@ import {
   setArchivedManyAction,
 } from "@/server/actions/work-items";
 import type { ActionResult } from "@/server/action-result";
+import { requestUntrustedConfirm } from "@/features/agent/untrusted-confirm";
 import type { ProjectMeta, WorkItemDetail, WorkItemRow } from "./types";
 
 export type CompletedMode = "hide" | "recent" | "show";
@@ -219,15 +220,21 @@ function unwrap<T>(res: ActionResult<T>): T {
 export function useUpdateItem(ws: string, projectId: string) {
   const qc = useQueryClient();
   const t = useTranslations("items");
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (input: UpdateWorkItemInput) => unwrap(await updateWorkItemAction(ws, input)),
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: keys.items(projectId) });
-      const { id, ...patch } = input;
+      const { id, confirmUntrusted: _confirm, ...patch } = input;
+      void _confirm;
       return { snapshot: patchCaches(qc, projectId, [id], patch) };
     },
-    onError: (err, _input, context) => {
+    onError: (err, input, context) => {
       if (context) restore(qc, context.snapshot);
+      // Assigning Dopl to outside content: ask, then retry (D-033).
+      if ((err as Error).message === "agent_untrusted") {
+        requestUntrustedConfirm(() => mutation.mutate({ ...input, confirmUntrusted: true }));
+        return;
+      }
       toast.error(errorMessage(t, err));
     },
     onSettled: (_data, _err, input) => {
@@ -238,6 +245,7 @@ export function useUpdateItem(ws: string, projectId: string) {
       }
     },
   });
+  return mutation;
 }
 
 type BulkPatch = Omit<UpdateWorkItemInput, "id" | "title" | "description">;

@@ -20,6 +20,7 @@ import type { Prisma } from "../generated/prisma/client";
 import { commentBank, people, projects } from "./data";
 import { seedIntake } from "./intake";
 import { seedAnalytics } from "./analytics";
+import { seedAgent } from "./agent";
 import { seedMail } from "./mail";
 import { seedNotes } from "./notes";
 
@@ -81,6 +82,8 @@ async function main() {
     // Notes (and their tags and to-dos) are reseeded too.
     await db.note.deleteMany({ where: { workspaceId: workspace.id } });
     await db.tag.deleteMany({ where: { workspaceId: workspace.id } });
+    // Agent runs (their steps and approvals cascade); the audit log stays.
+    await db.agentRun.deleteMany({ where: { workspaceId: workspace.id } });
     console.log(`Reset: removed ${removed.count} seeded project(s).`);
   }
 
@@ -88,6 +91,8 @@ async function main() {
     where: { workspaceId: workspace.id, deletedAt: null },
   });
   if (existingProjects > 0 && !process.argv.includes("--force-add")) {
+    // The AI teammate came later (Phase 8): seed it into existing workspaces too.
+    await seedAgentFor(workspace.id);
     console.log(
       `Workspace "${workspace.slug}" already has ${existingProjects} project(s); seed skipped (pass --force-add to add anyway).`,
     );
@@ -476,9 +481,33 @@ async function main() {
     `  Mail   it@vtk.be${mails ? `: ${mails} conversations in the fake Gmail` : " (set GMAIL_FAKE_DIR for sample mail)"}`,
   );
 
+  await seedAgentFor(workspace.id);
+
   console.log(`\nSeeded "${workspace.name}" (/${workspace.slug}): ${totalItems} work items.`);
   console.log(`Sign in with any of: ${people.map((p) => p.email).join(", ")}`);
   console.log(`Password (dev only): ${DEV_PASSWORD}`);
+}
+
+/** The agent user, its membership and profile, hosts, rules and the dev MCP token. */
+async function seedAgentFor(workspaceId: string) {
+  const agent = await db.user.upsert({
+    where: { email: "agent@dopl.invalid" },
+    create: { email: "agent@dopl.invalid", name: "Dopl", kind: "AGENT", emailVerified: true },
+    update: {},
+  });
+  await db.workspaceMember.upsert({
+    where: { workspaceId_userId: { workspaceId, userId: agent.id } },
+    create: { workspaceId, userId: agent.id, role: "MEMBER", status: "ACTIVE" },
+    update: {},
+  });
+  const r = await seedAgent(db, {
+    workspaceId,
+    agentUserId: agent.id,
+    approverEmails: ["bram@dopl.test"],
+  });
+  console.log(
+    `  Agent  Dopl: ${r.hosts} hosts, ${r.rules} rules${r.token ? ", MCP token for the fake Hermes" : ""}`,
+  );
 }
 
 try {

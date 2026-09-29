@@ -3,6 +3,7 @@ import { canWorkspace, ForbiddenError } from "@dopl/shared/policy";
 import {
   InviteMembersSchema,
   ChangeRoleSchema,
+  SetApproverSchema,
   type InviteMembersInput,
 } from "@dopl/shared/schemas/members";
 import { generateToken, hashToken } from "@dopl/shared/crypto";
@@ -169,6 +170,34 @@ export async function changeMemberRole(ctx: WorkspaceCtx, raw: unknown) {
       field: "role",
       fromValue: member.role,
       toValue: role,
+    });
+    emit({
+      topic: `workspace:${ctx.workspace.id}`,
+      type: "member.updated",
+      payload: { userId: member.userId },
+    });
+  });
+}
+
+/** Admins let a member approve (or stop approving) the AI teammate's actions. */
+export async function setCanApproveAgentActions(ctx: WorkspaceCtx, raw: unknown) {
+  assertAdmin(ctx);
+  const { memberId, canApprove } = SetApproverSchema.parse(raw);
+  return withMutation(ctx, async ({ tx, emit }) => {
+    const member = await tx.workspaceMember.findFirst({
+      where: { id: memberId, workspaceId: ctx.workspace.id, user: { kind: "HUMAN" } },
+      select: { id: true, role: true, userId: true },
+    });
+    if (!member) throw new NotFoundError();
+    if (member.role === "GUEST") throw new ConflictError("guest_cannot_approve");
+    await tx.workspaceMember.update({
+      where: { id: member.id },
+      data: { canApproveAgentActions: canApprove },
+    });
+    await audit(tx, ctx, {
+      action: canApprove ? "member.agent_approver_added" : "member.agent_approver_removed",
+      targetType: "WorkspaceMember",
+      targetId: member.id,
     });
     emit({
       topic: `workspace:${ctx.workspace.id}`,

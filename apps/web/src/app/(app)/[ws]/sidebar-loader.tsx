@@ -5,6 +5,8 @@ import { triageProjectIds } from "@/server/queries/intake";
 import { readableMailboxIds } from "@/server/queries/mail";
 import { listFavoriteViews } from "@/server/queries/views";
 import { getWorkspaceCtx } from "@/server/session";
+import { findAgent } from "@/server/agent/runs";
+import { db } from "@/server/db";
 import { Sidebar } from "@/components/shell/sidebar";
 import { MobileNav } from "@/components/shell/mobile-nav";
 
@@ -12,11 +14,12 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
   const { ws } = await params;
   const ctx = await getWorkspaceCtx(ws);
   if (!ctx) notFound();
-  const [projects, favorites, intakePending, mailboxes] = await Promise.all([
+  const [projects, favorites, intakePending, mailboxes, agent] = await Promise.all([
     listSidebarProjects(ctx),
     listFavoriteViews(ctx),
     triageProjectIds(ctx),
     readableMailboxIds(ctx),
+    ctx.role === "GUEST" ? null : findAgent(db, ctx.workspace.id),
   ]);
   const props = {
     workspace: { slug: ctx.workspace.slug, name: ctx.workspace.name },
@@ -37,6 +40,7 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     showMail:
       mailboxes.length > 0 || canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage"),
     canChat: ctx.role !== "GUEST",
+    showAgent: Boolean(agent),
   };
   return (
     <>

@@ -42,6 +42,7 @@ export function RealtimeProvider() {
     const items = new Set<string>();
     const metas = new Set<string>();
     const intake = new Set<string>();
+    const agentKeys = new Set<string>();
     let refreshPage = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -61,6 +62,9 @@ export function RealtimeProvider() {
       for (const p of intake) void qc.invalidateQueries({ queryKey: ["intake", p] });
       if (metas.size) void qc.invalidateQueries({ queryKey: ["meta", "workspace"] });
       for (const key of comms.splice(0)) void qc.invalidateQueries({ queryKey: key });
+      for (const key of agentKeys)
+        void qc.invalidateQueries({ queryKey: JSON.parse(key) as QueryKey });
+      agentKeys.clear();
       if (refreshPage) router.refresh();
       scopes.clear();
       items.clear();
@@ -90,6 +94,25 @@ export function RealtimeProvider() {
         } else if (id && ev.type !== "presence") {
           void qc.invalidateQueries({ queryKey: ["mail", ws, "thread", id] });
         }
+        return;
+      }
+      // The AI teammate (Phase 8): run cards, the agent page, conversations, settings.
+      if (ev.type.startsWith("agent")) {
+        const p = (ev.payload ?? {}) as { runId?: string; id?: string };
+        const runId = p.runId ?? (ev.type.startsWith("agentRun.") ? p.id : undefined);
+        if (runId) agentKeys.add(JSON.stringify(["agent", ws, "run", runId]));
+        const [kind, id] = ev.topic.split(":");
+        if (kind === "agent") {
+          agentKeys.add(JSON.stringify(["agent", ws, "activity"]));
+          if (ev.type === "agentSettings.updated" && path.current.includes("/settings/agent"))
+            refreshPage = true;
+        }
+        // Streaming steps only touch their run; runs and approvals also move the item and chat.
+        if (!ev.type.startsWith("agentStep.")) {
+          if (kind === "workItem" && id) items.add(id);
+          if (kind === "channel" && id) agentKeys.add(JSON.stringify(["agent", ws, "channel", id]));
+        }
+        schedule();
         return;
       }
       // Dashboards (Phase 6): the list and layouts; charts refresh on their own schedule.

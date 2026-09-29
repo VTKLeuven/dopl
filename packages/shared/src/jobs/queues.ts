@@ -32,6 +32,19 @@ export const queues = {
   "gmail.fetch-attachment": z.object({ attachmentId: z.uuid() }),
   /** Sends one outbound reply (Phase 7b). */
   "gmail.send": z.object({ messageId: z.uuid() }),
+  /* AI teammate (Phase 8). Only the worker talks to Hermes and holds the SSH key (D-027). */
+  /** Starts (or re-attaches to) one run and follows its events to the end. */
+  "agent.run": z.object({ runId: z.uuid() }),
+  /** Runs one approved or allowlisted command over SSH via Warpgate. */
+  "agent.exec": z.object({ stepId: z.uuid() }),
+  /** Answers a runtime-raised approval (Hermes `approval.request`): once or deny. */
+  "agent.runtime-approval": z.object({ approvalId: z.uuid() }),
+  /** Tells the runtime to stop a run the web side cancelled (Stop, Pause). */
+  "agent.stop": z.object({ runId: z.uuid() }),
+  /** Settings → AI teammate: reach the runtime and read its capabilities. */
+  "agent.check": z.object({ profileId: z.uuid(), requestId: z.uuid() }),
+  /** Every minute: expire approvals, time out runs, re-attach after a restart. */
+  "agent.reconcile": z.object({}),
   "notifications.fanout": z.object({
     workspaceId: z.uuid(),
     activityIds: z.array(z.uuid()).min(1),

@@ -6,6 +6,7 @@ import { sendOutboundEmail } from "../email/send";
 import { env } from "../env";
 import { queueOptions } from "../queues";
 import { snapshotProjects } from "./analytics";
+import { registerAgentHandlers } from "../agent";
 import { registerMailHandlers } from "./mail";
 import { sendDigests } from "./digest";
 import { wakeSnoozed } from "./snooze";
@@ -99,5 +100,11 @@ export async function registerHandlers(ctx: JobContext): Promise<() => void> {
   });
 
   // Shared mailbox (Phase 7).
-  return registerMailHandlers({ boss, db, logger, tz });
+  const stopMail = await registerMailHandlers({ boss, db, logger, tz });
+  // AI teammate (Phase 8).
+  const stopAgent = await registerAgentHandlers({ boss, db, logger });
+  return () => {
+    stopMail();
+    stopAgent();
+  };
 }

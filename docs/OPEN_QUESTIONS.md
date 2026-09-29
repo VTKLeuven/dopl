@@ -10,6 +10,9 @@ Each question has my **proposed default**. Wherever that works for you, a reply 
 | Q-2            | **Invite-only** for everyone (D-050).                                                                                                                                                     |
 | Q-3            | **Google Workspace SMTP relay** (D-036).                                                                                                                                                  |
 | Q-4            | **Public**, at `dopl.vtk.be` (D-051).                                                                                                                                                     |
+| Q-7            | Hermes' own terminal/code tools are **disabled**; the worker reaches Hermes on :8642 and Hermes reaches `/api/mcp` (2026-09-29, D-115).                                                   |
+| Q-17           | One Warpgate user `dopl-agent` with key authentication and per-target roles; targets referenced by name; a non-root account on the targets (D-122, `docs/ops/agent-setup.md`).            |
+| Q-18           | Qwen 3.8 27B, 128k context, reliable tool calls through the OpenAI-compatible server; 60k characters of context by default (D-118).                                                       |
 | Other defaults | "All choices seem good": defaults apply to every question you haven't answered. Prisma 8 was requested if available; it isn't GA yet (D-049).                                             |
 
 New requirements: Discord webhooks (D-052) and Better Auth email+password logins and/or SSO (D-050).

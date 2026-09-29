@@ -29,6 +29,7 @@ async function Members({ params }: { params: PageProps<"/[ws]/settings/members">
         role: true,
         status: true,
         joinedAt: true,
+        canApproveAgentActions: true,
         user: { select: { id: true, name: true, email: true, image: true } },
       },
     }),

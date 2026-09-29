@@ -8,6 +8,7 @@ import {
   inviteMembers,
   resendInvite,
   revokeInvite,
+  setCanApproveAgentActions,
   setMemberActive,
 } from "../services/members";
 
@@ -38,6 +39,12 @@ export async function revokeInviteAction(ws: string, inviteId: string) {
 export async function resendInviteAction(ws: string, inviteId: string) {
   const ctx = await requireWorkspaceCtx(ws);
   const res = await run(() => resendInvite(ctx, inviteId));
+  if (res.ok) refresh();
+  return res;
+}
+export async function setApproverAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  const res = await run(() => setCanApproveAgentActions(ctx, input));
   if (res.ok) refresh();
   return res;
 }

@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/cn";
 import { authClient } from "@/lib/auth-client";
 import { DoplMark } from "@/components/icons/dopl-logo";
-import { Avatar } from "@/components/ui/avatar";
+import { AgentAvatar, Avatar } from "@/components/ui/avatar";
 import { Shortcut } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Inbox as InboxIcon, MessagesSquare } from "lucide-react";
 import { InboxNavBadge } from "@/features/inbox/nav-badge";
+import { AgentNavBadge } from "@/features/agent/nav-badge";
 import { MessagesNavDot } from "@/features/messages/nav-dot";
 import { ProjectBadge } from "./project-badge";
 import { openCommandPalette } from "./command-palette-events";
@@ -57,6 +58,8 @@ export interface SidebarProps {
   showContacts?: boolean;
   showAnalytics?: boolean;
   showMail?: boolean;
+  /** The AI teammate's page: the team, when the workspace has an agent (Phase 8). */
+  showAgent?: boolean;
   /** Team chat is for members; guests don't get Messages (Phase 4). */
   canChat?: boolean;
   onNavigate?: () => void;
@@ -155,6 +158,7 @@ export function Sidebar({
   showContacts = false,
   showAnalytics = false,
   showMail = false,
+  showAgent = false,
   canChat = false,
   onNavigate,
 }: SidebarProps) {
@@ -211,6 +215,16 @@ export function Sidebar({
             active={isActive(`${base}/messages`)}
             onNavigate={onNavigate}
             trailing={<MessagesNavDot ws={workspace.slug} />}
+          />
+        ) : null}
+        {showAgent ? (
+          <NavItem
+            href={`${base}/agent`}
+            icon={<AgentAvatar size="xs" />}
+            label={t("agent")}
+            active={isActive(`${base}/agent`)}
+            onNavigate={onNavigate}
+            trailing={<AgentNavBadge ws={workspace.slug} />}
           />
         ) : null}
         {showMail ? (

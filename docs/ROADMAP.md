@@ -438,7 +438,33 @@ Where it differs from the plan below:
 
 ---
 
-## Phase 8: AI teammate
+## Phase 8: AI teammate ✅ (built 2026-09-29, awaiting review)
+
+**Status.** Everything below is built. It was built and tested against a fake Hermes and a fake SSH executor (D-121); connecting the real Hermes and Warpgate follows `docs/ops/agent-setup.md` (Q-7, Q-17 and Q-18 are answered). The CHANGELOG has the summary; decisions D-115 to D-124 record the choices. Every red-team check is covered by a test:
+
+| #   | Check                                                  | Where                                                                                                       |
+| --- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| 1   | Injected email → `docker ps` needs approval            | `apps/web/src/server/agent/agent.test.ts` (through `/api/mcp` with a real token)                            |
+| 2   | Unlisted host refused, no SSH attempt                  | `agent.test.ts` (no step host, no `agent.exec` job), `domain/agent.test.ts`                                 |
+| 3   | DENY blocks even after approval                        | `apps/worker/src/agent/jobs.test.ts`, `agent.test.ts`, `domain/agent.test.ts`, e2e `agent.spec.ts`          |
+| 4   | Pause stops a run within 5 s, cancels approvals, tools | `jobs.test.ts` (run and SSH channel), `agent.test.ts`                                                       |
+| 5   | Exact command and host, logged with who and when       | `agent.test.ts`, e2e `agent.spec.ts`                                                                        |
+| 6   | The SSH key only in the worker                         | `deploy.test.ts` (compose mounts, env templates, the web refuses `AGENT_SSH_KEY_FILE`, `HERMES_API_KEY`, …) |
+| 7   | A finished run's token is rejected                     | `agent.test.ts`                                                                                             |
+| 8   | A worker restart reconciles via `GET /v1/runs/{id}`    | `jobs.test.ts`                                                                                              |
+
+Where it differs from the plan below:
+
+- **Hermes' API** differs in a few names from what D-030 assumed (capability flags, `session_id` in the body, the approval body); D-115 has the verified shape.
+- **The agent page** (`/<ws>/agent`) is new: approvals waiting for someone and recent runs, with the Pause switch; each run has its own page.
+- **"Approves Dopl"** is a per-member switch in Settings → Members; admins always can.
+
+**Not done yet, carried forward:**
+
+- [ ] Tested against a real Hermes and Warpgate (needs the services; the adapter is tested against the fake over real HTTP/SSE)
+- [ ] Discord posts for `agent.approval_requested` (the event exists; the renderer doesn't handle approvals yet)
+- [ ] Keyboard shortcuts for approvals (`⌘⇧Y` / `⌘⇧N`, DESIGN_SYSTEM §8)
+- [ ] More than one concurrent run per agent (D-034 keeps it at one)
 
 1. **Agent member:** a `User(kind = AGENT)`, `AgentProfile` settings (runtime URL, key env name, model, instructions, timeouts), a status pill, and the global **Pause** switch.
 2. **Runtime:** the `AgentRuntime` interface and the `HermesRuntime` adapter (Runs API, SSE event mapping, idempotency, stop, status reconciliation after restarts), plus a connectivity and capabilities check in settings.

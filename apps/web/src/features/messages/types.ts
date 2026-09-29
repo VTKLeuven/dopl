@@ -72,6 +72,8 @@ export interface MessageView {
   channelId: string;
   threadRootId: string | null;
   kind: "USER" | "SYSTEM" | "AGENT";
+  /** The AI teammate's answer: the run it came from (Phase 8). */
+  agentRunId: string | null;
   author: Pick<Person, "id" | "name" | "image" | "kind"> | null;
   body: unknown;
   /** Soft-deleted roots with replies stay as a tombstone. */
