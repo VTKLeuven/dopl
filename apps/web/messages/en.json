@@ -517,7 +517,9 @@
     "archivedMany": "{count, plural, one {Item archived} other {# items archived}}",
     "movedMany": "{count, plural, one {Item moved} other {# items moved}}",
     "moveTo": "Move to project",
-    "noSwimlanes": "None"
+    "noSwimlanes": "None",
+    "truncatedTitle": "Showing part of the results",
+    "truncatedBody": "Only the first {count, number} items are shown. Add a filter to narrow the list down."
   },
   "projectSettings": {
     "title": "Project settings",

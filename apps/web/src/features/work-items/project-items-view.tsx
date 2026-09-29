@@ -42,6 +42,7 @@ import { FavoriteButton, ViewMenu, ViewStateActions } from "@/features/views/vie
 import type { ViewDetail } from "@/server/queries/views";
 import { cn } from "@/lib/cn";
 import { saveViewPreferenceAction } from "@/server/actions/view-preferences";
+import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
@@ -722,6 +723,11 @@ export function ProjectItemsView({
           ) : undefined
         }
       />
+      {items?.truncated ? (
+        <Banner tone="warning" className="mx-4 my-2 md:mx-5" title={t("truncatedTitle")}>
+          {t("truncatedBody", { count: items.rows.length })}
+        </Banner>
+      ) : null}
 
       {isEmpty && !search ? (
         <EmptyState

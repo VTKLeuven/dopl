@@ -24,6 +24,7 @@ export interface ItemsData {
   rows: WorkItemRow[];
   hiddenDone: number;
   hiddenByState: Record<string, number>;
+  truncated?: boolean;
 }
 
 /* ─────────────── query keys (one place; realtime reuses them later) ─────────────── */

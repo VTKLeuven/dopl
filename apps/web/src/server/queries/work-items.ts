@@ -100,6 +100,8 @@ export interface ItemsResult {
   rows: WorkItemRow[];
   hiddenDone: number;
   hiddenByState: Record<string, number>;
+  /** More items matched than one response carries (see *_ITEMS_LIMIT). */
+  truncated: boolean;
 }
 
 export function compileContext(ctx: WorkspaceCtx): CompileContext {
@@ -119,8 +121,10 @@ export async function listItems(
   ctx: WorkspaceCtx,
   projects: Array<{ id: string; identifier: string }>,
   query: ItemsQuery,
+  opts: { limit?: number } = {},
 ): Promise<ItemsResult> {
   const identifiers = new Map(projects.map((p) => [p.id, p.identifier]));
+  const limit = opts.limit ?? PROJECT_ITEMS_LIMIT;
   const base: Prisma.WorkItemWhereInput = {
     workspaceId: ctx.workspace.id,
     projectId: { in: [...identifiers.keys()] },
@@ -128,11 +132,16 @@ export async function listItems(
     archivedAt: null,
   };
   const user = compileFilter(query.filters, compileContext(ctx));
-  const [rows, doneByState] = await Promise.all([
+  // Two steps: Prisma applies the filter and returns ids only, then one SQL
+  // query loads those rows with assignees and labels aggregated by Postgres.
+  // Row mapping dominated the cost at 50k items (DECISIONS D-062).
+  const [matches, doneByState] = await Promise.all([
     db.workItem.findMany({
       where: { AND: [base, user, completedWhere(query.completed)] },
-      select: rowSelect,
-      orderBy: { sortKey: "asc" },
+      select: { id: true },
+      // With a cap, keep the most recently touched items across projects.
+      orderBy: identifiers.size > 1 ? { updatedAt: "desc" } : { sortKey: "asc" },
+      take: limit + 1,
     }),
     query.completed === "show"
       ? Promise.resolve([])
@@ -142,6 +151,10 @@ export async function listItems(
           _count: { _all: true },
         }),
   ]);
+  const truncated = matches.length > limit;
+  const ids = matches.slice(0, limit).map((m) => m.id);
+  const rows = ids.length ? await loadRows(ids, identifiers) : [];
+
   const shownByState = new Map<string, number>();
   for (const r of rows)
     if (DONE_GROUPS.includes(r.stateGroup))
@@ -153,11 +166,85 @@ export async function listItems(
     if (hidden > 0) hiddenByState[g.stateId] = hidden;
     hiddenDone += hidden;
   }
-  return {
-    rows: rows.map((r) => toRow(r, identifiers.get(r.projectId) ?? "")),
-    hiddenDone,
-    hiddenByState,
-  };
+  return { rows, hiddenDone, hiddenByState, truncated };
+}
+
+/** Upper bounds on one list response; views past this ask for a narrower filter. */
+export const PROJECT_ITEMS_LIMIT = 10_000;
+export const WORKSPACE_ITEMS_LIMIT = 2_000;
+
+interface RawRow {
+  id: string;
+  projectId: string;
+  sequence: number | null;
+  title: string;
+  stateId: string;
+  stateGroup: WorkItemRow["stateGroup"];
+  priority: WorkItemRow["priority"];
+  typeId: string | null;
+  parentId: string | null;
+  sortKey: string;
+  startDate: string | null;
+  dueDate: string | null;
+  estimate: number | null;
+  childCount: number;
+  childDoneCount: number;
+  commentCount: number;
+  attachmentCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt: Date | null;
+  assigneeIds: string[] | null;
+  labelIds: string[] | null;
+}
+
+async function loadRows(ids: string[], identifiers: Map<string, string>): Promise<WorkItemRow[]> {
+  // Aggregating assignees and labels once per request beats a subquery per row.
+  const raw = await db.$queryRaw<RawRow[]>`
+    WITH a AS (
+      SELECT "workItemId", array_agg("userId"::text) AS ids FROM work_item_assignees
+      WHERE "workItemId" = ANY(${ids}::uuid[]) GROUP BY 1
+    ), l AS (
+      SELECT "workItemId", array_agg("labelId"::text) AS ids FROM work_item_labels
+      WHERE "workItemId" = ANY(${ids}::uuid[]) GROUP BY 1
+    )
+    SELECT w.id, w."projectId", w.sequence, w.title, w."stateId", w."stateGroup"::text AS "stateGroup",
+           w.priority::text AS priority, w."typeId", w."parentId", w."sortKey",
+           to_char(w."startDate", 'YYYY-MM-DD') AS "startDate",
+           to_char(w."dueDate", 'YYYY-MM-DD') AS "dueDate",
+           w.estimate, w."childCount", w."childDoneCount", w."commentCount", w."attachmentCount",
+           w."createdAt", w."updatedAt", w."completedAt",
+           a.ids AS "assigneeIds", l.ids AS "labelIds"
+    FROM work_items w
+    LEFT JOIN a ON a."workItemId" = w.id
+    LEFT JOIN l ON l."workItemId" = w.id
+    WHERE w.id = ANY(${ids}::uuid[])
+    ORDER BY w."sortKey"`;
+  return raw.map((r) => ({
+    id: r.id,
+    projectId: r.projectId,
+    sequence: r.sequence,
+    identifier: formatIdentifier(identifiers.get(r.projectId) ?? "", r.sequence),
+    title: r.title,
+    stateId: r.stateId,
+    stateGroup: r.stateGroup,
+    priority: r.priority,
+    typeId: r.typeId,
+    parentId: r.parentId,
+    sortKey: r.sortKey,
+    startDate: r.startDate,
+    dueDate: r.dueDate,
+    estimate: r.estimate,
+    assigneeIds: r.assigneeIds ?? [],
+    labelIds: r.labelIds ?? [],
+    childCount: r.childCount,
+    childDoneCount: r.childDoneCount,
+    commentCount: r.commentCount,
+    attachmentCount: r.attachmentCount,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    completedAt: r.completedAt?.toISOString() ?? null,
+  }));
 }
 
 /** `?completed=hide|recent|show&f=<filter JSON>`; anything invalid falls back to defaults. */

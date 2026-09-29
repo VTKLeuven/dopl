@@ -24,7 +24,8 @@
     "db:reset": "pnpm --filter @dopl/db reset",
     "db:drift": "pnpm --filter @dopl/db drift",
     "db:studio": "pnpm --filter @dopl/db studio",
-    "dopl:bootstrap": "pnpm --filter @dopl/db bootstrap"
+    "dopl:bootstrap": "pnpm --filter @dopl/db bootstrap",
+    "perf": "vitest run --config vitest.perf.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

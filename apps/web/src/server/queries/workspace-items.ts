@@ -4,7 +4,7 @@ import type { ProjectMeta } from "@/features/work-items/types";
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
 import { accessibleProjectsWhere } from "./projects";
-import { listItems, type ItemsQuery } from "./work-items";
+import { listItems, WORKSPACE_ITEMS_LIMIT, type ItemsQuery } from "./work-items";
 
 /**
  * Cross-project ("workspace") views. Guests never get these: their access is
@@ -24,7 +24,7 @@ export async function workspaceProjects(ctx: WorkspaceCtx) {
 }
 
 export async function listWorkspaceItems(ctx: WorkspaceCtx, query: ItemsQuery) {
-  return listItems(ctx, await workspaceProjects(ctx), query);
+  return listItems(ctx, await workspaceProjects(ctx), query, { limit: WORKSPACE_ITEMS_LIMIT });
 }
 
 /**
