@@ -46,8 +46,8 @@ async function setup(status = 204, body: unknown = null) {
     },
   });
   const calls: Array<{ url: string; body: unknown }> = [];
-  const fetchImpl = ((url: string, init: RequestInit) => {
-    calls.push({ url, body: JSON.parse(String(init.body)) });
+  const fetchImpl = ((url: string, init: { body: string }) => {
+    calls.push({ url, body: JSON.parse(init.body) });
     return Promise.resolve(
       new Response(body === null ? null : JSON.stringify(body), {
         status,
