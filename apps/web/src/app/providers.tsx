@@ -32,9 +32,15 @@ function UnsavedChangesGuard() {
   const pending = useIsMutating();
   useEffect(() => {
     if (pending === 0) return;
+    // <html data-saving> while writes are in flight: tests wait on it instead
+    // of guessing from network activity (the realtime stream never idles).
+    document.documentElement.dataset.saving = "true";
     const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      delete document.documentElement.dataset.saving;
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
   }, [pending]);
   return null;
 }

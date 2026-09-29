@@ -562,12 +562,25 @@ function ItemPropertyPage({
   const apply = useApply(ws);
   const { data: detail } = useWorkItemDetail(ws, item.identifier);
   const { data: meta } = useProjectMeta(ws, detail?.projectId ?? "");
-  if (!detail || !meta) return null;
   const set = (patch: Record<string, unknown>, keepOpen = false) => {
     if (!keepOpen) close();
     void apply(item, patch);
   };
   const check = (on: boolean) => (on ? <Check className="ml-auto text-sky-600" /> : null);
+  // Priority needs nothing loaded; the other pages need the item's project.
+  if (kind === "priority")
+    return (
+      <CommandGroup heading={t("page.priority")}>
+        {priorities.map((p: Priority) => (
+          <CommandItem key={p} value={ti(`priority.${p}`)} onSelect={() => set({ priority: p })}>
+            <PriorityIcon priority={p} />
+            {ti(`priority.${p}`)}
+            {check(p === detail?.priority)}
+          </CommandItem>
+        ))}
+      </CommandGroup>
+    );
+  if (!detail || !meta) return null;
 
   switch (kind) {
     case "state":
@@ -578,18 +591,6 @@ function ItemPropertyPage({
               <StateIcon group={s.group} color={s.color} />
               {s.name}
               {check(s.id === detail.stateId)}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      );
-    case "priority":
-      return (
-        <CommandGroup heading={t("page.priority")}>
-          {priorities.map((p: Priority) => (
-            <CommandItem key={p} value={ti(`priority.${p}`)} onSelect={() => set({ priority: p })}>
-              <PriorityIcon priority={p} />
-              {ti(`priority.${p}`)}
-              {check(p === detail.priority)}
             </CommandItem>
           ))}
         </CommandGroup>
