@@ -20,10 +20,11 @@ export async function notifyFromJob(
     workspaceId: string;
     recipientIds: string[];
     type: "SNOOZE_ENDED" | "INTEGRATION_FAILED";
-    entityType: "INTAKE_ITEM" | "WORKSPACE";
+    entityType: "INTAKE_ITEM" | "WORKSPACE" | "EMAIL_THREAD";
     entityId: string;
     projectId?: string | null;
     workItemId?: string | null;
+    emailThreadId?: string | null;
     data: Prisma.InputJsonObject;
   },
 ): Promise<void> {
@@ -37,6 +38,7 @@ export async function notifyFromJob(
         entityId: n.entityId,
         projectId: n.projectId ?? null,
         workItemId: n.workItemId ?? null,
+        emailThreadId: n.emailThreadId ?? null,
         data: n.data,
       },
       select: { id: true },

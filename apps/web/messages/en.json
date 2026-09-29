@@ -1106,7 +1106,7 @@
       "AGENT_RUN_FINISHED": "Dopl finished a task",
       "EMAIL_ASSIGNED": "{actor} assigned you an email",
       "EMAIL_MENTION": "{actor} mentioned you on an email",
-      "EMAIL_REPLY": "New reply on an email you follow",
+      "EMAIL_REPLY": "{from} wrote",
       "DUE_SOON": "Due soon",
       "SNOOZE_ENDED": "A request you snoozed is back in the queue",
       "INTAKE_UPDATED": "{status, select, accepted {Your request was accepted} declined {Your request was declined} duplicate {Your request was merged with an existing one} other {Your request was updated}}",
@@ -1114,7 +1114,9 @@
       "INTEGRATION_FAILED": "The Discord webhook {name} was turned off after repeated failures",
       "movedTo": "{actor} moved it to {to}",
       "updated": "{actor} updated it",
-      "requestReply": "{actor} replied to your request"
+      "requestReply": "{actor} replied to your request",
+      "EMAIL_REOPENED": "{from} wrote back, so the conversation is open again",
+      "SNOOZE_ENDED_EMAIL": "A conversation you snoozed is back"
     },
     "typeLabel": {
       "MENTION": "Mention",
