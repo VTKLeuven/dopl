@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dopl/db": "workspace:*",
+    "@dopl/server": "workspace:*",
     "@dopl/shared": "workspace:*",
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",

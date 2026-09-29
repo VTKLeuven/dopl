@@ -1,0 +1,25 @@
+{
+  "name": "@dopl/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-only code shared by apps/web and apps/worker (blob storage, webhook dispatch). Never import it from client components.",
+  "exports": {
+    "./storage": "./src/storage.ts",
+    "./webhooks": "./src/webhooks.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/s3-request-presigner": "^3.1142.0",
+    "@dopl/db": "workspace:*",
+    "@dopl/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -11,8 +11,6 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1142.0",
-    "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@better-auth/prisma-adapter": "1.7.6",
     "@better-auth/sso": "1.7.6",
     "@date-fns/tz": "^1.5.0",
@@ -20,6 +18,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@dopl/db": "workspace:*",
+    "@dopl/server": "workspace:*",
     "@dopl/shared": "workspace:*",
     "@tanstack/react-query": "^5.104.0",
     "@tanstack/react-table": "^9.2.4",

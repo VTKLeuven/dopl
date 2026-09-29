@@ -1,10 +1,11 @@
 import "server-only";
 import type { EntityType, Prisma, TransactionClient } from "@dopl/db";
-import type { WebhookEvent } from "@dopl/shared/schemas/webhooks";
 import { uuidv7 } from "@dopl/shared/ids";
 import { db } from "./db";
 import type { WorkspaceCtx } from "./session";
-import { queueWebhookEvents } from "./webhooks/dispatch";
+import { queueWebhookEvents, type WebhookEventInput } from "./webhooks/dispatch";
+
+export type { WebhookEventInput };
 
 export interface ActivityInput {
   entityType: EntityType;
@@ -23,15 +24,6 @@ export interface RealtimeInput {
   topic: string;
   type: string;
   payload: Prisma.InputJsonValue;
-}
-
-/** A domain event for outgoing webhooks (D-052); matched and queued on commit. */
-export interface WebhookEventInput {
-  event: WebhookEvent;
-  entityType: "WORK_ITEM" | "INTAKE_ITEM";
-  entityId: string;
-  projectId: string;
-  detail?: Record<string, Prisma.InputJsonValue>;
 }
 
 /** Who a mutation is attributed to in Activity rows. */
