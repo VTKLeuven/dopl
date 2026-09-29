@@ -2134,7 +2134,14 @@
         "SENDING": "Sending…",
         "SENT": "Sent",
         "FAILED": "Not sent"
-      }
+      },
+      "composerMode": "Write a reply or an internal note",
+      "reply": "Reply",
+      "internalNote": "Internal note",
+      "replyTo": "To",
+      "replyAll": "Reply all",
+      "replyPlaceholder": "Write your reply…",
+      "send": "Send"
     },
     "promote": {
       "title": "Create a work item from this email",
@@ -2156,7 +2163,8 @@
     "errors": {
       "generic": "Something went wrong. Try again.",
       "forbidden": "You can't do that in this mailbox.",
-      "assigneeCannotRead": "That person can't read this mailbox. Add them to it first."
+      "assigneeCannotRead": "That person can't read this mailbox. Add them to it first.",
+      "sendDisabled": "Replying from Dopl is turned off for this mailbox."
     },
     "timeline": {
       "someone": "Someone",

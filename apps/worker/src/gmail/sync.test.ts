@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import pino from "pino";
 import { createDbClient } from "@dopl/db";
 import type { TxEnqueue } from "../enqueue";
-import { appendMessage, expireHistory, FakeGmail } from "./fake";
+import { appendMessage, expireHistory, FakeGmail, readStore } from "./fake";
+import { sendReply } from "./send";
 import { backfill, sync, testConnection, type SyncDeps } from "./sync";
 
 const db = createDbClient({
@@ -180,5 +181,88 @@ describe("gmail sync", () => {
     const m = await db.mailbox.findUniqueOrThrow({ where: { id: mailbox.id } });
     expect(m.status).toBe("ERROR");
     expect(m.syncError).toMatch(/someone-else/);
+  });
+});
+
+describe("gmail send (Phase 7b)", () => {
+  it("sends a queued reply in the thread, then the sync doesn't duplicate it", async () => {
+    const { dir, address, mailbox, deps } = await setup();
+    const first = await appendMessage(dir, address, {
+      from: "lotte@example.test",
+      subject: "Printer",
+      text: "Broken",
+    });
+    await testConnection(deps, mailbox.id);
+    await backfill(deps, mailbox.id, "BACKFILL");
+    await db.mailbox.update({ where: { id: mailbox.id }, data: { sendEnabled: true } });
+    const thread = await db.emailThread.findFirstOrThrow({ where: { mailboxId: mailbox.id } });
+    const inbound = await db.emailMessage.findFirstOrThrow({ where: { threadId: thread.id } });
+    const reply = await db.emailMessage.create({
+      data: {
+        workspaceId: mailbox.workspaceId,
+        mailboxId: mailbox.id,
+        threadId: thread.id,
+        direction: "OUTBOUND",
+        rfc822MessageId: "<reply-1@vtk.test>",
+        inReplyTo: inbound.rfc822MessageId,
+        references: [inbound.rfc822MessageId ?? ""],
+        fromAddress: address,
+        toAddresses: [{ email: "lotte@example.test", name: null }],
+        subject: "Re: Printer",
+        bodyText: "We're on it.",
+        bodyHtmlSanitized: "<p>We're on it.</p>",
+        sentAt: new Date(),
+        outboundStatus: "QUEUED",
+      },
+    });
+
+    expect(await sendReply(deps, reply.id, { retryCount: 0, retryLimit: 5 })).toBe("sent");
+    const sent = await db.emailMessage.findUniqueOrThrow({ where: { id: reply.id } });
+    expect(sent.outboundStatus).toBe("SENT");
+    expect(sent.gmailMessageId).not.toBeNull();
+    const store = await readStore(dir, address);
+    const inGmail = store.messages[sent.gmailMessageId!];
+    expect(inGmail?.threadId).toBe(first.threadId);
+    expect(inGmail?.payload?.headers?.find((h) => h.name === "In-Reply-To")?.value).toBe(
+      inbound.rfc822MessageId,
+    );
+    const t = await db.emailThread.findUniqueOrThrow({ where: { id: thread.id } });
+    expect(t.firstResponseAt).not.toBeNull();
+    expect(t.messageCount).toBe(2);
+
+    await sync(deps, mailbox.id, "push");
+    expect(await db.emailMessage.count({ where: { threadId: thread.id } })).toBe(2);
+  });
+
+  it("marks a reply failed after the last attempt, with the reason", async () => {
+    const { mailbox, deps, address } = await setup();
+    const thread = await db.emailThread.create({
+      data: {
+        workspaceId: mailbox.workspaceId,
+        mailboxId: mailbox.id,
+        gmailThreadId: "t",
+        subject: "x",
+        lastMessageAt: new Date(),
+      },
+    });
+    const reply = await db.emailMessage.create({
+      data: {
+        workspaceId: mailbox.workspaceId,
+        mailboxId: mailbox.id,
+        threadId: thread.id,
+        direction: "OUTBOUND",
+        fromAddress: address,
+        subject: "Re: x",
+        sentAt: new Date(),
+        outboundStatus: "QUEUED",
+      },
+    });
+    // Replying is off for this mailbox.
+    await expect(sendReply(deps, reply.id, { retryCount: 5, retryLimit: 5 })).rejects.toThrow(
+      /turned off/,
+    );
+    const failed = await db.emailMessage.findUniqueOrThrow({ where: { id: reply.id } });
+    expect(failed.outboundStatus).toBe("FAILED");
+    expect(failed.outboundError).toMatch(/turned off/);
   });
 });

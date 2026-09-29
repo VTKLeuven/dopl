@@ -1,7 +1,14 @@
 import "server-only";
 import type { TransactionClient } from "@dopl/db";
 import { canMailbox, ForbiddenError, type MailboxAction } from "@dopl/shared/policy";
-import { docToPlainText, extractMentions, sanitizeDoc, textToDoc } from "@dopl/shared/rich-text";
+import { normalizeEmail, type Address } from "@dopl/shared/domain/mail";
+import {
+  docToHtml,
+  docToPlainText,
+  extractMentions,
+  sanitizeDoc,
+  textToDoc,
+} from "@dopl/shared/rich-text";
 import {
   AssignThreadSchema,
   CreateMailboxSchema,
@@ -10,6 +17,7 @@ import {
   MailboxIdSchema,
   PresenceSchema,
   PromoteThreadSchema,
+  ReplySchema,
   SetThreadLabelsSchema,
   SetThreadStatusSchema,
   SnoozeThreadSchema,
@@ -604,4 +612,91 @@ export async function resolveEmailAttachment(ctx: WorkspaceCtx, rawId: unknown) 
       return { storageKey: row.storageKey, filename: a.filename, mimeType: a.mimeType };
   }
   throw new AttachmentTimeoutError();
+}
+
+/* ───────────────────────── replies (Phase 7b) ───────────────────────── */
+
+/** Stored address lists are JSON; read them defensively. */
+const asAddresses = (v: unknown): Address[] =>
+  Array.isArray(v)
+    ? v.filter(
+        (a): a is Address => typeof a === "object" && a !== null && typeof a.email === "string",
+      )
+    : [];
+
+/**
+ * A reply from Dopl: stored as an OUTBOUND message (QUEUED) with the
+ * threading headers, then sent by the worker (gmail.send) in the same Gmail
+ * thread. It goes to the latest inbound message's Reply-To or sender; "reply
+ * all" adds everyone else on it except the mailbox itself.
+ */
+export async function replyToThread(ctx: WorkspaceCtx, raw: unknown) {
+  const input = ReplySchema.parse(raw);
+  const body = sanitizeDoc(input.body);
+  const text = docToPlainText(body);
+  if (!text.trim()) throw new ConflictError("empty_reply");
+  return withMutation(ctx, async (m) => {
+    const { thread, mailbox } = await loadThread(m, input.threadId);
+    if (!mailbox.sendEnabled) throw new ConflictError("send_disabled");
+    const from = input.from ? normalizeEmail(input.from) : mailbox.emailAddress;
+    if (from !== normalizeEmail(mailbox.emailAddress)) throw new ConflictError("invalid_from");
+    const last = await m.tx.emailMessage.findFirst({
+      where: { threadId: thread.id, direction: "INBOUND" },
+      orderBy: { sentAt: "desc" },
+      select: {
+        fromAddress: true,
+        replyTo: true,
+        toAddresses: true,
+        ccAddresses: true,
+        subject: true,
+        rfc822MessageId: true,
+        references: true,
+      },
+    });
+    if (!last) throw new ConflictError("nothing_to_reply_to");
+    const own = normalizeEmail(mailbox.emailAddress);
+    const to = [normalizeEmail(last.replyTo ?? last.fromAddress)];
+    const cc = input.replyAll
+      ? [...asAddresses(last.toAddresses), ...asAddresses(last.ccAddresses)]
+          .map((a) => normalizeEmail(a.email))
+          .filter((a, i, all) => a !== own && !to.includes(a) && all.indexOf(a) === i)
+      : [];
+    const domain = own.split("@")[1] ?? "dopl.local";
+    const message = await m.tx.emailMessage.create({
+      data: {
+        workspaceId: ctx.workspace.id,
+        mailboxId: mailbox.id,
+        threadId: thread.id,
+        gmailMessageId: null,
+        rfc822MessageId: `<${crypto.randomUUID()}@${domain}>`,
+        inReplyTo: last.rfc822MessageId,
+        references: [
+          ...last.references,
+          ...(last.rfc822MessageId ? [last.rfc822MessageId] : []),
+        ].slice(-20),
+        direction: "OUTBOUND",
+        fromAddress: own,
+        fromName: mailbox.displayName,
+        toAddresses: to.map((email) => ({ email, name: null })),
+        ccAddresses: cc.map((email) => ({ email, name: null })),
+        subject: /^re:/i.test(thread.subject) ? thread.subject : `Re: ${thread.subject}`,
+        snippet: text.slice(0, 200),
+        bodyText: text,
+        bodyHtmlSanitized: docToHtml(body),
+        sentAt: new Date(),
+        sentById: ctx.actor.userId,
+        outboundStatus: "QUEUED",
+      },
+      select: { id: true },
+    });
+    await enqueue(m.tx, "gmail.send", { messageId: message.id });
+    m.activity({
+      entityType: "EMAIL_THREAD",
+      entityId: thread.id,
+      verb: "replied",
+      meta: { messageId: message.id },
+    });
+    changed(m, thread, "email.message.created");
+    return { id: message.id };
+  });
 }

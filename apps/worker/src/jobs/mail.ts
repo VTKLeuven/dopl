@@ -6,6 +6,8 @@ import type { DbClient } from "@dopl/db";
 import { blobStore } from "@dopl/server/storage";
 import { queues } from "@dopl/shared/jobs/queues";
 import { txEnqueue, type TxEnqueue } from "../enqueue";
+import { sendReply } from "../gmail/send";
+import { queueOptions } from "../queues";
 import { env } from "../env";
 import { GoogleGmail, loadServiceAccountKey, type GmailApi } from "../gmail/client";
 import { FakeGmail } from "../gmail/fake";
@@ -76,6 +78,15 @@ export async function registerMailHandlers(ctx: {
       seen.add(mailboxId);
       await sync(deps, mailboxId, reason);
     }
+  });
+  await boss.work("gmail.send", async ([job]) => {
+    if (!job) return;
+    const { messageId } = queues["gmail.send"].parse(job.data);
+    const r = await sendReply(deps, messageId, {
+      retryCount: job.retryCount ?? 0,
+      retryLimit: queueOptions.retryLimit,
+    });
+    logger.info({ messageId, r }, "gmail.send");
   });
   await boss.work("gmail.fetch-attachment", async ([job]) => {
     if (!job) return;

@@ -8,6 +8,7 @@ import {
   createMailbox,
   linkThread,
   promoteThread,
+  replyToThread,
   setMailboxState,
   setThreadLabels,
   setThreadStatus,
@@ -70,4 +71,8 @@ export async function linkThreadAction(ws: string, input: unknown) {
 export async function unlinkThreadAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);
   return run(() => unlinkThread(ctx, input));
+}
+export async function replyToThreadAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => replyToThread(ctx, input));
 }

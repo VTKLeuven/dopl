@@ -10,6 +10,7 @@ import {
   createMailbox,
   linkThread,
   promoteThread,
+  replyToThread,
   setThreadLabels,
   setThreadStatus,
   snoozeThread,
@@ -180,5 +181,46 @@ describe("shared mailbox", () => {
     await linkThread(mia, { threadId: thread.id, item: item.identifier });
     const detail = await getThread(mia, thread.id);
     expect(detail.items.map((i) => i.identifier)).toEqual([item.identifier]);
+  });
+
+  it("queues a reply to the sender (and everyone else on reply all), never to itself", async () => {
+    const { mia, thread, mailboxId } = await setup();
+    const body = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "On it." }] }],
+    };
+    await expect(replyToThread(mia, { threadId: thread.id, body })).rejects.toThrow(
+      "send_disabled",
+    );
+    const mailbox = await db.mailbox.update({
+      where: { id: mailboxId },
+      data: { sendEnabled: true },
+    });
+    await db.emailMessage.updateMany({
+      where: { threadId: thread.id },
+      data: {
+        rfc822MessageId: "<orig@example.test>",
+        toAddresses: [
+          { email: mailbox.emailAddress, name: null },
+          { email: "boss@example.test", name: "Boss" },
+        ],
+        ccAddresses: [{ email: "lotte@example.test", name: null }],
+      },
+    });
+    const { id } = await replyToThread(mia, { threadId: thread.id, body, replyAll: true });
+    const out = await db.emailMessage.findUniqueOrThrow({ where: { id } });
+    expect(out).toMatchObject({
+      direction: "OUTBOUND",
+      outboundStatus: "QUEUED",
+      inReplyTo: "<orig@example.test>",
+      subject: "Re: VPN keeps dropping",
+      bodyHtmlSanitized: "<p>On it.</p>",
+    });
+    expect(out.references).toEqual(["<orig@example.test>"]);
+    expect(out.toAddresses).toEqual([{ email: "lotte@example.test", name: null }]);
+    expect(out.ccAddresses).toEqual([{ email: "boss@example.test", name: null }]);
+    const jobs = await db.$queryRaw<Array<{ n: bigint }>>`
+      SELECT count(*) AS n FROM pgboss.job WHERE name = 'gmail.send' AND data->>'messageId' = ${id}`;
+    expect(Number(jobs[0]?.n)).toBe(1);
   });
 });

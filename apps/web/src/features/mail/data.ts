@@ -16,6 +16,7 @@ import {
   assignThreadAction,
   linkThreadAction,
   promoteThreadAction,
+  replyToThreadAction,
   setThreadLabelsAction,
   setThreadStatusAction,
   snoozeThreadAction,
@@ -184,6 +185,16 @@ export function useThreadActions(ws: string) {
       mutationFn: async (i: { threadId: string; body: unknown }) =>
         unwrap(await addEmailCommentAction(ws, i)),
       onError,
+      onSettled: (_r, _e, i) => refresh(i.threadId),
+    }),
+    reply: useMutation({
+      mutationFn: async (i: { threadId: string; body: unknown; replyAll: boolean }) =>
+        unwrap(await replyToThreadAction(ws, i)),
+      onError: (err) => {
+        const code = (err as { code?: string })?.code;
+        if (code === "send_disabled") toast.error(t("sendDisabled"));
+        else onError(err);
+      },
       onSettled: (_r, _e, i) => refresh(i.threadId),
     }),
     promote: useMutation({

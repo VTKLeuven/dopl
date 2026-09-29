@@ -35,6 +35,8 @@ export async function seedMail(
       displayName: "IT support",
       backfillDays: 30,
       status: "CONNECTING",
+      // The fake Gmail accepts sends; a real mailbox needs the gmail.send scope first.
+      sendEnabled: Boolean(process.env.GMAIL_FAKE_DIR),
       members: {
         createMany: {
           data: users.map((u) => ({ userId: u.id, workspaceId: opts.workspaceId })),

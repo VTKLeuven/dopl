@@ -13,7 +13,9 @@ import {
   Link2,
   Lock,
   Paperclip,
+  Reply,
   RotateCcw,
+  Send,
   SquareArrowOutUpRight,
   Tags,
   UserRound,
@@ -29,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Tag, TagDot } from "@/components/ui/tag";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -263,10 +266,13 @@ function Reader({ ws, thread, me }: { ws: string; thread: ThreadDetail; me: stri
       </div>
 
       {canAct ? (
-        <NoteComposer
+        <Composer
           thread={thread}
           onFocusChange={setReplying}
-          onSubmit={(body) => actions.comment.mutateAsync({ threadId: thread.id, body })}
+          onNote={(body) => actions.comment.mutateAsync({ threadId: thread.id, body })}
+          onReply={(body, replyAll) =>
+            actions.reply.mutateAsync({ threadId: thread.id, body, replyAll })
+          }
         />
       ) : null}
 
@@ -430,25 +436,49 @@ function CommentCard({ c }: { c: EmailCommentView }) {
   );
 }
 
-function NoteComposer({
+/**
+ * The composer: a reply to the customer (when the mailbox allows replies) or
+ * an internal note. The two look different on purpose, so a note is never
+ * sent by mistake.
+ */
+function Composer({
   thread,
   onFocusChange,
-  onSubmit,
+  onNote,
+  onReply,
 }: {
   thread: ThreadDetail;
   onFocusChange: (focused: boolean) => void;
-  onSubmit: (body: unknown) => Promise<unknown>;
+  onNote: (body: unknown) => Promise<unknown>;
+  onReply: (body: unknown, replyAll: boolean) => Promise<unknown>;
 }) {
   const t = useTranslations("mail.reader");
+  const canReply = thread.mailbox.sendEnabled;
+  const [mode, setMode] = useState<"reply" | "note">(canReply ? "reply" : "note");
   const [value, setValue] = useState<unknown>(null);
   const [key, setKey] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [replyAll, setReplyAll] = useState(false);
   const sources = usePeopleSources(thread.assignable);
+  const lastInbound = [...thread.messages].reverse().find((m) => m.direction === "INBOUND");
+  const others = lastInbound
+    ? [...lastInbound.to, ...lastInbound.cc].filter(
+        (a) => a.email.toLowerCase() !== thread.mailbox.emailAddress.toLowerCase(),
+      )
+    : [];
+  const recipients = lastInbound
+    ? [
+        lastInbound.from.name ?? lastInbound.from.email,
+        ...(replyAll ? others.map((a) => a.name ?? a.email) : []),
+      ]
+    : [];
+  const reply = mode === "reply";
+
   const submit = async () => {
     if (!value || busy) return;
     setBusy(true);
     try {
-      await onSubmit(value);
+      await (reply ? onReply(value, replyAll) : onNote(value));
       setValue(null);
       setKey((k) => k + 1);
     } finally {
@@ -462,19 +492,56 @@ function NoteComposer({
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusChange(false);
       }}
-      data-testid="note-composer"
+      data-testid="thread-composer"
     >
-      <div className="rounded-card border border-warning-border bg-warning-bg px-3 py-2">
-        <p className="mb-1 flex items-center gap-1.5 text-caption font-medium text-warning-text">
-          <Lock className="size-3" />
-          {t("noteHint")}
-        </p>
+      {canReply ? (
+        <SegmentedControl
+          label={t("composerMode")}
+          value={mode}
+          onValueChange={(v) => setMode(v as "reply" | "note")}
+          className="mb-2"
+        >
+          <SegmentedControlItem value="reply" data-testid="composer-reply">
+            <Reply />
+            {t("reply")}
+          </SegmentedControlItem>
+          <SegmentedControlItem value="note" data-testid="composer-note">
+            <Lock />
+            {t("internalNote")}
+          </SegmentedControlItem>
+        </SegmentedControl>
+      ) : null}
+      <div
+        className={cn(
+          "rounded-card border px-3 py-2",
+          reply ? "border-border-strong bg-surface" : "border-warning-border bg-warning-bg",
+        )}
+      >
+        {reply ? (
+          <p className="mb-1 flex flex-wrap items-center gap-x-2 text-caption text-fg-muted">
+            <span>
+              {t("replyTo")}{" "}
+              <span className="font-medium text-fg-secondary">{recipients.join(", ")}</span>
+            </span>
+            {others.length ? (
+              <label className="inline-flex items-center gap-1.5">
+                <Checkbox checked={replyAll} onCheckedChange={(v) => setReplyAll(v === true)} />
+                {t("replyAll")}
+              </label>
+            ) : null}
+          </p>
+        ) : (
+          <p className="mb-1 flex items-center gap-1.5 text-caption font-medium text-warning-text">
+            <Lock className="size-3" />
+            {t("noteHint")}
+          </p>
+        )}
         <RichTextEditor
-          key={key}
+          key={`${mode}:${key}`}
           value={null}
           onChange={setValue}
           onSubmit={() => void submit()}
-          placeholder={t("notePlaceholder")}
+          placeholder={reply ? t("replyPlaceholder") : t("notePlaceholder")}
           sources={sources}
           minHeight="min-h-[44px]"
         />
@@ -484,9 +551,10 @@ function NoteComposer({
             size="sm"
             onClick={() => void submit()}
             loading={busy}
-            data-testid="note-submit"
+            data-testid={reply ? "reply-submit" : "note-submit"}
           >
-            {t("addNote")}
+            {reply ? <Send /> : null}
+            {reply ? t("send") : t("addNote")}
           </Button>
         </div>
       </div>
