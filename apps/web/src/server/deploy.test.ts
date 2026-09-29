@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -54,6 +54,22 @@ describe("web never holds worker secrets (D-027)", () => {
     } finally {
       if (before === undefined) delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
       else process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE = before;
+    }
+  });
+});
+
+describe("docker/Dockerfile", () => {
+  it("installs every workspace package (its manifest is copied before pnpm install)", async () => {
+    const dockerfile = await read("docker/Dockerfile");
+    for (const dir of ["apps", "packages"]) {
+      for (const name of await readdir(path.join(root, dir))) {
+        const manifest = `${dir}/${name}/package.json`;
+        const exists = await read(manifest).then(
+          () => true,
+          () => false,
+        );
+        if (exists) expect(dockerfile).toContain(`COPY ${manifest} ${dir}/${name}/`);
+      }
     }
   });
 });
