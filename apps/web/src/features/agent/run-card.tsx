@@ -265,7 +265,7 @@ export function RunCard({
     >
       {variant === "timeline" ? (
         <span className="relative z-[1] mt-0.5 shrink-0">
-          <AgentAvatar size="sm" working={live} name={run.agentName} />
+          <AgentAvatar size="sm" working={live} name={run.agentName} image={run.agentImage} />
         </span>
       ) : null}
       <div
@@ -276,7 +276,7 @@ export function RunCard({
       >
         <div className="flex items-center gap-2 px-3.5 py-2.5">
           {variant !== "timeline" ? (
-            <AgentAvatar size="sm" working={live} name={run.agentName} />
+            <AgentAvatar size="sm" working={live} name={run.agentName} image={run.agentImage} />
           ) : null}
           <button
             type="button"

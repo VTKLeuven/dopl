@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Bot, Copy, KeyRound, PlugZap, Plus } from "lucide-react";
+import { Bot, Copy, ImageUp, KeyRound, PlugZap, Plus } from "lucide-react";
+import { AVATAR_MAX_BYTES } from "@dopl/shared/domain/avatar";
 import { MCP_SCOPES, type McpScope } from "@dopl/shared/domain/agent";
 import type { AgentSettings } from "@/server/queries/agent";
 import type { ConnectionCheck } from "@/server/services/agent";
@@ -119,6 +120,81 @@ function CheckResult({ check }: { check: ConnectionCheck }) {
   );
 }
 
+/** Upload or remove the agent's picture (D-133); the route checks type and size again. */
+function AvatarControls({ ws, hasImage }: { ws: string; hasImage: boolean }) {
+  const t = useTranslations("agentSettings.picture");
+  const router = useRouter();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function send(init: RequestInit, done: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/v1/${ws}/agent/avatar`, init);
+      if (res.ok) {
+        toast.success(done);
+        router.refresh();
+        return;
+      }
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      toast.error(
+        body.message === "too_large"
+          ? t("tooLarge")
+          : body.message === "not_an_image"
+            ? t("invalid")
+            : t("failed"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1.5 flex items-center gap-1">
+      <input
+        ref={input}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        data-testid="agent-avatar-input"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          if (file.size > AVATAR_MAX_BYTES) return void toast.error(t("tooLarge"));
+          const form = new FormData();
+          form.set("file", file);
+          void send({ method: "POST", body: form }, t("saved"));
+        }}
+      />
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        className="-ml-2"
+        loading={busy}
+        onClick={() => input.current?.click()}
+      >
+        <ImageUp />
+        {hasImage ? t("change") : t("upload")}
+      </Button>
+      {hasImage ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => void send({ method: "DELETE" }, t("removed"))}
+        >
+          {t("remove")}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 function ProfileSection({ ws, settings }: { ws: string; settings: AgentSettings }) {
   const t = useTranslations("agentSettings");
   const router = useRouter();
@@ -167,12 +243,13 @@ function ProfileSection({ ws, settings }: { ws: string; settings: AgentSettings 
     >
       <SettingsSection title={t("title")} description={t("intro")}>
         <div className="flex items-center gap-3 rounded-card border border-border p-3">
-          <AgentAvatar size="md" />
+          <AgentAvatar size="lg" name={settings.agent!.name} image={settings.agent!.image} />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="font-medium text-fg">{settings.agent!.name}</span>
             <span className="text-small text-fg-muted">
               {active ? t("statusActive") : t("statusDisabled")}
             </span>
+            <AvatarControls ws={ws} hasImage={Boolean(settings.agent!.image)} />
           </div>
           <Switch
             checked={active}

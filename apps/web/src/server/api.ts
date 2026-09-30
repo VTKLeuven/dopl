@@ -1,7 +1,7 @@
 import "server-only";
 import { ForbiddenError } from "@dopl/shared/policy";
 import { ZodError } from "zod";
-import { NotFoundError } from "./action-result";
+import { ConflictError, NotFoundError } from "./action-result";
 import { getActor, getWorkspaceCtx, needsTwoFactorEnrollment, type WorkspaceCtx } from "./session";
 
 /**
@@ -22,6 +22,8 @@ export async function api<T>(ws: string, fn: (ctx: WorkspaceCtx) => Promise<T>):
     if (err instanceof ForbiddenError)
       return Response.json({ error: "forbidden" }, { status: 403 });
     if (err instanceof ZodError) return Response.json({ error: "invalid_input" }, { status: 400 });
+    if (err instanceof ConflictError)
+      return Response.json({ error: "conflict", message: err.message }, { status: 409 });
     if (err && typeof err === "object" && "digest" in err) {
       // notFound() from shared loaders
       return Response.json({ error: "not_found" }, { status: 404 });

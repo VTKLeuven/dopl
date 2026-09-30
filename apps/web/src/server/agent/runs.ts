@@ -14,6 +14,7 @@ export const DEFAULT_CONTEXT_BUDGET = 60_000;
 export interface WorkspaceAgent {
   userId: string;
   name: string;
+  image: string | null;
   profileId: string | null;
   status: "ACTIVE" | "PAUSED" | "DISABLED" | null;
   contextBudget: number;
@@ -32,6 +33,7 @@ export async function findAgent(
         select: {
           id: true,
           name: true,
+          image: true,
           agentProfile: { select: { id: true, status: true, settings: true } },
         },
       },
@@ -43,6 +45,7 @@ export async function findAgent(
   return {
     userId: member.user.id,
     name: member.user.name,
+    image: member.user.image,
     profileId: p?.id ?? null,
     status: p?.status ?? null,
     contextBudget: settings.contextBudgetChars ?? DEFAULT_CONTEXT_BUDGET,

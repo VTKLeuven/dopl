@@ -9,7 +9,7 @@ import {
 import type { AuditFilter } from "@dopl/shared/schemas/agent";
 import { formatIdentifier } from "@dopl/shared/schemas/work-item";
 import { NotFoundError } from "../action-result";
-import { DEFAULT_CONTEXT_BUDGET } from "../agent/runs";
+import { DEFAULT_CONTEXT_BUDGET, findAgent } from "../agent/runs";
 import { db } from "../db";
 import type { ConnectionCheck } from "../services/agent";
 import type { WorkspaceCtx } from "../session";
@@ -33,6 +33,7 @@ export interface AgentRunSummary {
   trigger: string;
   triggeredBy: { id: string; name: string } | null;
   agentName: string;
+  agentImage: string | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
@@ -103,7 +104,7 @@ const summarySelect = {
   workItemId: true,
   channelId: true,
   triggeredBy: { select: { id: true, name: true } },
-  agentUser: { select: { name: true } },
+  agentUser: { select: { name: true, image: true } },
   workItem: {
     select: {
       id: true,
@@ -126,6 +127,7 @@ function toSummary(r: SummaryRow): AgentRunSummary {
     trigger: r.trigger,
     triggeredBy: r.triggeredBy,
     agentName: r.agentUser.name,
+    agentImage: r.agentUser.image,
     createdAt: r.createdAt.toISOString(),
     startedAt: r.startedAt?.toISOString() ?? null,
     finishedAt: r.finishedAt?.toISOString() ?? null,
@@ -336,7 +338,7 @@ export async function listAgentActivity(ctx: WorkspaceCtx) {
       { triggeredById: ctx.actor.userId },
     ],
   };
-  const [pending, runs, paused] = await Promise.all([
+  const [pending, runs, paused, agent] = await Promise.all([
     db.agentApproval.findMany({
       where: { workspaceId: ctx.workspace.id, status: "PENDING", run: visible },
       orderBy: { requestedAt: "asc" },
@@ -353,8 +355,11 @@ export async function listAgentActivity(ctx: WorkspaceCtx) {
       where: { id: ctx.workspace.id },
       select: { agentPausedAt: true, agentPausedBy: { select: { name: true } } },
     }),
+    findAgent(db, ctx.workspace.id),
   ]);
   return {
+    /** Its chosen name and picture (D-133); null before one is added. */
+    agent: agent ? { name: agent.name, image: agent.image } : null,
     canApprove: canApproveAgentAction(ctx.policyActor),
     canPause: canWorkspace(ctx.policyActor, "agent.pause"),
     paused: paused.agentPausedAt
@@ -385,6 +390,7 @@ export async function getAgentSettings(ctx: WorkspaceCtx) {
           select: {
             id: true,
             name: true,
+            image: true,
             agentProfile: {
               select: {
                 id: true,
@@ -460,7 +466,7 @@ export async function getAgentSettings(ctx: WorkspaceCtx) {
     lastCheck?: ConnectionCheck;
   };
   return {
-    agent: agent ? { id: agent.id, name: agent.name } : null,
+    agent: agent ? { id: agent.id, name: agent.name, image: agent.image } : null,
     profile: p
       ? {
           id: p.id,
