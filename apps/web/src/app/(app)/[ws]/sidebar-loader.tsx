@@ -40,7 +40,7 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     showMail:
       mailboxes.length > 0 || canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage"),
     canChat: ctx.role !== "GUEST",
-    showAgent: Boolean(agent),
+    agent: agent ? { name: agent.name, image: agent.image } : null,
   };
   return (
     <>

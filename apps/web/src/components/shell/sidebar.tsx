@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authClient } from "@/lib/auth-client";
-import { DoplMark } from "@/components/icons/dopl-logo";
+import { DoplWordmark } from "@/components/icons/dopl-logo";
 import { AgentAvatar, Avatar } from "@/components/ui/avatar";
 import { Shortcut } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -58,8 +58,8 @@ export interface SidebarProps {
   showContacts?: boolean;
   showAnalytics?: boolean;
   showMail?: boolean;
-  /** The AI teammate's page: the team, when the workspace has an agent (Phase 8). */
-  showAgent?: boolean;
+  /** The AI teammate's page, under its own name and picture (Phase 8, D-133). */
+  agent?: { name: string; image: string | null } | null;
   /** Team chat is for members; guests don't get Messages (Phase 4). */
   canChat?: boolean;
   onNavigate?: () => void;
@@ -86,7 +86,7 @@ function NavItem({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex h-8 items-center gap-2.5 rounded-control px-2.5 text-body font-medium text-fg-nav",
+        "group flex h-7 items-center gap-2.5 rounded-control px-2.5 text-small font-medium text-fg-nav",
         "focus-ring transition-colors duration-[var(--dur-fast)] ease-out",
         "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-icon-strong",
         active ? "bg-sidebar-active text-fg" : "hover:bg-sidebar-hover",
@@ -99,6 +99,15 @@ function NavItem({
   );
 }
 
+/** Logo and name: as large as the header allows, with little padding (D-134). */
+export function SidebarBrand() {
+  return (
+    <div className="flex h-11 items-center px-1">
+      <DoplWordmark size="sidebar" />
+    </div>
+  );
+}
+
 function SectionLabel({
   children,
   action,
@@ -107,7 +116,7 @@ function SectionLabel({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mt-4 mb-1 flex h-6 items-center justify-between px-2.5">
+    <div className="mt-3 mb-0.5 flex h-6 items-center justify-between px-2.5">
       <span className="text-caption font-medium text-fg-muted">{children}</span>
       {action}
     </div>
@@ -133,7 +142,7 @@ function SubItem({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "ml-[26px] flex h-7 items-center gap-2 rounded-control px-2.5 text-small text-fg-secondary focus-ring",
+        "ml-[26px] flex h-6 items-center gap-2 rounded-control px-2.5 text-small text-fg-secondary focus-ring",
         active ? "bg-sidebar-active font-medium text-fg" : "hover:bg-sidebar-hover",
       )}
     >
@@ -158,7 +167,7 @@ export function Sidebar({
   showContacts = false,
   showAnalytics = false,
   showMail = false,
-  showAgent = false,
+  agent = null,
   canChat = false,
   onNavigate,
 }: SidebarProps) {
@@ -172,17 +181,14 @@ export function Sidebar({
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav aria-label={workspace.name} className="flex h-full flex-col px-3 pt-4 pb-3">
-      <div className="flex h-9 items-center gap-2.5 px-1.5">
-        <DoplMark size={30} />
-        <span className="text-title-lg font-bold tracking-[-0.02em] text-fg">Dopl</span>
-      </div>
+    <nav aria-label={workspace.name} className="flex h-full flex-col px-3 pt-3 pb-3">
+      <SidebarBrand />
 
       <button
         type="button"
         onClick={openCommandPalette}
         className={cn(
-          "mt-4 flex h-9 w-full items-center gap-2 rounded-control border border-border-strong bg-surface px-2.5 text-left text-body text-fg-placeholder shadow-xs",
+          "mt-3 flex h-8 w-full items-center gap-2 rounded-control border border-border-strong bg-surface px-2.5 text-left text-small text-fg-placeholder shadow-xs",
           "focus-ring transition-colors duration-[var(--dur-fast)] hover:border-neutral-300",
         )}
       >
@@ -191,7 +197,7 @@ export function Sidebar({
         <Shortcut keys="mod+k" />
       </button>
 
-      <div className="mt-4 flex flex-col gap-0.5">
+      <div className="mt-3 flex flex-col gap-0.5">
         <NavItem
           href={`${base}/home`}
           icon={<House />}
@@ -217,11 +223,14 @@ export function Sidebar({
             trailing={<MessagesNavDot ws={workspace.slug} />}
           />
         ) : null}
-        {showAgent ? (
+        {agent ? (
           <NavItem
             href={`${base}/agent`}
-            icon={<AgentAvatar size="xs" />}
-            label={t("agent")}
+            icon={
+              // 20 px avatar in a 16 px icon slot, so the label lines up with the rest.
+              <AgentAvatar size="xs" name={agent.name} image={agent.image} className="-mx-0.5" />
+            }
+            label={agent.name}
             active={isActive(`${base}/agent`)}
             onNavigate={onNavigate}
             trailing={<AgentNavBadge ws={workspace.slug} />}
@@ -257,6 +266,15 @@ export function Sidebar({
           active={isActive(`${base}/views`)}
           onNavigate={onNavigate}
         />
+        {showAnalytics ? (
+          <NavItem
+            href={`${base}/analytics`}
+            icon={<BarChart3 />}
+            label={t("analytics")}
+            active={isActive(`${base}/analytics`)}
+            onNavigate={onNavigate}
+          />
+        ) : null}
         {showRequests ? (
           <NavItem
             href={`${base}/requests`}
@@ -367,26 +385,7 @@ export function Sidebar({
         )}
       </div>
 
-      <SectionLabel>{t("tools")}</SectionLabel>
-      <div className="flex flex-col gap-0.5">
-        {showAnalytics ? (
-          <NavItem
-            href={`${base}/analytics`}
-            icon={<BarChart3 />}
-            label={t("analytics")}
-            active={isActive(`${base}/analytics`)}
-            onNavigate={onNavigate}
-          />
-        ) : null}
-        {showContacts ? (
-          <NavItem
-            href={`${base}/contacts`}
-            icon={<Users />}
-            label={t("contacts")}
-            active={isActive(`${base}/contacts`)}
-            onNavigate={onNavigate}
-          />
-        ) : null}
+      <div className="mt-2 flex flex-col gap-0.5 border-t border-border pt-2">
         <NavItem
           href={`${base}/settings`}
           icon={<Settings />}
@@ -400,7 +399,7 @@ export function Sidebar({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="mt-3 flex h-11 w-full items-center gap-2.5 rounded-control px-2 text-left focus-ring transition-colors hover:bg-sidebar-hover"
+            className="mt-1 flex h-10 w-full items-center gap-2.5 rounded-control px-2 text-left focus-ring transition-colors hover:bg-sidebar-hover"
           >
             <Avatar user={user} size="md" />
             <span className="min-w-0 flex-1">
@@ -416,10 +415,26 @@ export function Sidebar({
           className="w-[var(--radix-dropdown-menu-trigger-width)]"
         >
           <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => router.push(`${base}/settings/account` as never)}>
+          <DropdownMenuItem
+            onSelect={() => {
+              onNavigate?.();
+              router.push(`${base}/settings/account` as never);
+            }}
+          >
             <UserRound />
             {t("account")}
           </DropdownMenuItem>
+          {showContacts ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                onNavigate?.();
+                router.push(`${base}/contacts` as never);
+              }}
+            >
+              <Users />
+              {t("contacts")}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={async () => {

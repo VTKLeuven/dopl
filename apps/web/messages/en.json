@@ -114,7 +114,6 @@
     "allProjects": "All projects",
     "settings": "Settings",
     "workspace": "Workspace",
-    "tools": "Tools",
     "analytics": "Analytics",
     "account": "Account & security",
     "signOut": "Sign out",
@@ -130,8 +129,7 @@
     "requests": "Requests",
     "intake": "Intake",
     "contacts": "Contacts",
-    "mail": "Mail",
-    "agent": "Dopl"
+    "mail": "Mail"
   },
   "palette": {
     "placeholder": "Search items, projects, people, or type a command…",
