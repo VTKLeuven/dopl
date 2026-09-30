@@ -163,7 +163,12 @@
   /* Typography (§3.7) */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+  /* The "Dopl" wordmark only (D-134). */
+  --font-brand: var(--font-outfit), var(--font-sans);
 
+  --text-wordmark: 28px;
+  --text-wordmark--line-height: 32px;
+  --text-wordmark--letter-spacing: -0.015em;
   --text-display: 24px;
   --text-display--line-height: 32px;
   --text-display--letter-spacing: -0.015em;
