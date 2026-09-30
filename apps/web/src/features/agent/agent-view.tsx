@@ -78,6 +78,7 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
   const data = useAgentActivity(ws, initial).data ?? initial;
   const [pausing, setPausing] = useState(false);
   const working = data.runs.some((r) => isActiveRun(r.status));
+  const name = data.agent?.name ?? t("title");
 
   const togglePause = async (paused: boolean) => {
     setPausing(true);
@@ -93,7 +94,7 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
-        crumbs={[{ label: t("title"), icon: <Bot /> }]}
+        crumbs={[{ label: name, icon: <Bot /> }]}
         actions={
           data.canPause ? (
             <label className="flex items-center gap-2 text-small text-fg-secondary">
@@ -112,11 +113,20 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
       <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6 px-4 py-6 md:px-10">
           <div className="flex items-center gap-3">
-            <AgentAvatar size="lg" working={working && !data.paused} />
+            <AgentAvatar
+              size="lg"
+              working={working && !data.paused}
+              name={name}
+              image={data.agent?.image}
+            />
             <div className="flex flex-col">
-              <h1 className="text-title font-semibold text-fg">{t("heading")}</h1>
+              <h1 className="text-title font-semibold text-fg">{t("heading", { name })}</h1>
               <p className="text-small text-fg-muted">
-                {data.paused ? t("statusPaused") : working ? t("statusWorking") : t("statusIdle")}
+                {data.paused
+                  ? t("statusPaused")
+                  : working
+                    ? t("statusWorking")
+                    : t("statusIdle", { name })}
               </p>
             </div>
           </div>
@@ -141,7 +151,7 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
                 compact
                 icon={<CircleCheck />}
                 title={t("pendingEmptyTitle")}
-                description={t("pendingEmptyBody")}
+                description={t("pendingEmptyBody", { name })}
               />
             ) : (
               data.pending.map((a) => (
@@ -165,7 +175,7 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
                 compact
                 icon={<Bot />}
                 title={t("runsEmptyTitle")}
-                description={t("runsEmptyBody")}
+                description={t("runsEmptyBody", { name })}
               />
             ) : (
               <ul className="flex flex-col gap-2" data-testid="agent-runs">

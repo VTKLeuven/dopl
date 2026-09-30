@@ -14,6 +14,11 @@ import {
   normalizeCommand,
   ruleMatches,
 } from "@dopl/shared/domain/agent";
+import {
+  AVATAR_CONTENT_TYPES,
+  AVATAR_MAX_BYTES,
+  sniffAvatarType,
+} from "@dopl/shared/domain/avatar";
 import { uuidv7 } from "@dopl/shared/ids";
 import {
   canApproveAgentAction,
@@ -39,6 +44,8 @@ import { db } from "../db";
 import { enqueue } from "../jobs";
 import { audit, withMutation, type Mutation } from "../mutation";
 import type { WorkspaceCtx } from "../session";
+import { blobStore } from "../storage";
+import { avatarKey, avatarUrl, parseAvatarUrl } from "../storage/avatars";
 
 function assertManage(ctx: WorkspaceCtx) {
   if (!canWorkspace(ctx.policyActor, "agent.manage")) throw new ForbiddenError();
@@ -150,6 +157,54 @@ export async function updateAgentProfile(ctx: WorkspaceCtx, raw: unknown) {
     settingsChanged(m);
     return { id: profile.id };
   });
+}
+
+/**
+ * The AI teammate's profile picture (D-133), or `null` to go back to the
+ * Dopl mark. Stored as `User.image`, so it shows wherever the agent does.
+ */
+export async function setAgentAvatar(ctx: WorkspaceCtx, file: File | null) {
+  assertManage(ctx);
+  const profile = await loadProfile(ctx);
+  let image: string | null = null;
+  if (file) {
+    if (file.size === 0) throw new ConflictError("empty_file");
+    if (file.size > AVATAR_MAX_BYTES) throw new ConflictError("too_large");
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const type = sniffAvatarType(bytes);
+    if (!type) throw new ConflictError("not_an_image");
+    const ref = {
+      workspaceId: ctx.workspace.id,
+      userId: profile.userId,
+      file: `${uuidv7()}.${type}`,
+    };
+    await blobStore().put(avatarKey(ref), bytes, AVATAR_CONTENT_TYPES[type]);
+    image = avatarUrl(ref);
+  }
+  const previous = await withMutation(ctx, async (m) => {
+    const before = await m.tx.user.findUniqueOrThrow({
+      where: { id: profile.userId },
+      select: { image: true },
+    });
+    await m.tx.user.update({ where: { id: profile.userId }, data: { image } });
+    await audit(m.tx, ctx, {
+      action: image ? "agent.avatar_changed" : "agent.avatar_removed",
+      targetType: "user",
+      targetId: profile.userId,
+    });
+    m.emit({
+      topic: `workspace:${ctx.workspace.id}`,
+      type: "member.updated",
+      payload: { userId: profile.userId },
+    });
+    return before.image;
+  });
+  const old = previous ? parseAvatarUrl(previous) : null;
+  if (old && previous !== image)
+    await blobStore()
+      .delete(avatarKey(old))
+      .catch(() => undefined);
+  return { image };
 }
 
 /** ACTIVE ↔ DISABLED: whether the agent takes requests at all. */

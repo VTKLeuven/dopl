@@ -38,7 +38,15 @@ export function Avatar({
   working?: boolean;
 }) {
   if (user.kind === "AGENT")
-    return <AgentAvatar size={size} className={className} working={working} name={user.name} />;
+    return (
+      <AgentAvatar
+        size={size}
+        className={className}
+        working={working}
+        name={user.name}
+        image={user.image}
+      />
+    );
   const color = tagClasses[colorForString(user.id)];
   return (
     <A.Root
@@ -60,17 +68,23 @@ export function Avatar({
   );
 }
 
-/** The AI teammate: the brand mark inside a gradient ring (DESIGN_SYSTEM §5). */
+/**
+ * The AI teammate: its picture, or the brand mark, inside a gradient ring
+ * (DESIGN_SYSTEM §5). The ring stays so it always reads as the agent.
+ */
 export function AgentAvatar({
   size = "sm",
   className,
   working = false,
   name = "Dopl",
+  image,
 }: {
   size?: AvatarSize;
   className?: string;
   working?: boolean;
   name?: string;
+  /** A custom profile picture (D-133); the Dopl mark when unset. */
+  image?: string | null;
 }) {
   return (
     <span
@@ -89,8 +103,17 @@ export function AgentAvatar({
         )}
       />
       <span className="absolute inset-[1.5px] rounded-full bg-surface" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/dopl-mark-192.png" alt="" className="relative size-[62%] object-contain" />
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image}
+          alt=""
+          className="absolute inset-[2.5px] size-[calc(100%-5px)] rounded-full object-cover"
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src="/brand/dopl-mark-192.png" alt="" className="relative size-[62%] object-contain" />
+      )}
     </span>
   );
 }
