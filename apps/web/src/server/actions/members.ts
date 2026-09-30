@@ -5,6 +5,7 @@ import { run } from "../action-result";
 import { requireWorkspaceCtx } from "../session";
 import {
   changeMemberRole,
+  deleteMember,
   inviteMembers,
   resendInvite,
   revokeInvite,
@@ -27,6 +28,12 @@ export async function changeRoleAction(ws: string, input: unknown) {
 export async function setMemberActiveAction(ws: string, memberId: string, active: boolean) {
   const ctx = await requireWorkspaceCtx(ws);
   const res = await run(() => setMemberActive(ctx, memberId, active));
+  if (res.ok) refresh();
+  return res;
+}
+export async function deleteMemberAction(ws: string, memberId: string) {
+  const ctx = await requireWorkspaceCtx(ws);
+  const res = await run(() => deleteMember(ctx, memberId));
   if (res.ok) refresh();
   return res;
 }
