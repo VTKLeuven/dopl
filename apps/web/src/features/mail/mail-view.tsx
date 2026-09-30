@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import {
   AlarmClock,
   ArrowLeft,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { MAIL_VIEWS, type MailView as View } from "@dopl/shared/schemas/mail";
 import { cn } from "@/lib/cn";
+import { isTypingTarget, resolveShortcut } from "@/lib/shortcuts/registry";
 import { useRelativeTime } from "@/lib/use-relative-time";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TagDot } from "@/components/ui/tag";
 import { PageHeader } from "@/components/shell/page-header";
-import { useMailboxes, useThreads } from "./data";
+import { staysInView, useMailboxes, useThreadActions, useThreads, useVisibleRows } from "./data";
 import { ThreadReader } from "./thread-reader";
 import type { MailboxSummary, ThreadPage, ThreadRow } from "./types";
 
@@ -85,6 +87,87 @@ export function MailView({
           .filter((m) => !url.mailbox || m.id === url.mailbox)
           .reduce((n, m) => n + m.counts[v], 0)
       : undefined;
+
+  const list = useThreads(
+    ws,
+    params,
+    seed && !url.mailbox && url.view === "open" && !url.q ? seed : undefined,
+    mailboxes.length > 0,
+  );
+  const rows = useVisibleRows(ws, url.view, list.data);
+  const { mutate: setStatus } = useThreadActions(ws).setStatus;
+  const listRef = useRef<HTMLUListElement>(null);
+
+  /** Opens a thread from the keyboard: its row takes the focus and scrolls into view. */
+  const open = useCallback(
+    (id: string) => {
+      void setUrl({ thread: id });
+      const row = listRef.current?.querySelector<HTMLElement>(`[data-id="${id}"]`);
+      row?.focus({ preventScroll: true });
+      row?.scrollIntoView({ block: "nearest" });
+    },
+    [setUrl],
+  );
+
+  /** Sets a thread aside as not actionable; the reader moves on to its neighbour. */
+  const ignore = useCallback(
+    (thread: Pick<ThreadRow, "id" | "status">) => {
+      if (thread.status === "IGNORED") return;
+      const i = rows.findIndex((r) => r.id === thread.id);
+      if (i >= 0 && url.thread === thread.id) {
+        const next = rows[i + 1] ?? (staysInView(url.view, "IGNORED") ? undefined : rows[i - 1]);
+        if (next) open(next.id);
+        else if (!staysInView(url.view, "IGNORED")) void setUrl({ thread: null });
+      }
+      setStatus({ threadId: thread.id, status: "IGNORED" });
+      toast(t("ignoredToast"), {
+        action: {
+          label: t("undo"),
+          onClick: () => {
+            setStatus({ threadId: thread.id, status: thread.status });
+            void setUrl({ thread: thread.id });
+          },
+        },
+      });
+    },
+    [open, rows, setStatus, setUrl, t, url.thread, url.view],
+  );
+
+  // Where the open thread sits in the list. One that has left it (solved,
+  // snoozed) keeps its place, so the next ↑/↓ goes to its neighbours.
+  const anchor = useRef(-1);
+  useEffect(() => {
+    const i = url.thread ? rows.findIndex((r) => r.id === url.thread) : -1;
+    if (i >= 0 || !url.thread) anchor.current = i;
+  }, [rows, url.thread]);
+
+  // Keyboard layer (DESIGN_SYSTEM §7.1, "mail" scope in the registry).
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isTypingTarget(e.target)) return;
+      const id = resolveShortcut(e, ["mail"]);
+      if (!id) return;
+      const i = rows.findIndex((r) => r.id === url.thread);
+      if (id === "mailIgnore") {
+        const row = rows[i];
+        // Not on key repeat: holding ⌫ must not empty the list.
+        if (!row || e.repeat) return;
+        e.preventDefault();
+        ignore(row);
+        return;
+      }
+      const down = id === "mailDown" || id === "mailDownArrow";
+      const at = i >= 0 ? i + (down ? 1 : -1) : anchor.current - (down ? 0 : 1);
+      const next = rows[Math.min(rows.length - 1, Math.max(0, at))];
+      if (!next) return;
+      e.preventDefault();
+      open(next.id);
+      if (at >= rows.length - 1 && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fetchNextPage, hasNextPage, ignore, isFetchingNextPage, open, rows, url.thread]);
 
   const header = (
     <PageHeader
@@ -215,11 +298,13 @@ export function MailView({
             />
           </div>
           <ThreadList
-            ws={ws}
-            params={params}
-            initial={seed && !url.mailbox && url.view === "open" && !url.q ? seed : undefined}
+            list={list}
+            rows={rows}
+            view={url.view}
+            searching={Boolean(url.q)}
             selected={url.thread}
             onSelect={(id) => void setUrl({ thread: id })}
+            listRef={listRef}
           />
         </section>
 
@@ -233,7 +318,13 @@ export function MailView({
                   {t("back")}
                 </Button>
               </div>
-              <ThreadReader key={url.thread} ws={ws} threadId={url.thread} me={me} />
+              <ThreadReader
+                key={url.thread}
+                ws={ws}
+                threadId={url.thread}
+                me={me}
+                onIgnore={ignore}
+              />
             </>
           ) : (
             <EmptyState
@@ -280,22 +371,24 @@ function SearchBox({ value, onChange }: { value: string; onChange: (q: string) =
 }
 
 function ThreadList({
-  ws,
-  params,
-  initial,
+  list,
+  rows,
+  view,
+  searching,
   selected,
   onSelect,
+  listRef,
 }: {
-  ws: string;
-  params: { mailbox: string | null; view: View; q: string | null };
-  initial?: { page: ThreadPage; at: number };
+  list: ReturnType<typeof useThreads>;
+  rows: ThreadRow[];
+  view: View;
+  searching: boolean;
   selected: string | null;
   onSelect: (id: string) => void;
+  listRef: React.Ref<HTMLUListElement>;
 }) {
   const t = useTranslations("mail");
-  const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useThreads(ws, params, initial);
-  const rows = data?.pages.flatMap((p) => p.rows) ?? [];
+  const { isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = list;
   if (isPending)
     return (
       <div className="flex flex-col gap-3 p-4" aria-busy>
@@ -320,12 +413,16 @@ function ThreadList({
     return (
       <EmptyState
         compact
-        icon={VIEW_ICON[params.view]}
-        title={params.q ? t("empty.noResults") : t(`empty.view.${params.view}`)}
+        icon={VIEW_ICON[view]}
+        title={searching ? t("empty.noResults") : t(`empty.view.${view}`)}
       />
     );
   return (
-    <ul className="min-h-0 flex-1 scrollbar-thin overflow-y-auto" data-testid="thread-list">
+    <ul
+      ref={listRef}
+      className="min-h-0 flex-1 scrollbar-thin overflow-y-auto"
+      data-testid="thread-list"
+    >
       {rows.map((r) => (
         <ThreadRowView
           key={r.id}
@@ -360,8 +457,10 @@ function ThreadRowView({
   active: boolean;
   onSelect: () => void;
 }) {
+  const t = useTranslations("mail");
   const relative = useRelativeTime();
   const who = row.correspondent?.name ?? row.correspondent?.email ?? "";
+  const ignored = row.status === "IGNORED";
   return (
     <li className="border-b border-border">
       <button
@@ -369,9 +468,11 @@ function ThreadRowView({
         onClick={onSelect}
         aria-current={active ? "true" : undefined}
         data-testid="thread-row"
+        data-id={row.id}
         data-status={row.status}
         className={cn(
-          "flex w-full flex-col gap-0.5 px-4 py-3 text-left focus-ring",
+          // Keyboard focus is an inset left bar (DESIGN_SYSTEM §4.3); a ring would be clipped by the list.
+          "flex w-full flex-col gap-0.5 px-4 py-3 text-left outline-none focus-visible:shadow-[inset_2px_0_0_var(--color-focus)]",
           active ? "bg-surface-selected" : "hover:bg-surface-hover",
         )}
       >
@@ -393,7 +494,7 @@ function ThreadRowView({
             {relative(row.lastMessageAt)}
           </time>
         </span>
-        <span className="truncate text-body text-fg">
+        <span className={cn("truncate text-body", ignored ? "text-fg-muted" : "text-fg")}>
           {row.subject}
           {row.messageCount > 1 ? (
             <span className="ml-1.5 text-caption text-fg-muted tabular">{row.messageCount}</span>
@@ -401,6 +502,9 @@ function ThreadRowView({
         </span>
         <span className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-small text-fg-muted">{row.snippet}</span>
+          {ignored ? (
+            <span className="shrink-0 text-caption font-medium text-fg-muted">{t("ignored")}</span>
+          ) : null}
           {row.labels.slice(0, 2).map((l) => (
             <span
               key={l.id}

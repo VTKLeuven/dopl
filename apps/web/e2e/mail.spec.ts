@@ -14,6 +14,8 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 const MAILBOX = "it@vtk.be";
 
 function fakeDir(): string | null {
+  // The environment wins over .env, as it does for the app and the worker.
+  if (process.env.GMAIL_FAKE_DIR) return path.resolve(ROOT, process.env.GMAIL_FAKE_DIR);
   try {
     const env = readFileSync(path.join(ROOT, ".env"), "utf8");
     const rel = /^GMAIL_FAKE_DIR=(.+)$/m.exec(env)?.[1]?.trim();
@@ -111,6 +113,52 @@ test("assign to me and solve move a thread between views", async ({ page }) => {
   await expect(row(page, subject)).toHaveCount(0);
   await page.getByTestId("mail-view-solved").click();
   await expect(row(page, subject)).toBeVisible();
+});
+
+test("arrow keys move through the list; Backspace ignores a thread, with undo", async ({
+  page,
+}) => {
+  const tag = uniq();
+  const subjects = ["First", "Second", "Third"].map((n) => `${n} report ${tag}`);
+  // Newest first in the list, so the order is the one above.
+  for (const [i, subject] of subjects.entries())
+    await receive({
+      from: "reports@example.test",
+      subject,
+      text: "An aggregate report.",
+      date: new Date(Date.now() - i * 60_000),
+    });
+  await openMail(page, `?view=open&q=${tag}`);
+  const rows = page.getByTestId("thread-row").filter({ visible: true });
+  await expect(rows).toHaveCount(3, { timeout: 10_000 });
+  const open = page.getByTestId("thread-subject").filter({ visible: true });
+
+  await page.keyboard.press("ArrowDown");
+  await expect(open).toHaveText(subjects[0] as string);
+  await page.keyboard.press("ArrowDown");
+  await expect(open).toHaveText(subjects[1] as string);
+  await expect(rows.nth(1)).toHaveAttribute("aria-current", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(open).toHaveText(subjects[0] as string);
+
+  // Backspace takes the open thread out of the list; the reader moves on.
+  await page.keyboard.press("Backspace");
+  await expect(rows).toHaveCount(2);
+  await expect(row(page, subjects[0] as string)).toHaveCount(0);
+  await expect(open).toHaveText(subjects[1] as string);
+
+  // Undo brings it back, and opens it again.
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(open).toHaveText(subjects[0] as string);
+  await expect(rows).toHaveCount(3);
+
+  // In a text field Backspace edits the text, nothing else.
+  const search = page.getByTestId("mail-search").filter({ visible: true });
+  await search.focus();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Backspace");
+  await expect(search).toHaveValue(tag.slice(0, -1));
+  await expect(rows).toHaveCount(3);
 });
 
 test("promote to a work item; a follow-up reply appears on the item's timeline", async ({

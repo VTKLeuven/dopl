@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   AlarmClock,
+  Ban,
   Check,
   ChevronDown,
   ExternalLink,
@@ -22,6 +23,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { keysFor } from "@/lib/shortcuts/registry";
 import { useRelativeTime } from "@/lib/use-relative-time";
 import { RichTextEditor, type EditorSources } from "@/components/editor/rich-text-editor";
 import { RichTextView } from "@/components/editor/rich-text-view";
@@ -55,7 +57,18 @@ import { useThreadPresence } from "./presence";
 import type { EmailCommentView, MessageView, Person, ThreadDetail } from "./types";
 
 /** The thread reader: header actions, messages and internal notes by time, the composer. */
-export function ThreadReader({ ws, threadId, me }: { ws: string; threadId: string; me: string }) {
+export function ThreadReader({
+  ws,
+  threadId,
+  me,
+  onIgnore,
+}: {
+  ws: string;
+  threadId: string;
+  me: string;
+  /** Ignores the thread and moves the reader on (the list owns what comes next). */
+  onIgnore: (thread: ThreadDetail) => void;
+}) {
   const t = useTranslations("mail.reader");
   const { data: thread, isPending, isError, refetch } = useThread(ws, threadId);
   if (isPending) return <ReaderSkeleton />;
@@ -71,7 +84,7 @@ export function ThreadReader({ ws, threadId, me }: { ws: string; threadId: strin
         }
       />
     );
-  return <Reader ws={ws} thread={thread} me={me} />;
+  return <Reader ws={ws} thread={thread} me={me} onIgnore={onIgnore} />;
 }
 
 function ReaderSkeleton() {
@@ -89,7 +102,17 @@ type Entry =
   | { kind: "message"; at: string; m: MessageView }
   | { kind: "comment"; at: string; c: EmailCommentView };
 
-function Reader({ ws, thread, me }: { ws: string; thread: ThreadDetail; me: string }) {
+function Reader({
+  ws,
+  thread,
+  me,
+  onIgnore,
+}: {
+  ws: string;
+  thread: ThreadDetail;
+  me: string;
+  onIgnore: (thread: ThreadDetail) => void;
+}) {
   const t = useTranslations("mail.reader");
   const fmt = useFormatter();
   const actions = useThreadActions(ws);
@@ -228,6 +251,19 @@ function Reader({ ws, thread, me }: { ws: string; thread: ThreadDetail; me: stri
                 <SquareArrowOutUpRight />
                 {t("promote")}
               </Button>
+              {thread.status !== "IGNORED" ? (
+                <Tooltip content={t("ignore")} shortcut={keysFor("mailIgnore")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("ignore")}
+                    onClick={() => onIgnore(thread)}
+                    data-testid="thread-ignore"
+                  >
+                    <Ban />
+                  </Button>
+                </Tooltip>
+              ) : null}
             </div>
           </div>
         ) : null}
