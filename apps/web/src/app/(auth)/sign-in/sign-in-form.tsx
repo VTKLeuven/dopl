@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, KeyRound, Mail } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { oauthErrorKind, signInErrorURL } from "@/lib/oauth-error";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError } from "@/components/ui/input";
 import { GoogleIcon } from "@/components/auth/google-icon";
@@ -21,10 +22,13 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const next = safeNext(params.get("next"));
-  const [mode, setMode] = useState<Mode>("password");
+  const returnedError = oauthErrorKind(params.get("error"));
+  const [mode, setMode] = useState<Mode>(params.get("via") === "sso" ? "sso" : "password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    returnedError ? t(`oauthErrors.${returnedError}`) : null,
+  );
   const [pending, setPending] = useState(false);
 
   function fail(status?: number) {
@@ -56,13 +60,25 @@ export function SignInForm({ googleEnabled }: { googleEnabled: boolean }) {
     e.preventDefault();
     setPending(true);
     setError(null);
-    const { error } = await authClient.signIn.sso({ email, callbackURL: next });
+    const { error } = await authClient.signIn.sso({
+      email,
+      callbackURL: next,
+      errorCallbackURL: signInErrorURL("sso", next),
+    });
+    if (error?.status === 404) {
+      setError(t("ssoNoProvider"));
+      return setPending(false);
+    }
     if (error) return fail(error.status);
   }
 
   async function onGoogle() {
     setPending(true);
-    const { error } = await authClient.signIn.social({ provider: "google", callbackURL: next });
+    const { error } = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: next,
+      errorCallbackURL: signInErrorURL("google", next),
+    });
     if (error) fail(error.status);
   }
 

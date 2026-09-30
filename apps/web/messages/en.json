@@ -62,6 +62,14 @@
     "ssoTitle": "Sign in with SSO",
     "ssoHint": "Enter your work email and we'll send you to your organisation's sign-in page.",
     "ssoContinue": "Continue",
+    "ssoNoProvider": "Single sign-on isn't set up for that email domain. Sign in another way.",
+    "oauthErrors": {
+      "notInvited": "There's no Dopl account for the address you signed in with. Ask an admin to invite that address.",
+      "notLinked": "That sign-in can't be linked to your Dopl account. Sign in another way, or ask an admin to check the SSO settings.",
+      "noAccess": "Your account has no access to a workspace. Ask an admin for an invite.",
+      "cancelled": "Sign-in was cancelled.",
+      "failed": "Signing in didn't work. Try again, or sign in another way."
+    },
     "genericError": "We couldn't sign you in. Check your details, or ask an admin for an invite.",
     "rateLimited": "Too many attempts. Wait a few minutes and try again.",
     "twoFactorTitle": "Two-factor authentication",

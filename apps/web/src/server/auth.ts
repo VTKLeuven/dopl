@@ -28,8 +28,10 @@ export const auth = betterAuth({
     useSecureCookies: isProd,
     cookiePrefix: "dopl",
   },
-  // Clients can't register SSO providers — only admins, via a server action.
-  disabledPaths: ["/sso/register"],
+  // Clients can't register SSO providers — only admins, via a server action,
+  // which also marks the provider's domain as verified (D-131). There is no
+  // DNS-based verification.
+  disabledPaths: ["/sso/register", "/sso/request-domain-verification", "/sso/verify-domain"],
   session: {
     expiresIn: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24,
@@ -73,19 +75,10 @@ export const auth = betterAuth({
   account: {
     accountLinking: {
       enabled: true,
-      // Google and admin-registered SSO providers may attach to an invited
-      // user by verified email. Nothing else links implicitly.
-      trustedProviders: async (request) => {
-        // Called without a request during initialisation (and at build time):
-        // answer statically there, and only hit the DB for real sign-ins.
-        if (!request) return ["google"];
-        try {
-          const providers = await db.ssoProvider.findMany({ select: { providerId: true } });
-          return ["google", ...providers.map((p) => p.providerId)];
-        } catch {
-          return ["google"];
-        }
-      },
+      // Google may attach to an invited user by email. SSO providers don't go
+      // through this list: the plugin trusts a provider only for emails on its
+      // verified domain (`domainVerification`, D-131).
+      trustedProviders: ["google"],
     },
   },
   rateLimit: {
@@ -140,7 +133,7 @@ export const auth = betterAuth({
       },
     }),
     twoFactor({ issuer: "Dopl" }),
-    sso({ disableImplicitSignUp: true }),
+    sso({ disableImplicitSignUp: true, domainVerification: { enabled: true } }),
     nextCookies(),
   ],
 });

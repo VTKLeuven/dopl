@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Mail, ArrowLeft } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { signInErrorURL } from "@/lib/oauth-error";
 import { acceptInviteWithPassword } from "@/server/actions/invite";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
@@ -69,7 +70,13 @@ export function InviteForm(props: {
       {props.googleEnabled ? (
         <Button
           size="lg"
-          onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/" })}
+          onClick={() =>
+            void authClient.signIn.social({
+              provider: "google",
+              callbackURL: "/",
+              errorCallbackURL: signInErrorURL("google"),
+            })
+          }
         >
           <GoogleIcon />
           {t("continueWithGoogle")}
