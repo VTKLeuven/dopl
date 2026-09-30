@@ -21,7 +21,7 @@ cp .env.production.example .env     # then fill it in: docs/ops/deploy.md §2
 ./dopl bootstrap you@vtk.be "Your Name"   # prints the owner's invite link
 ```
 
-**[docs/ops/deploy.md](docs/ops/deploy.md)** is the full guide: configuration, HTTPS (bundled Caddy or your own proxy), the first run, nightly backups and restoring them, updates and troubleshooting. `./dopl` wraps docker compose (`up`, `update`, `status`, `logs`, `backup`, `restore`, `bootstrap`).
+**[docs/ops/deploy.md](docs/ops/deploy.md)** is the full guide: configuration, HTTPS (bundled Caddy or your own proxy), the first run, nightly backups and restoring them, updates and troubleshooting. `./dopl` wraps docker compose (`up`, `update`, `status`, `logs`, `backup`, `restore`, `bootstrap`). Every push to `main` that passes CI is deployed to the server by the Deploy workflow (deploy.md §7).
 
 Optional, later: the shared mailbox ([gmail-setup.md](docs/ops/gmail-setup.md)) and the AI teammate ([agent-setup.md](docs/ops/agent-setup.md)).
 
@@ -40,7 +40,7 @@ pnpm dev                      # web on :3000 + worker
 
 Sign in at <http://localhost:3000/sign-in> as `bram@dopl.test` / `dopl-dev-password`. To try the mailbox and the AI teammate without Google, Hermes or servers, turn on the fakes in `.env` (`GMAIL_FAKE_DIR=.data/fake-gmail`, `HERMES_FAKE_PORT`, `HERMES_FAKE_MCP_TOKEN`, `AGENT_EXEC_FAKE=true`; see `.env.example`) before seeding; the e2e tests need them.
 
-Checks: `pnpm typecheck`, `pnpm lint`, `pnpm test` (Vitest against a test database), `pnpm e2e` (Playwright against `pnpm dev`), `pnpm db:drift`. CI runs all of them and publishes the Docker images on every push to `main`.
+Checks: `pnpm typecheck`, `pnpm lint`, `pnpm test` (Vitest against a test database), `pnpm e2e` (Playwright against `pnpm dev`), `pnpm db:drift`. CI runs all of them and publishes the Docker images on every push to `main`; the Deploy workflow then puts them live.
 
 ## Where things are
 
