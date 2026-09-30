@@ -1,0 +1,25 @@
+name: Set up the workspace
+description: pnpm, Node 24 with the pnpm store cached, dependencies, and a .env for CI with the dev fakes on.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - name: Prepare env
+      shell: bash
+      run: |
+        cp .env.example .env
+        sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -base64 32)|" .env
+        sed -i "s|^DOPL_ENCRYPTION_KEY=.*|DOPL_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env
+        # The shared-mailbox e2e tests drive a fake Gmail (no Google in CI).
+        sed -i "s|^GMAIL_FAKE_DIR=.*|GMAIL_FAKE_DIR=.data/fake-gmail|" .env
+        # The AI teammate e2e tests drive a fake Hermes and fake SSH (no model or servers in CI).
+        sed -i "s|^HERMES_FAKE_PORT=.*|HERMES_FAKE_PORT=8643|" .env
+        sed -i "s|^HERMES_FAKE_MCP_TOKEN=.*|HERMES_FAKE_MCP_TOKEN=dopl_mcp_ci_$(openssl rand -hex 16)|" .env
+        sed -i "s|^AGENT_EXEC_FAKE=.*|AGENT_EXEC_FAKE=true|" .env

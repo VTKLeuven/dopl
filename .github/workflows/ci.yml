@@ -9,9 +9,52 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Everything starts at once (D-135): the static checks, the e2e suite in three
+# shards, and on main the images, each platform on its own native runner. The
+# images are pushed untagged; `publish` only tags them `<sha>` and `latest`
+# once every check has passed, so only a green commit can be deployed.
 jobs:
-  check:
+  checks:
+    name: typecheck, lint, unit tests, build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: dopl
+          POSTGRES_PASSWORD: dopl
+          POSTGRES_DB: dopl
+        ports: ["54320:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dopl -d dopl"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql://dopl:dopl@localhost:54320/dopl
+      DATABASE_URL_TEST: postgresql://dopl:dopl@localhost:54320/dopl_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Test database
+        run: PGPASSWORD=dopl psql -h localhost -p 54320 -U dopl -d dopl -c "CREATE DATABASE dopl_test"
+      - run: pnpm db:generate
+      - run: pnpm db:deploy
+      - name: Migrations match schema (no drift)
+        run: pnpm db:drift
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+
+  e2e:
+    name: e2e (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Let every shard finish, so one run shows all the failures.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -31,63 +74,57 @@ jobs:
         ports: ["1025:1025", "8025:8025"]
     env:
       DATABASE_URL: postgresql://dopl:dopl@localhost:54320/dopl
-      DATABASE_URL_TEST: postgresql://dopl:dopl@localhost:54320/dopl_test
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Prepare env
-        run: |
-          cp .env.example .env
-          sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -base64 32)|" .env
-          sed -i "s|^DOPL_ENCRYPTION_KEY=.*|DOPL_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env
-          # The shared-mailbox e2e tests drive a fake Gmail (no Google in CI).
-          sed -i "s|^GMAIL_FAKE_DIR=.*|GMAIL_FAKE_DIR=.data/fake-gmail|" .env
-          # The AI teammate e2e tests drive a fake Hermes and fake SSH (no model or servers in CI).
-          sed -i "s|^HERMES_FAKE_PORT=.*|HERMES_FAKE_PORT=8643|" .env
-          sed -i "s|^HERMES_FAKE_MCP_TOKEN=.*|HERMES_FAKE_MCP_TOKEN=dopl_mcp_ci_$(openssl rand -hex 16)|" .env
-          sed -i "s|^AGENT_EXEC_FAKE=.*|AGENT_EXEC_FAKE=true|" .env
-          PGPASSWORD=dopl psql -h localhost -p 54320 -U dopl -d dopl -c "CREATE DATABASE dopl_test"
+      - uses: ./.github/actions/setup
       - run: pnpm db:generate
       - run: pnpm db:deploy
-      - name: Migrations match schema (no drift)
-        run: pnpm db:drift
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
+      - run: pnpm db:seed
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @dopl/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Chromium
+        run: |
+          if [ "${{ steps.browsers.outputs.cache-hit }}" = "true" ]; then
+            pnpm --filter @dopl/web exec playwright install-deps chromium
+          else
+            pnpm --filter @dopl/web exec playwright install --with-deps chromium
+          fi
+      # Every shard runs the sign-in setup first; Playwright splits the spec
+      # files between the shards, so new specs are picked up automatically.
       - name: E2E smoke (seeded dev database)
         run: |
-          pnpm db:seed
-          pnpm --filter @dopl/web exec playwright install --with-deps chromium
           # The worker sends the emails (and webhooks) the intake tests wait for.
           pnpm --filter @dopl/worker exec tsx src/main.ts > worker.log 2>&1 &
-          pnpm e2e
+          pnpm e2e --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-traces
+          name: playwright-traces-${{ matrix.shard }}
           path: |
             apps/web/test-results
             worker.log
 
-  images:
-    needs: check
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+  image:
+    name: image (${{ matrix.target }}, ${{ matrix.arch }})
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Native runners: building arm64 under QEMU took ~20 of CI's 42 minutes.
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
     strategy:
       matrix:
         target: [web, worker, migrate]
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -99,14 +136,61 @@ jobs:
         id: ns
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
+        id: build
         with:
           context: .
           file: docker/Dockerfile
           target: ${{ matrix.target }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ghcr.io/${{ steps.ns.outputs.owner }}/dopl-${{ matrix.target }}:latest
-            ghcr.io/${{ steps.ns.outputs.owner }}/dopl-${{ matrix.target }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.target }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          platforms: linux/${{ matrix.arch }}
+          # Untagged: `publish` tags it once the checks pass.
+          outputs: type=image,name=ghcr.io/${{ steps.ns.outputs.owner }}/dopl-${{ matrix.target }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.target }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish (${{ matrix.target }})
+    needs: [checks, e2e, image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        target: [web, worker, migrate]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-${{ matrix.target }}-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image namespace
+        id: ns
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - name: Tag the amd64 + arm64 image
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          image="ghcr.io/${{ steps.ns.outputs.owner }}/dopl-${{ matrix.target }}"
+          refs=()
+          for digest in *; do refs+=("$image@sha256:$digest"); done
+          docker buildx imagetools create \
+            -t "$image:${{ github.sha }}" -t "$image:latest" "${refs[@]}"
+          docker buildx imagetools inspect "$image:${{ github.sha }}"

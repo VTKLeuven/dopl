@@ -1336,3 +1336,16 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 - **Order:** Analytics joins the main list after Views. Contacts moves into the user menu. With both gone the "Tools" section is dropped, and Settings sits alone above the user menu.
 
 **Why:** the owner's feedback: opening a project meant scrolling to reach its views, analytics and intake; the logo row had room it didn't use; and Inter bold made the wordmark look like any other heading. Outfit's geometric, round shapes match the mark. The list above the projects is about 120 px shorter at the same window height.
+
+### D-135: CI runs its checks and the image builds in parallel
+
+**Decision:** `.github/workflows/ci.yml` starts everything at once.
+
+- **Four check jobs:** `checks` (typecheck, lint, drift, Vitest, `pnpm build`) and `e2e (1/3)` to `(3/3)`. Playwright's `--shard` splits the spec files; every shard runs the sign-in setup and seeds its own database, and a new spec file is picked up without touching the workflow. Shards don't cancel each other (`fail-fast: false`), so one run shows every failure. The Chromium download is cached per Playwright version.
+- **Images on main:** one job per target and platform (`web`, `worker`, `migrate` × `amd64`, `arm64`), each on a native runner (`ubuntu-24.04-arm` for arm64, free for public repositories), pushed by digest without a tag.
+- **`publish`** needs every check and every image. It joins each target's two digests into one multi-arch image tagged `<sha>` and `latest` (`docker buildx imagetools create`, no rebuild). Deploy (D-130) still waits for the whole CI run, and `./dopl deploy` pulls `<sha>`, so only a commit that passed every check can go live.
+- Common setup (pnpm, Node, install, the CI `.env`) is the composite action `.github/actions/setup`.
+
+**Why:** a push took about 42 minutes to reach the server: 18 for one check job (the e2e suite alone 14.5, one test at a time on a cold dev server) and then 24 for the images, where arm64 was built under QEMU emulation (about 20 minutes, against 3 for amd64). Split and in parallel, the slowest path is one e2e shard, about 8 to 9 minutes.
+
+**Trade-off:** a commit that fails its checks still leaves untagged image versions in GHCR (nothing can deploy them); clean them up with a retention policy if they pile up. The first run after this change starts with an empty image cache.
