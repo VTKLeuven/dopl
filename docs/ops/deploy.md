@@ -2,7 +2,7 @@
 
 This guide takes a fresh Linux server to a running Dopl at `https://dopl.vtk.be` with nightly backups. Everything runs in Docker from images that CI publishes on every push to `main` (`ghcr.io/d1ff1cult0/dopl-{web,worker,migrate}`, public, amd64 and arm64). Nothing is built on the server.
 
-Tested end to end on 2026-09-29 against the published images: migrations, bootstrap, invite acceptance, forced 2FA enrolment, a project and an item with an attachment, an invite email over SMTP, a backup, a restore, and `./dopl` itself.
+Tested end to end on 2026-09-30 against the published images of `52747bb`, from a fresh `git clone`: migrations, bootstrap, invite acceptance, forced 2FA enrolment, a project and an item with an attachment, an invite email over SMTP, a backup, a restore, and `./dopl` itself.
 
 ## What you need
 
@@ -119,7 +119,7 @@ The `backup` container runs every night at `BACKUP_TIME` and writes to `docker/b
 - `dopl-<date>-<time>.dump`: the whole database (`pg_dump` custom format)
 - `uploads-<date>-<time>.tar.gz`: the uploads volume
 
-Files older than `BACKUP_KEEP_DAYS` are deleted. **Copy the directory off the server** with what you already use (restic, rsync to a NAS, borg…), and keep `.env` with it. Make one now to check: `./dopl backup`.
+Files older than `BACKUP_KEEP_DAYS` are deleted. The files are owned by root and readable by root only (they contain password hashes and encrypted secrets), so run your copy job as root. **Copy the directory off the server** with what you already use (restic, rsync to a NAS, borg…), and keep `.env` with it. Make one now to check: `./dopl backup`.
 
 **Restore** (for example on a new server, after steps 1–3 with the same `.env`):
 

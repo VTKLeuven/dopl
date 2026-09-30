@@ -4,6 +4,8 @@
 #   /backups/uploads-<stamp>.tar.gz the uploads volume
 # Keeps BACKUP_KEEP_DAYS days. `backup.sh now` makes one backup and exits.
 set -euo pipefail
+# Dumps hold password hashes and encrypted secrets: readable by root only.
+umask 077
 
 backup() {
   local stamp tmp

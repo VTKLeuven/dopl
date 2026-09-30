@@ -42,7 +42,7 @@ Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. Th
 
 ### 1.0 Going live (read this first)
 
-**Dopl is ready to deploy.** The production stack was run end to end from the published GHCR images on 2026-09-29: migrations, `./dopl bootstrap`, accepting the owner invite, forced 2FA enrolment, a project, an item with an attachment (upload and download), an invite email over SMTP, a backup, a restore (data and uploads back, audit trigger intact) and a 2FA reset. `docs/ops/deploy.md` is the guide; `README.md` has the short version; D-125 records the choices.
+**Dopl is ready to deploy.** The production stack was run end to end on 2026-09-30 from a fresh `git clone` with the published images of `52747bb` (and before that with the older ones): migrations, `./dopl bootstrap`, accepting the owner invite, forced 2FA enrolment, a project, an item with an attachment (upload and download), an invite email over SMTP, a backup, a restore (data and uploads back, audit trigger intact) a 2FA reset and the `./dopl` commands. Backup files are root-only (`umask 077`). `docs/ops/deploy.md` is the guide; `README.md` has the short version; D-125 records the choices.
 
 **To go live, the owner does:**
 
