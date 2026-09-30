@@ -67,8 +67,11 @@ export async function inviteMembers(ctx: WorkspaceCtx, raw: InviteMembersInput) 
     for (const email of input.emails) {
       const user =
         (await tx.user.findUnique({ where: { email }, select: { id: true, kind: true } })) ??
+        // Verified: the admin vouches for the address, and every way to sign
+        // in still proves control of it. Better Auth only links Google or SSO
+        // to a verified local user (D-131).
         (await tx.user.create({
-          data: { email, name: email.split("@")[0] ?? email },
+          data: { email, name: email.split("@")[0] ?? email, emailVerified: true },
           select: { id: true, kind: true },
         }));
       if (user.kind !== "HUMAN") {

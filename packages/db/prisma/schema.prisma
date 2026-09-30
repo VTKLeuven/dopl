@@ -596,6 +596,8 @@ model SsoProvider {
   providerId     String  @unique
   organizationId String?
   domain         String
+  /// `domainVerification` (D-131): set when an admin registers the provider.
+  domainVerified Boolean?
 
   @@map("sso_providers")
 }
