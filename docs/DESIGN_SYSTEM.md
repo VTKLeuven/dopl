@@ -21,26 +21,26 @@
 
 Measured from the screenshot. It was captured at roughly 1.44× device scale, so the numbers below are converted to CSS px. They are **starting points to verify with screenshot overlays**, not gospel.
 
-| Element        | Observation                                                                                                                     | Dopl value                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Canvas         | Very light neutral grey behind everything                                                                                       | `--canvas #F5F5F6`                                                                                  |
-| Sidebar        | Sits directly on the canvas with no border or background; about 250 px wide                                                     | 248 px, resizable 216–320                                                                           |
-| Logo row       | Mark + wordmark, bold, about 20 px text                                                                                         | 30 px mark + "Dopl" in `title-lg` bold, 36 px row                                                   |
-| Search field   | White, 1px border, radius ~10, magnifier icon, `⌘K` hint at right                                                               | 36 px tall, radius 10                                                                               |
-| Nav item       | Icon ~18 px + label ~15 px medium grey-700; pitch ~42 px                                                                        | Denser than Spott (D-129): 32 px item, 2 px gap, `body` medium, 16 px icon; sub-items 28 px `small` |
-| Section label  | "Workspace", "Records", "Tools": small, light grey, sentence case, extra top spacing                                            | 12/16/500, `--text-muted`, 16 px top margin                                                         |
-| Active item    | Soft grey pill spanning the sidebar width                                                                                       | `--sidebar-active #EBEBED`, radius 10                                                               |
-| Main panel     | White, radius ~16, hairline border, small gap from the window edge                                                              | radius 16, 1px `--border`, 8 px inset (top/right/bottom)                                            |
-| Page header    | Breadcrumb with icon, "›" separator, ⓘ; right side: outlined buttons with icon + label + chevron, one near-black primary, a `⋮` | 56 px tall, 20 px side padding                                                                      |
-| Buttons        | Outlined: white, 1px strong border, radius ~10, 15 px medium; primary: near-black fill, white text                              | 36 px tall, radius 10                                                                               |
-| Toolbar        | Search input (placeholder), "Sorted by **Last Activity Date**" chip, "Filters" chip                                             | 48 px tall; chips 32 px                                                                             |
-| Table header   | Icon + label (medium, dark) + `⋮` column menu at right; checkbox column                                                         | 40 px tall                                                                                          |
-| Rows           | ~54 px, hairline separators, no zebra striping                                                                                  | 52 px comfortable / 36 px compact                                                                   |
-| Identity cell  | Round avatar (~24 px) + name (medium, dark) + a small brand icon                                                                | avatar 24 px                                                                                        |
-| Link chips     | Outlined chip with a person icon + value, text in link colour                                                                   | 26 px chip, radius 8                                                                                |
-| Secondary text | "at Vaia (2015-2024)" in grey after a bold part; "+1" overflow in grey                                                          | `--text-muted`                                                                                      |
-| Tag pills      | Pastel bg, saturated text, same-hue 1px border, radius ~6, 13–14 px medium                                                      | see §3.4                                                                                            |
-| Bottom fade    | Rows fade into the panel at the bottom edge                                                                                     | 48 px gradient mask on scroll containers                                                            |
+| Element        | Observation                                                                                                                     | Dopl value                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Canvas         | Very light neutral grey behind everything                                                                                       | `--canvas #F5F5F6`                                                                            |
+| Sidebar        | Sits directly on the canvas with no border or background; about 250 px wide                                                     | 248 px, resizable 216–320                                                                     |
+| Logo row       | Mark + wordmark, bold, about 20 px text                                                                                         | 36 px mark + "Dopl" in Outfit 600, `wordmark` 28 px, 44 px row, 12 px above and below (D-134) |
+| Search field   | White, 1px border, radius ~10, magnifier icon, `⌘K` hint at right                                                               | 32 px tall, radius 10, `small` placeholder (D-134)                                            |
+| Nav item       | Icon ~18 px + label ~15 px medium grey-700; pitch ~42 px                                                                        | Denser than Spott (D-134): 28 px item, 2 px gap, `small` medium, 16 px icon; sub-items 24 px  |
+| Section label  | "Workspace", "Records", "Tools": small, light grey, sentence case, extra top spacing                                            | 12/16/500, `--text-muted`, 12 px top margin                                                   |
+| Active item    | Soft grey pill spanning the sidebar width                                                                                       | `--sidebar-active #EBEBED`, radius 10                                                         |
+| Main panel     | White, radius ~16, hairline border, small gap from the window edge                                                              | radius 16, 1px `--border`, 8 px inset (top/right/bottom)                                      |
+| Page header    | Breadcrumb with icon, "›" separator, ⓘ; right side: outlined buttons with icon + label + chevron, one near-black primary, a `⋮` | 56 px tall, 20 px side padding                                                                |
+| Buttons        | Outlined: white, 1px strong border, radius ~10, 15 px medium; primary: near-black fill, white text                              | 36 px tall, radius 10                                                                         |
+| Toolbar        | Search input (placeholder), "Sorted by **Last Activity Date**" chip, "Filters" chip                                             | 48 px tall; chips 32 px                                                                       |
+| Table header   | Icon + label (medium, dark) + `⋮` column menu at right; checkbox column                                                         | 40 px tall                                                                                    |
+| Rows           | ~54 px, hairline separators, no zebra striping                                                                                  | 52 px comfortable / 36 px compact                                                             |
+| Identity cell  | Round avatar (~24 px) + name (medium, dark) + a small brand icon                                                                | avatar 24 px                                                                                  |
+| Link chips     | Outlined chip with a person icon + value, text in link colour                                                                   | 26 px chip, radius 8                                                                          |
+| Secondary text | "at Vaia (2015-2024)" in grey after a bold part; "+1" overflow in grey                                                          | `--text-muted`                                                                                |
+| Tag pills      | Pastel bg, saturated text, same-hue 1px border, radius ~6, 13–14 px medium                                                      | see §3.4                                                                                      |
+| Bottom fade    | Rows fade into the panel at the bottom edge                                                                                     | 48 px gradient mask on scroll containers                                                      |
 
 ---
 
@@ -196,13 +196,14 @@ Only Urgent is coloured, so the colour stands out when it matters.
 
 | Token         | Size / line | Weight  | Tracking | Use                                             |
 | ------------- | ----------- | ------- | -------- | ----------------------------------------------- |
+| `wordmark`    | 28/32       | 600     | -0.015em | "Dopl" in the sidebar, in Outfit (D-134)        |
 | `display`     | 24/32       | 600     | -0.015em | Full-page item title, empty-state heroes        |
 | `title-lg`    | 20/28       | 600     | -0.012em | Peek panel title, settings page titles          |
 | `title`       | 16/24       | 600     | -0.006em | Dialog titles, section headers in panels        |
 | `nav`         | 15/20       | 500     | -0.006em | Breadcrumb, large buttons (as in Spott)         |
-| `body`        | 14/20       | 400     | -0.003em | Default text, table cells, sidebar items (500)  |
+| `body`        | 14/20       | 400     | -0.003em | Default text, table cells                       |
 | `body-strong` | 14/20       | 500     | -0.003em | Names, column headers, primary cell text        |
-| `small`       | 13/18       | 400/500 | 0        | Secondary cells, chips, pills, meta             |
+| `small`       | 13/18       | 400/500 | 0        | Sidebar items (500), secondary cells, chips     |
 | `caption`     | 12/16       | 500     | 0        | Sidebar section labels, timestamps, helper text |
 | `micro`       | 11/14       | 600     | 0.01em   | Badge counts, `kbd`                             |
 
@@ -320,11 +321,10 @@ Dopl is desktop-first but must work at phone width for triage, approvals, inbox 
 - **Sidebar order:**
   1. Logo row, with the workspace switcher prepared for later
   2. Search (opens ⌘K)
-  3. **Home, Inbox (badge), Notes, Messages (unread dot), Mail (badge)**
-  4. **Projects** (collapsible, per-user order by drag, favourites first), each expanding to its views and intake
-  5. **Views** (workspace views)
-  6. **Tools**: Analytics, Settings
-  7. User menu at the bottom, with an agent status pill when the agent is running or paused
+  3. **Home, Inbox (badge), Messages (unread dot), the AI teammate (its own name and picture), Mail (badge), Notes, All projects, Views, Analytics**
+  4. **Projects** (collapsible, per-user order by drag, favourites first), each expanding to its views, analytics and intake
+  5. **Settings**, alone above the user menu (no "Tools" section, D-134)
+  6. User menu at the bottom: Account & security, **Contacts**, Sign out; with an agent status pill when the agent is running or paused
 - Counts are `micro` numbers in `--text-muted`. Unread messages show a 6 px sky-600 dot.
 
 ### 4.2 Page header and toolbar

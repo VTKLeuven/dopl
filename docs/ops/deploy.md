@@ -180,7 +180,7 @@ None of these are needed to start. Each has its own guide:
 - **Shared mailbox** (`it@vtk.be` in Dopl): a Google Cloud project, a service account with domain-wide delegation and a Pub/Sub topic: `docs/ops/gmail-setup.md` (Q-16, Q-20).
 - **AI teammate** (Hermes + Warpgate): `docs/ops/agent-setup.md`. It stays off until you turn it on.
 - **Google sign-in:** an OAuth client in the same Google Cloud project; set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env`, redirect URI `https://dopl.vtk.be/api/auth/callback/google`, then `./dopl up`.
-- **SSO (OIDC/SAML):** Settings → Authentication, once the identity provider is chosen (Q-21).
+- **SSO (OIDC):** put the provider's origin in `SSO_TRUSTED_ORIGINS` (`https://vtk.be`), then add it in Settings → Authentication with the issuer exactly as published and the domain its users' addresses are on (D-127). It signs in people you invited with an address on that domain; anyone else is told they need an invite (D-131).
 
 Worker secrets for these go in `worker.env` next to `.env` and key files in `docker/secrets/` (mounted read-only into the worker only).
 

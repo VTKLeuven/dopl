@@ -6,6 +6,10 @@
 - Solving or ignoring a conversation takes it out of the list at once, without waiting for the refresh.
 - **Sidebar** (D-129): a larger logo and wordmark, and more compact navigation rows, so the project list gets more room.
 - **Automatic deploys** (D-130): every push to `main` that passes CI is deployed by the Deploy workflow (`./dopl deploy <sha>` over SSH). One-time setup in `docs/ops/deploy.md` §7.
+- **SSO sign-in works** (D-131): an invited person on the identity provider's domain is signed in and their invite accepted, instead of landing back on the sign-in page. A provider is trusted only for its own domain. When Google or SSO sign-in fails, the sign-in page now says why (not invited, can't be linked, no access, cancelled).
+- **Delete an account** (D-132): Settings → Members → ⋯ → Delete account…, confirmed by typing the address. Their private data goes; work items, comments and messages stay without their name; shared views and dashboards move to you. Deactivate is still there for people who may come back.
+- **The AI teammate's picture** (D-133): upload one in Settings → AI teammate. The sidebar, the agent page and run cards show its own name and picture.
+- **Sidebar** (D-134): smaller rows so a project's views, analytics and intake fit without scrolling; Analytics moved up with the other pages, Contacts into your account menu; a larger logo with "Dopl" in Outfit, in the same space.
 
 ## Going live (2026-09-30)
 
