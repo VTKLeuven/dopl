@@ -59,7 +59,7 @@ Everything is committed and pushed to `main` on `github.com/VTKLeuven/dopl`. The
 2. **Updates are automatic:** every push to `main` that passes CI is deployed by `.github/workflows/deploy.yml` (`./dopl deploy <sha>` over SSH, pinned to the commit; D-130). It needs the one-time key and secrets from deploy.md §7. Roll back from Actions → Deploy → Run workflow with an older SHA.
 3. **Google Cloud (Q-20):** one project with an OAuth client (Google sign-in) and a service account with domain-wide delegation plus Pub/Sub (the shared mailbox). Then connect `it@vtk.be` following `docs/ops/gmail-setup.md` (Q-16). Only `GoogleGmail` itself hasn't run against Google yet.
 4. **AI teammate:** deploy Hermes with Qwen 3.8 27B, create the Warpgate user and key, fill in `worker.env`, then Settings → AI teammate (Check connection, hosts, rules, MCP token) following `docs/ops/agent-setup.md`. Start with a lab host only. The adapter has only run against the fake Hermes.
-5. **SSO (Q-21)** once the identity provider is chosen; **Phase 5b** (semantic search) once Q-6 is answered.
+5. **SSO** works with VTK's provider (Q-21, D-131): invite people with their address on the provider's domain. **Phase 5b** (semantic search) once Q-6 is answered.
 6. The carry-overs in §6 and the ROADMAP, by what the team asks for.
 
 **Fixed flake:** `e2e/messages.spec.ts` ("two people: live messages…") used to time live delivery from the keypress with 2–3 s budgets that CI's cold dev server missed (it failed `ca0cfaa` and `45bd0f5`). It now waits for the commit, asserts the message arrives through realtime without a reload, and records the latency as an annotation instead of failing on it (D-126). The 1 s acceptance bar is only measurable against a production build; running CI's e2e that way needs a test-only sign-in rate-limit allowance first (D-114).
@@ -378,7 +378,6 @@ Carried forward (also ticked off in ROADMAP as they get done):
 
 Open questions for the user are in `docs/OPEN_QUESTIONS.md`. The ones that block upcoming work:
 
-- **Q-21:** which SSO identity provider.
 - **Q-6:** the embeddings endpoint, model and dimensions (Phase 5b).
 - **Q-20 (and Q-16):** who sets up the Google Cloud pieces (OAuth, service account, Pub/Sub) and which mailbox, to connect a real mailbox.
 - **Q-25 to Q-29** (chat, notification and shared-note defaults) don't block anything, but are worth a quick answer during the Phase 4 and 5 reviews.

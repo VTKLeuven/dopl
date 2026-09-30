@@ -13,6 +13,7 @@ Each question has my **proposed default**. Wherever that works for you, a reply 
 | Q-7            | Hermes' own terminal/code tools are **disabled**; the worker reaches Hermes on :8642 and Hermes reaches `/api/mcp` (2026-09-29, D-115).                                                   |
 | Q-17           | One Warpgate user `dopl-agent` with key authentication and per-target roles; targets referenced by name; a non-root account on the targets (D-122, `docs/ops/agent-setup.md`).            |
 | Q-18           | Qwen 3.8 27B, 128k context, reliable tool calls through the OpenAI-compatible server; 60k characters of context by default (D-118).                                                       |
+| Q-21           | VTK's own OpenID provider (`https://vtk.be/api/auth/better`), next to Google and email+password; trusted for its domain only (2026-09-30, D-127, D-131).                                  |
 | Other defaults | "All choices seem good": defaults apply to every question you haven't answered. Prisma 8 was requested if available; it isn't GA yet (D-049).                                             |
 
 New requirements: Discord webhooks (D-052) and Better Auth email+password logins and/or SSO (D-050).
