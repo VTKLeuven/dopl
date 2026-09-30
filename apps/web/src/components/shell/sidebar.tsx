@@ -86,9 +86,9 @@ function NavItem({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex h-9 items-center gap-2.5 rounded-control px-2.5 text-nav font-medium text-fg-nav",
+        "group flex h-8 items-center gap-2.5 rounded-control px-2.5 text-body font-medium text-fg-nav",
         "focus-ring transition-colors duration-[var(--dur-fast)] ease-out",
-        "[&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:text-icon-strong",
+        "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-icon-strong",
         active ? "bg-sidebar-active text-fg" : "hover:bg-sidebar-hover",
       )}
     >
@@ -107,7 +107,7 @@ function SectionLabel({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mt-5 mb-1 flex h-6 items-center justify-between px-2.5">
+    <div className="mt-4 mb-1 flex h-6 items-center justify-between px-2.5">
       <span className="text-caption font-medium text-fg-muted">{children}</span>
       {action}
     </div>
@@ -133,7 +133,7 @@ function SubItem({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "ml-[26px] flex h-8 items-center gap-2 rounded-control px-2.5 text-body text-fg-secondary focus-ring",
+        "ml-[26px] flex h-7 items-center gap-2 rounded-control px-2.5 text-small text-fg-secondary focus-ring",
         active ? "bg-sidebar-active font-medium text-fg" : "hover:bg-sidebar-hover",
       )}
     >
@@ -173,16 +173,16 @@ export function Sidebar({
 
   return (
     <nav aria-label={workspace.name} className="flex h-full flex-col px-3 pt-4 pb-3">
-      <div className="flex h-8 items-center gap-2 px-1.5">
-        <DoplMark size={24} />
-        <span className="text-title font-bold tracking-[-0.02em] text-fg">Dopl</span>
+      <div className="flex h-9 items-center gap-2.5 px-1.5">
+        <DoplMark size={30} />
+        <span className="text-title-lg font-bold tracking-[-0.02em] text-fg">Dopl</span>
       </div>
 
       <button
         type="button"
         onClick={openCommandPalette}
         className={cn(
-          "mt-4 flex h-[38px] w-full items-center gap-2 rounded-control border border-border-strong bg-surface px-2.5 text-left text-body text-fg-placeholder shadow-xs",
+          "mt-4 flex h-9 w-full items-center gap-2 rounded-control border border-border-strong bg-surface px-2.5 text-left text-body text-fg-placeholder shadow-xs",
           "focus-ring transition-colors duration-[var(--dur-fast)] hover:border-neutral-300",
         )}
       >
@@ -326,7 +326,7 @@ export function Sidebar({
               <div key={p.id} className="flex flex-col gap-0.5">
                 <NavItem
                   href={`${href}/items`}
-                  icon={<ProjectBadge name={p.name} color={p.color} />}
+                  icon={<ProjectBadge name={p.name} color={p.color} size={16} />}
                   label={p.name}
                   active={isActive(`${href}/items`)}
                   onNavigate={onNavigate}
