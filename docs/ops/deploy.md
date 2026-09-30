@@ -169,7 +169,7 @@ git pull              # the dopl script, compose file and templates
 ./dopl update         # pulls the images of DOPL_VERSION in .env, migrates, restarts
 ```
 
-To pin a version, `./dopl update <commit-sha>` (it writes `DOPL_VERSION` to `.env`); roll back the same way with an older SHA. Automatic deploys pin it to each commit, so after one a bare `./dopl update` stays on that commit; `./dopl update latest` goes back to following `latest`. Migrations only move forward, so restore the backup made before an update if you ever need to go back across a migration. Check that CI finished its image build for the commit first (GitHub → Actions → the `images` job).
+To pin a version, `./dopl update <commit-sha>` (it writes `DOPL_VERSION` to `.env`); roll back the same way with an older SHA. Automatic deploys pin it to each commit, so after one a bare `./dopl update` stays on that commit; `./dopl update latest` goes back to following `latest`. Migrations only move forward, so restore the backup made before an update if you ever need to go back across a migration. Check that CI published the images for the commit first (GitHub → Actions → CI → the `publish` jobs).
 
 After an update, compare `.env.production.example` with your `.env` for new settings (`git log -p .env.production.example`).
 
