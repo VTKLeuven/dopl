@@ -1,6 +1,6 @@
 # Deploying Dopl
 
-This guide takes a fresh Linux server to a running Dopl at `https://dopl.vtk.be` with nightly backups. Everything runs in Docker from images that CI publishes on every push to `main` (`ghcr.io/d1ff1cult0/dopl-{web,worker,migrate}`, public, amd64 and arm64). Nothing is built on the server.
+This guide takes a fresh Linux server to a running Dopl at `https://dopl.vtk.be` with nightly backups. Everything runs in Docker from images that CI publishes on every push to `main` (`ghcr.io/vtkleuven/dopl-{web,worker,migrate}`, public, amd64 and arm64). Nothing is built on the server.
 
 Tested end to end on 2026-09-30 against the published images of `52747bb`, from a fresh `git clone`: migrations, bootstrap, invite acceptance, forced 2FA enrolment, a project and an item with an attachment, an invite email over SMTP, a backup, a restore, and `./dopl` itself.
 
@@ -16,7 +16,7 @@ Tested end to end on 2026-09-30 against the published images of `52747bb`, from 
 Only the `dopl` script, `docker/` and the env templates are used on the server; cloning the repository is the easiest way to get them and to update later.
 
 ```bash
-git clone https://github.com/d1ff1cult0/dopl.git /opt/dopl
+git clone https://github.com/VTKLeuven/dopl.git /opt/dopl
 cd /opt/dopl
 ```
 
@@ -146,8 +146,8 @@ command="cd /home/it/dopl && ./dopl deploy \"\$SSH_ORIGINAL_COMMAND\"",restrict 
 EOF
 
 # The private key and the server's host key, for the workflow.
-gh secret set DEPLOY_SSH_KEY --repo d1ff1cult0/dopl < dopl-deploy
-ssh-keyscan -t ed25519 liv.vtk.be | gh secret set DEPLOY_KNOWN_HOSTS --repo d1ff1cult0/dopl
+gh secret set DEPLOY_SSH_KEY --repo VTKLeuven/dopl < dopl-deploy
+ssh-keyscan -t ed25519 liv.vtk.be | gh secret set DEPLOY_KNOWN_HOSTS --repo VTKLeuven/dopl
 rm dopl-deploy dopl-deploy.pub
 
 # Once, so the server has the dopl script that knows `deploy`.
@@ -155,6 +155,7 @@ ssh it@liv.vtk.be 'cd /home/it/dopl && git pull --ff-only'
 ```
 
 - The `command="…",restrict` prefix ties the key to `./dopl deploy`: whoever holds it can deploy a commit of this repository and nothing else (no shell, no forwarding). `./dopl deploy` accepts a full commit SHA only.
+- The images (`ghcr.io/vtkleuven/dopl-web`, `-worker`, `-migrate`) must be **public**, because the server pulls them without logging in. A package that CI creates in the organisation starts out private: open each one under github.com/orgs/VTKLeuven/packages → Package settings → Change visibility → Public (the organisation must allow public packages). Otherwise run `docker login ghcr.io` on the server with a token that has `read:packages`.
 - The server must be able to `git pull` without a prompt, and its checkout must stay clean and on `main`; a local edit to a tracked file makes the fast-forward fail and the run with it. Settings go in `.env`, which git ignores.
 - A different server or path: set the repository variables `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_URL` (defaults `liv.vtk.be`, `it`, `https://dopl.vtk.be`), and change the path in `authorized_keys`.
 - **Redeploy or roll back** from GitHub → Actions → Deploy → Run workflow, with a commit SHA (empty means the head of `main`). Its images must exist: CI builds them for every push to `main`.

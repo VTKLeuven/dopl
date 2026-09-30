@@ -15,7 +15,7 @@ Accounts are invite-only (email and password with 2FA, magic links, optionally G
 ## Run it on a server
 
 ```bash
-git clone https://github.com/d1ff1cult0/dopl.git /opt/dopl && cd /opt/dopl
+git clone https://github.com/VTKLeuven/dopl.git /opt/dopl && cd /opt/dopl
 cp .env.production.example .env     # then fill it in: docs/ops/deploy.md §2
 ./dopl up
 ./dopl bootstrap you@vtk.be "Your Name"   # prints the owner's invite link
