@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useRelativeTime } from "@/lib/use-relative-time";
 import {
   changeRoleAction,
+  deleteMemberAction,
   setApproverAction,
   inviteMembersAction,
   resendInviteAction,
@@ -17,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label, FieldError, FieldHint, Textarea } from "@/components/ui/input";
+import { Input, Label, FieldError, FieldHint, Textarea } from "@/components/ui/input";
 import {
   Dialog,
   DialogBody,
@@ -34,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProjectBadge } from "@/components/shell/project-badge";
@@ -58,11 +60,14 @@ interface Props {
   projects: Array<{ id: string; name: string; identifier: string; color: string | null }>;
 }
 
+type Member = Props["members"][number];
+
 export function MembersView(props: Props) {
   const t = useTranslations("settings.members");
   const tr = useTranslations("auth.roles");
   const relative = useRelativeTime();
   const [inviting, setInviting] = useState(false);
+  const [deleting, setDeleting] = useState<Member | null>(null);
   const [, startTransition] = useTransition();
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>) =>
@@ -216,6 +221,10 @@ export function MembersView(props: Props) {
                               {t("deactivate")}
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem destructive onSelect={() => setDeleting(m)}>
+                            {t("delete")}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : null}
@@ -260,7 +269,104 @@ export function MembersView(props: Props) {
       ) : null}
 
       <InviteDialog {...props} open={inviting} onOpenChange={setInviting} />
+      <DeleteMemberDialog
+        ws={props.ws}
+        member={deleting}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+      />
     </div>
+  );
+}
+
+/** Deleting an account can't be undone, so it asks for the address first (D-132). */
+function DeleteMemberDialog({
+  ws,
+  member,
+  onOpenChange,
+}: {
+  ws: string;
+  member: Member | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations("settings.members");
+  const tc = useTranslations("common");
+  const te = useTranslations("errors");
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const email = member?.user.email ?? "";
+  const matches = typed.trim().toLowerCase() === email.toLowerCase();
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!member || !matches) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await deleteMemberAction(ws, member.id);
+      if (!res.ok) {
+        setError(
+          res.message === "other_workspace"
+            ? t("otherWorkspace")
+            : res.message === "last_owner"
+              ? t("lastOwner")
+              : te("generic"),
+        );
+        return;
+      }
+      toast.success(t("deleted", { name: member.user.name }));
+      setTyped("");
+      onOpenChange(false);
+    });
+  }
+
+  return (
+    <Dialog
+      open={member !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setTyped("");
+          setError(null);
+        }
+        onOpenChange(open);
+      }}
+    >
+      <DialogContent>
+        <form onSubmit={submit} className="flex min-h-0 flex-col">
+          <DialogHeader>
+            <DialogTitle>{t("deleteTitle", { name: member?.user.name ?? "" })}</DialogTitle>
+            <DialogDescription>{t("deleteDescription")}</DialogDescription>
+          </DialogHeader>
+          <DialogBody className="flex flex-col gap-4">
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-body text-fg-secondary">
+              <li>{t("deleteGoes")}</li>
+              <li>{t("deleteStays")}</li>
+            </ul>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="delete-confirm">{t("deleteConfirmLabel", { email })}</Label>
+              <Input
+                id="delete-confirm"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                autoFocus
+              />
+              {error ? <FieldError>{error}</FieldError> : null}
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost">{tc("cancel")}</Button>
+            </DialogClose>
+            <Button type="submit" variant="danger" loading={pending} disabled={!matches}>
+              {t("deleteConfirm")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

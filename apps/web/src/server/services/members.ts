@@ -12,6 +12,7 @@ import { keyAfter } from "@dopl/shared/sort-keys";
 import type { TransactionClient } from "@dopl/db";
 import { ConflictError, NotFoundError } from "../action-result";
 import { queueEmail } from "../email/outbox";
+import { blobStore } from "../storage";
 import { env } from "../env";
 import { audit, withMutation } from "../mutation";
 import type { WorkspaceCtx } from "../session";
@@ -238,6 +239,99 @@ export async function setMemberActive(ctx: WorkspaceCtx, memberId: string, activ
       verb: active ? "reactivated" : "deactivated",
     });
   });
+}
+
+/**
+ * Deletes a person's account for good (D-132), not just their access. Their
+ * private data goes with them (notes, private views and dashboards, sessions,
+ * notifications); what they did for the team stays, shown as "Someone":
+ * items, comments, messages and history keep their content with the author
+ * cleared (`onDelete: SetNull`). Shared views and dashboards and the invites
+ * they sent pass to the admin who deletes them. The audit log keeps who it was.
+ *
+ * Only for accounts that belong to this workspace alone: an admin here can't
+ * delete someone another workspace still uses.
+ */
+export async function deleteMember(ctx: WorkspaceCtx, memberId: string) {
+  assertAdmin(ctx);
+  const noteFileKeys = await withMutation(ctx, async ({ tx, activity, emit }) => {
+    const member = await tx.workspaceMember.findFirst({
+      where: { id: memberId, workspaceId: ctx.workspace.id, user: { kind: "HUMAN" } },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+    if (!member) throw new NotFoundError();
+    const { user } = member;
+    if (user.id === ctx.actor.userId) throw new ConflictError("self");
+    if (member.role === "OWNER" && ctx.role !== "OWNER") throw new ForbiddenError();
+    if (member.role === "OWNER" && member.status === "ACTIVE") {
+      const owners = await tx.workspaceMember.count({
+        where: { workspaceId: ctx.workspace.id, role: "OWNER", status: "ACTIVE" },
+      });
+      if (owners <= 1) throw new ConflictError("last_owner");
+    }
+    const elsewhere = await tx.workspaceMember.count({
+      where: { userId: user.id, workspaceId: { not: ctx.workspace.id } },
+    });
+    if (elsewhere > 0) throw new ConflictError("other_workspace");
+
+    // Keep what the team shares; the rest cascades with the user.
+    await tx.view.updateMany({
+      where: { ownerId: user.id, visibility: "WORKSPACE" },
+      data: { ownerId: ctx.actor.userId },
+    });
+    await tx.dashboard.updateMany({
+      where: { ownerId: user.id, visibility: "WORKSPACE" },
+      data: { ownerId: ctx.actor.userId },
+    });
+    await tx.workspaceInvite.updateMany({
+      where: { workspaceId: ctx.workspace.id, invitedById: user.id },
+      data: { invitedById: ctx.actor.userId },
+    });
+    await tx.workspaceInvite.updateMany({
+      where: {
+        workspaceId: ctx.workspace.id,
+        email: user.email,
+        acceptedAt: null,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+    // Files on their notes go with the notes; the blobs are removed after commit.
+    const noteFiles = await tx.attachment.findMany({
+      where: { note: { ownerId: user.id } },
+      select: { storageKey: true },
+    });
+    // Semantic search vectors live outside Prisma (D-017) and have no FK.
+    await tx.$executeRaw`DELETE FROM search.embeddings WHERE "ownerId" = ${user.id}::uuid`;
+    await tx.user.delete({ where: { id: user.id } });
+
+    await audit(tx, ctx, {
+      action: "member.deleted",
+      targetType: "User",
+      targetId: user.id,
+      metadata: { name: user.name, email: user.email, role: member.role },
+    });
+    activity({
+      entityType: "MEMBER",
+      entityId: user.id,
+      verb: "deleted",
+      meta: { name: user.name },
+    });
+    emit({
+      topic: `workspace:${ctx.workspace.id}`,
+      type: "member.updated",
+      payload: { userId: user.id },
+    });
+    return noteFiles.map((f) => f.storageKey);
+  });
+  // Best effort: a blob left behind is unreachable without its row.
+  const store = blobStore();
+  await Promise.allSettled(noteFileKeys.map((key) => store.delete(key)));
 }
 
 export async function revokeInvite(ctx: WorkspaceCtx, inviteId: string) {
