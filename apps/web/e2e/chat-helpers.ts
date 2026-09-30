@@ -1,4 +1,4 @@
-import { expect, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 
 export const uniq = () => Math.random().toString(36).slice(2, 7);
 
@@ -51,4 +51,31 @@ export async function send(
 ) {
   await compose(page, parts, testId);
   await page.keyboard.press("Enter");
+}
+
+/**
+ * Sends what's in the composer and resolves once the server has committed it
+ * (the send action's response), so a live-delivery check starts from the
+ * commit rather than from the keypress (D-126).
+ */
+export async function sendAndCommit(page: Page, text: string) {
+  const committed = page.waitForResponse(
+    (r) => r.request().method() === "POST" && Boolean(r.request().postData()?.includes(text)),
+  );
+  await page.keyboard.press("Enter");
+  expect((await committed).ok()).toBe(true);
+}
+
+/**
+ * Waits for something another person caused to show up live, and records how
+ * long it took after the commit as a test annotation. It asserts arrival, not
+ * a latency budget: `next dev` on a shared CI runner can't hold the 1 s
+ * acceptance bar reliably (D-126).
+ */
+export async function expectLive(check: () => Promise<void>, label: string) {
+  const start = Date.now();
+  await check();
+  test
+    .info()
+    .annotations.push({ type: "live latency", description: `${label}: ${Date.now() - start} ms` });
 }

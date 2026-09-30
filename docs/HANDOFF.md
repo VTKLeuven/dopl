@@ -62,7 +62,7 @@ Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. Th
 5. **SSO (Q-21)** once the identity provider is chosen; **Phase 5b** (semantic search) once Q-6 is answered.
 6. The carry-overs in §6 and the ROADMAP, by what the team asks for.
 
-**Known risk:** `e2e/messages.spec.ts` ("two people: live messages…") has timing budgets (2 s, 3 s) that CI's cold dev server sometimes misses, even on the retry; it failed `ca0cfaa` and passed on `553ba4f`. It's a test-environment flake, not a product bug, but it can turn `main` red. If it keeps happening, run CI's e2e against a production build instead of `next dev` (the sign-in rate limit needs a test-only allowance first, D-114).
+**Fixed flake:** `e2e/messages.spec.ts` ("two people: live messages…") used to time live delivery from the keypress with 2–3 s budgets that CI's cold dev server missed (it failed `ca0cfaa` and `45bd0f5`). It now waits for the commit, asserts the message arrives through realtime without a reload, and records the latency as an annotation instead of failing on it (D-126). The 1 s acceptance bar is only measurable against a production build; running CI's e2e that way needs a test-only sign-in rate-limit allowance first (D-114).
 
 ### 1.1 Phase 4 status
 
