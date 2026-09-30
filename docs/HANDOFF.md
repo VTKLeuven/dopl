@@ -56,7 +56,7 @@ Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. Th
 **After it's live, in this order:**
 
 1. **Use it for a week or two** with the team (projects, items, intake forms, chat, notes). Collect what's missing or annoying; that's the review of Phases 3–8 the owner still owes.
-2. **Pin the version** once it's stable: `./dopl update <commit-sha>`, and update deliberately after checking CI's `images` job.
+2. **Updates are automatic:** every push to `main` that passes CI is deployed by `.github/workflows/deploy.yml` (`./dopl deploy <sha>` over SSH, pinned to the commit; D-130). It needs the one-time key and secrets from deploy.md §7. Roll back from Actions → Deploy → Run workflow with an older SHA.
 3. **Google Cloud (Q-20):** one project with an OAuth client (Google sign-in) and a service account with domain-wide delegation plus Pub/Sub (the shared mailbox). Then connect `it@vtk.be` following `docs/ops/gmail-setup.md` (Q-16). Only `GoogleGmail` itself hasn't run against Google yet.
 4. **AI teammate:** deploy Hermes with Qwen 3.8 27B, create the Warpgate user and key, fill in `worker.env`, then Settings → AI teammate (Check connection, hosts, rules, MCP token) following `docs/ops/agent-setup.md`. Start with a lab host only. The adapter has only run against the fake Hermes.
 5. **SSO (Q-21)** once the identity provider is chosen; **Phase 5b** (semantic search) once Q-6 is answered.

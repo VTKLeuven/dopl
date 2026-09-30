@@ -3,6 +3,7 @@
 #
 #   ./dopl up                      start (or apply .env changes); migrations run first
 #   ./dopl update [tag]            pull the images (latest, or a commit SHA) and restart
+#   ./dopl deploy SHA              what CI runs on every push to main: git pull, then update to SHA
 #   ./dopl bootstrap EMAIL "NAME"  first run: create the workspace and the owner's invite link
 #   ./dopl status                  containers and their health
 #   ./dopl logs [service]          follow logs (web, worker, postgres, backup…)
@@ -38,6 +39,16 @@ case "$cmd" in
     compose up -d --remove-orphans
     compose ps
     ;;
+  deploy)
+    # Run over SSH by .github/workflows/deploy.yml (docs/ops/deploy.md §7). The
+    # SHA is the one thing that comes from outside, so it is checked strictly.
+    sha="${1:-}"
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "usage: ./dopl deploy <full commit SHA>" >&2; exit 1; }
+    git fetch --quiet origin main
+    git merge --ff-only "$sha"
+    # exec, because the pull may just have replaced this script.
+    exec ./dopl update "$sha"
+    ;;
   bootstrap)
     [ $# -ge 2 ] || { echo 'usage: ./dopl bootstrap you@vtk.be "Your Name" [--workspace "VTK IT"] [--slug vtk]' >&2; exit 1; }
     email="$1"
@@ -61,6 +72,6 @@ case "$cmd" in
   down) compose down ;;
   compose) compose "$@" ;;
   *)
-    sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

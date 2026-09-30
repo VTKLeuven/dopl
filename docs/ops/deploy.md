@@ -132,13 +132,43 @@ It asks for confirmation, stops `web` and `worker`, replaces the database and th
 
 ## 7. Updating
 
+### Automatically, on every push to `main`
+
+The **Deploy** workflow (`.github/workflows/deploy.yml`) runs when CI has passed for a push to `main` and published that commit's images. It connects to the server over SSH and runs `./dopl deploy <sha>` there: `git pull` for the script, the compose file and the templates, then `./dopl update <sha>`, which pins `DOPL_VERSION` to the commit, pulls its images, migrates and restarts. Afterwards it waits for `https://dopl.vtk.be/sign-in` to answer. If the migrations fail, the old containers keep running and the run fails.
+
+Set it up once, from your own machine (the server is `it@liv.vtk.be`, with Dopl in `/home/it/dopl`):
+
 ```bash
-cd /opt/dopl
-git pull              # the dopl script, compose file and templates
-./dopl update         # pulls the latest images, migrates, restarts
+# A key that can do one thing on the server: deploy a commit.
+ssh-keygen -t ed25519 -N "" -C dopl-deploy -f dopl-deploy
+ssh it@liv.vtk.be 'cat >> ~/.ssh/authorized_keys' <<EOF
+command="cd /home/it/dopl && ./dopl deploy \"\$SSH_ORIGINAL_COMMAND\"",restrict $(cat dopl-deploy.pub)
+EOF
+
+# The private key and the server's host key, for the workflow.
+gh secret set DEPLOY_SSH_KEY --repo d1ff1cult0/dopl < dopl-deploy
+ssh-keyscan -t ed25519 liv.vtk.be | gh secret set DEPLOY_KNOWN_HOSTS --repo d1ff1cult0/dopl
+rm dopl-deploy dopl-deploy.pub
+
+# Once, so the server has the dopl script that knows `deploy`.
+ssh it@liv.vtk.be 'cd /home/it/dopl && git pull --ff-only'
 ```
 
-To pin a version, `./dopl update <commit-sha>` (it writes `DOPL_VERSION` to `.env`); roll back the same way with an older SHA. Migrations only move forward, so restore the backup made before an update if you ever need to go back across a migration. Check that CI finished its image build for the commit first (GitHub → Actions → the `images` job).
+- The `command="…",restrict` prefix ties the key to `./dopl deploy`: whoever holds it can deploy a commit of this repository and nothing else (no shell, no forwarding). `./dopl deploy` accepts a full commit SHA only.
+- The server must be able to `git pull` without a prompt, and its checkout must stay clean and on `main`; a local edit to a tracked file makes the fast-forward fail and the run with it. Settings go in `.env`, which git ignores.
+- A different server or path: set the repository variables `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_URL` (defaults `liv.vtk.be`, `it`, `https://dopl.vtk.be`), and change the path in `authorized_keys`.
+- **Redeploy or roll back** from GitHub → Actions → Deploy → Run workflow, with a commit SHA (empty means the head of `main`). Its images must exist: CI builds them for every push to `main`.
+- To stop automatic deploys, disable the workflow (Actions → Deploy → ⋯ → Disable workflow).
+
+### By hand
+
+```bash
+cd /opt/dopl          # on liv.vtk.be: /home/it/dopl
+git pull              # the dopl script, compose file and templates
+./dopl update         # pulls the images of DOPL_VERSION in .env, migrates, restarts
+```
+
+To pin a version, `./dopl update <commit-sha>` (it writes `DOPL_VERSION` to `.env`); roll back the same way with an older SHA. Automatic deploys pin it to each commit, so after one a bare `./dopl update` stays on that commit; `./dopl update latest` goes back to following `latest`. Migrations only move forward, so restore the backup made before an update if you ever need to go back across a migration. Check that CI finished its image build for the commit first (GitHub → Actions → the `images` job).
 
 After an update, compare `.env.production.example` with your `.env` for new settings (`git log -p .env.production.example`).
 

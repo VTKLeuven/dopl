@@ -1,0 +1,65 @@
+name: Deploy
+
+# Every push to main that passes CI goes live. CI publishes the images for the
+# commit; this workflow then tells the server to pull them (docs/ops/deploy.md §7).
+# It can also be started by hand to redeploy, or to roll back to an older commit.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full commit SHA to deploy (its images must exist). Empty: the head of main."
+        required: false
+        type: string
+
+# One deploy at a time, and never cut one off halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  deploy:
+    # Only CI runs for a push to main count: a pull request's run (also from a
+    # fork) completes the same workflow but must never reach the server.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL || 'https://dopl.vtk.be' }}
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST || 'liv.vtk.be' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'it' }}
+      DEPLOY_URL: ${{ vars.DEPLOY_URL || 'https://dopl.vtk.be' }}
+      SHA: ${{ inputs.sha || github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::error::Set the DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS secrets (docs/ops/deploy.md §7)."
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The key is tied to `./dopl deploy` on the server (authorized_keys
+          # command=…), so all this sends is the commit to deploy.
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$SHA"
+      - name: Wait until the new version answers
+        run: |
+          curl --silent --show-error --fail --output /dev/null \
+            --retry 24 --retry-delay 5 --retry-all-errors "$DEPLOY_URL/sign-in"
