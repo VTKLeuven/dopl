@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { openChannel, send, signInAs, uniq } from "./chat-helpers";
+import {
+  compose,
+  expectLive,
+  openChannel,
+  send,
+  sendAndCommit,
+  signInAs,
+  uniq,
+} from "./chat-helpers";
+
+type Marked = { __noReload?: boolean };
 
 const SANDBOX = "E2E sandbox";
 
@@ -23,13 +33,16 @@ test("a mention shows up in the Inbox live, with its badge, and can be triaged w
     timeout: 15_000,
   });
 
+  // Realtime: it must arrive without a reload on Bram's side. Arrival is
+  // asserted, not a latency budget (D-126).
+  await page.evaluate(() => ((window as unknown as Marked).__noReload = true));
   const tag = `ping ${uniq()}`;
-  await send(chloe.page, [{ mention: "Bram" }, ` ${tag}`]);
-  await expect(chloe.page.getByTestId("message").filter({ hasText: tag })).toBeVisible();
+  await compose(chloe.page, [{ mention: "Bram" }, ` ${tag}`]);
+  await sendAndCommit(chloe.page, tag);
 
-  // Realtime: no reload on Bram's side.
   const row = page.getByTestId("inbox-row").filter({ hasText: tag });
-  await expect(row).toBeVisible({ timeout: 3_000 });
+  await expectLive(() => expect(row).toBeVisible(), "inbox row");
+  expect(await page.evaluate(() => (window as unknown as Marked).__noReload)).toBe(true);
   await expect(row).toHaveAttribute("data-unread", "true");
   await expect(page.getByTestId("inbox-badge")).toBeVisible();
   await expect(page).toHaveTitle(/^\(\d+\) /);
@@ -61,18 +74,20 @@ test("unread counts stay in sync across tabs", async ({ page, context, browser }
   const chloe = await signInAs(browser, "chloe@dopl.test");
   const tag = `tabs ${uniq()}`;
   await openChannel(chloe.page, SANDBOX);
-  await send(chloe.page, [{ mention: "Bram" }, ` ${tag}`]);
+  await compose(chloe.page, [{ mention: "Bram" }, ` ${tag}`]);
+  await sendAndCommit(chloe.page, tag);
 
   // Both tabs of the same browser hear it (one shared stream, relayed).
-  await expect(page.getByTestId("inbox-row").filter({ hasText: tag })).toBeVisible({
-    timeout: 3_000,
-  });
+  await expectLive(
+    () => expect(page.getByTestId("inbox-row").filter({ hasText: tag })).toBeVisible(),
+    "inbox row",
+  );
   await expect(page.getByTestId("inbox-badge")).toBeVisible();
-  await expect(other.getByTestId("inbox-badge")).toBeVisible({ timeout: 3_000 });
+  await expectLive(() => expect(other.getByTestId("inbox-badge")).toBeVisible(), "other tab");
 
   await page.getByTestId("inbox-mark-all").click();
   await expect(page.getByTestId("inbox-badge")).toBeHidden();
-  await expect(other.getByTestId("inbox-badge")).toBeHidden({ timeout: 3_000 });
+  await expect(other.getByTestId("inbox-badge")).toBeHidden();
 
   await other.close();
   await chloe.context.close();

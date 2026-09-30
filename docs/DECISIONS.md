@@ -1237,6 +1237,8 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 - The chat e2e ("two people: live messages…") timed from Chloé's keypress with 2–3 s budgets. On CI's cold dev server the send action alone took 1.7 s, and it failed twice in a row on `45bd0f5`. Even timed from the commit, `next dev` on this machine delivered in 0.85–2.1 s (the 150 ms client batch plus a refetch the dev server is slow to serve), so no budget both holds on CI and still means something.
 - `sendAndCommit` waits for the send action's response; `expectLive` then waits (default 10 s) for the change to show up in the other browser and records the latency as a test annotation. A `__noReload` flag proves it arrived through realtime, not a reload. Typing still has to disappear within 5 s, which is a timer, not server speed.
 
+- The Inbox e2e (a mention arriving live, and the badge in a second tab) had the same kind of budget, 3 s from the keypress, and failed twice in a row on CI on `1cab4e6`: the trace shows the list refetch already in flight and the sidebar count updated, with the dev server taking 1.9 s to answer. It now uses `sendAndCommit` and `expectLive` too, with the `__noReload` check.
+
 **Why:** the e2e suite runs against `next dev`, which can't measure the 1 s acceptance bar. Measuring that belongs to a production-build run (HANDOFF §1, known risk).
 
 ### D-127: SSO identity providers are allowlisted by origin in the environment
