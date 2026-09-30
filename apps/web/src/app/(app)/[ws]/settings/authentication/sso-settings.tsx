@@ -9,6 +9,24 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError, FieldHint } from "@/components/ui/input";
 import { SettingsSection } from "@/components/settings/section";
 
+/** Discovery error codes from `addSsoProviderAction` that have their own message. */
+const DISCOVERY_ERRORS: Partial<
+  Record<
+    string,
+    | "ssoErrors.untrusted"
+    | "ssoErrors.notFound"
+    | "ssoErrors.issuerMismatch"
+    | "ssoErrors.timeout"
+    | "ssoErrors.privateHost"
+  >
+> = {
+  discovery_untrusted_origin: "ssoErrors.untrusted",
+  discovery_not_found: "ssoErrors.notFound",
+  issuer_mismatch: "ssoErrors.issuerMismatch",
+  discovery_timeout: "ssoErrors.timeout",
+  discovery_private_host: "ssoErrors.privateHost",
+};
+
 export function SsoSettings({
   ws,
   providers,
@@ -75,7 +93,14 @@ export function SsoSettings({
               setErrors(
                 Object.fromEntries(Object.entries(res.fields).map(([k, v]) => [k, v[0] ?? ""])),
               );
-            else toast.error(res.error);
+            else if (res.error === "conflict" && res.message === "provider_id_unavailable")
+              setErrors({ providerId: t("ssoErrors.providerIdTaken") });
+            // Every other coded failure comes from OIDC discovery on the issuer.
+            else if (res.error === "conflict")
+              setErrors({
+                issuer: t(DISCOVERY_ERRORS[res.message ?? ""] ?? "ssoErrors.discoveryFailed"),
+              });
+            else toast.error(t("ssoErrors.generic"));
           });
         }}
       >
@@ -94,6 +119,8 @@ export function SsoSettings({
               <FieldError>{errors[k]}</FieldError>
             ) : k === "providerId" ? (
               <FieldHint>{t("providerIdHint")}</FieldHint>
+            ) : k === "issuer" ? (
+              <FieldHint>{t("issuerHint")}</FieldHint>
             ) : null}
           </div>
         ))}
