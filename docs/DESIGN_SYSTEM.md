@@ -21,26 +21,26 @@
 
 Measured from the screenshot. It was captured at roughly 1.44× device scale, so the numbers below are converted to CSS px. They are **starting points to verify with screenshot overlays**, not gospel.
 
-| Element        | Observation                                                                                                                     | Dopl value                                               |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Canvas         | Very light neutral grey behind everything                                                                                       | `--canvas #F5F5F6`                                       |
-| Sidebar        | Sits directly on the canvas with no border or background; about 250 px wide                                                     | 248 px, resizable 216–320                                |
-| Logo row       | Mark + wordmark, bold, about 20 px text                                                                                         | 28 px mark + "Dopl" 18/600                               |
-| Search field   | White, 1px border, radius ~10, magnifier icon, `⌘K` hint at right                                                               | 38 px tall, radius 10                                    |
-| Nav item       | Icon ~18 px + label ~15 px medium grey-700; pitch ~42 px                                                                        | 36 px item + 4 px gap (tune to 40 if needed)             |
-| Section label  | "Workspace", "Records", "Tools": small, light grey, sentence case, extra top spacing                                            | 12/16/500, `--text-muted`, 20 px top margin              |
-| Active item    | Soft grey pill spanning the sidebar width                                                                                       | `--sidebar-active #EBEBED`, radius 10                    |
-| Main panel     | White, radius ~16, hairline border, small gap from the window edge                                                              | radius 16, 1px `--border`, 8 px inset (top/right/bottom) |
-| Page header    | Breadcrumb with icon, "›" separator, ⓘ; right side: outlined buttons with icon + label + chevron, one near-black primary, a `⋮` | 56 px tall, 20 px side padding                           |
-| Buttons        | Outlined: white, 1px strong border, radius ~10, 15 px medium; primary: near-black fill, white text                              | 36 px tall, radius 10                                    |
-| Toolbar        | Search input (placeholder), "Sorted by **Last Activity Date**" chip, "Filters" chip                                             | 48 px tall; chips 32 px                                  |
-| Table header   | Icon + label (medium, dark) + `⋮` column menu at right; checkbox column                                                         | 40 px tall                                               |
-| Rows           | ~54 px, hairline separators, no zebra striping                                                                                  | 52 px comfortable / 36 px compact                        |
-| Identity cell  | Round avatar (~24 px) + name (medium, dark) + a small brand icon                                                                | avatar 24 px                                             |
-| Link chips     | Outlined chip with a person icon + value, text in link colour                                                                   | 26 px chip, radius 8                                     |
-| Secondary text | "at Vaia (2015-2024)" in grey after a bold part; "+1" overflow in grey                                                          | `--text-muted`                                           |
-| Tag pills      | Pastel bg, saturated text, same-hue 1px border, radius ~6, 13–14 px medium                                                      | see §3.4                                                 |
-| Bottom fade    | Rows fade into the panel at the bottom edge                                                                                     | 48 px gradient mask on scroll containers                 |
+| Element        | Observation                                                                                                                     | Dopl value                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Canvas         | Very light neutral grey behind everything                                                                                       | `--canvas #F5F5F6`                                                                                  |
+| Sidebar        | Sits directly on the canvas with no border or background; about 250 px wide                                                     | 248 px, resizable 216–320                                                                           |
+| Logo row       | Mark + wordmark, bold, about 20 px text                                                                                         | 30 px mark + "Dopl" in `title-lg` bold, 36 px row                                                   |
+| Search field   | White, 1px border, radius ~10, magnifier icon, `⌘K` hint at right                                                               | 36 px tall, radius 10                                                                               |
+| Nav item       | Icon ~18 px + label ~15 px medium grey-700; pitch ~42 px                                                                        | Denser than Spott (D-129): 32 px item, 2 px gap, `body` medium, 16 px icon; sub-items 28 px `small` |
+| Section label  | "Workspace", "Records", "Tools": small, light grey, sentence case, extra top spacing                                            | 12/16/500, `--text-muted`, 16 px top margin                                                         |
+| Active item    | Soft grey pill spanning the sidebar width                                                                                       | `--sidebar-active #EBEBED`, radius 10                                                               |
+| Main panel     | White, radius ~16, hairline border, small gap from the window edge                                                              | radius 16, 1px `--border`, 8 px inset (top/right/bottom)                                            |
+| Page header    | Breadcrumb with icon, "›" separator, ⓘ; right side: outlined buttons with icon + label + chevron, one near-black primary, a `⋮` | 56 px tall, 20 px side padding                                                                      |
+| Buttons        | Outlined: white, 1px strong border, radius ~10, 15 px medium; primary: near-black fill, white text                              | 36 px tall, radius 10                                                                               |
+| Toolbar        | Search input (placeholder), "Sorted by **Last Activity Date**" chip, "Filters" chip                                             | 48 px tall; chips 32 px                                                                             |
+| Table header   | Icon + label (medium, dark) + `⋮` column menu at right; checkbox column                                                         | 40 px tall                                                                                          |
+| Rows           | ~54 px, hairline separators, no zebra striping                                                                                  | 52 px comfortable / 36 px compact                                                                   |
+| Identity cell  | Round avatar (~24 px) + name (medium, dark) + a small brand icon                                                                | avatar 24 px                                                                                        |
+| Link chips     | Outlined chip with a person icon + value, text in link colour                                                                   | 26 px chip, radius 8                                                                                |
+| Secondary text | "at Vaia (2015-2024)" in grey after a bold part; "+1" overflow in grey                                                          | `--text-muted`                                                                                      |
+| Tag pills      | Pastel bg, saturated text, same-hue 1px border, radius ~6, 13–14 px medium                                                      | see §3.4                                                                                            |
+| Bottom fade    | Rows fade into the panel at the bottom edge                                                                                     | 48 px gradient mask on scroll containers                                                            |
 
 ---
 
@@ -194,17 +194,17 @@ Only Urgent is coloured, so the colour stands out when it matters.
 - **Font:** Inter variable, self-hosted through `next/font` (no layout shift). Features: `"cv11", "ss01"` (single-storey a, open digits), `font-variant-numeric: tabular-nums` in tables, dates, counters and identifiers.
 - **Identifiers** (`INFRA-42`): Inter 13/500 in `--text-muted`, tabular. There's no monospace except in code blocks and agent terminal output (`JetBrains Mono` via `next/font`).
 
-| Token         | Size / line | Weight  | Tracking | Use                                              |
-| ------------- | ----------- | ------- | -------- | ------------------------------------------------ |
-| `display`     | 24/32       | 600     | -0.015em | Full-page item title, empty-state heroes         |
-| `title-lg`    | 20/28       | 600     | -0.012em | Peek panel title, settings page titles           |
-| `title`       | 16/24       | 600     | -0.006em | Dialog titles, section headers in panels         |
-| `nav`         | 15/20       | 500     | -0.006em | Sidebar items, breadcrumb, buttons (as in Spott) |
-| `body`        | 14/20       | 400     | -0.003em | Default text, table cells                        |
-| `body-strong` | 14/20       | 500     | -0.003em | Names, column headers, primary cell text         |
-| `small`       | 13/18       | 400/500 | 0        | Secondary cells, chips, pills, meta              |
-| `caption`     | 12/16       | 500     | 0        | Sidebar section labels, timestamps, helper text  |
-| `micro`       | 11/14       | 600     | 0.01em   | Badge counts, `kbd`                              |
+| Token         | Size / line | Weight  | Tracking | Use                                             |
+| ------------- | ----------- | ------- | -------- | ----------------------------------------------- |
+| `display`     | 24/32       | 600     | -0.015em | Full-page item title, empty-state heroes        |
+| `title-lg`    | 20/28       | 600     | -0.012em | Peek panel title, settings page titles          |
+| `title`       | 16/24       | 600     | -0.006em | Dialog titles, section headers in panels        |
+| `nav`         | 15/20       | 500     | -0.006em | Breadcrumb, large buttons (as in Spott)         |
+| `body`        | 14/20       | 400     | -0.003em | Default text, table cells, sidebar items (500)  |
+| `body-strong` | 14/20       | 500     | -0.003em | Names, column headers, primary cell text        |
+| `small`       | 13/18       | 400/500 | 0        | Secondary cells, chips, pills, meta             |
+| `caption`     | 12/16       | 500     | 0        | Sidebar section labels, timestamps, helper text |
+| `micro`       | 11/14       | 600     | 0.01em   | Badge counts, `kbd`                             |
 
 Rich text (descriptions, notes, comments) uses body 14/22 with 12 px paragraph spacing, headings at 20/16/15 and 600 weight, and lists indented 20 px.
 
@@ -383,6 +383,7 @@ Dopl is desktop-first but must work at phone width for triage, approvals, inbox 
 - **Inbox and Mail:**
   - Two panes: a list (380 px) and a reader.
   - List rows show the avatar, title, preview, time (tabular) and state/assignee pills. Unread rows are bold with a 6 px sky dot.
+  - Mail: the open row is `--surface-selected`; opened from the keyboard it also gets the 2 px inset focus bar of §4.3 (a focus ring would be clipped by the list). Ignored threads show only under All, with a muted subject and an "Ignored" caption.
   - Internal email comments render on `--lavender-50` with a lock icon and "Internal note". Email bodies render in a sandboxed iframe with a "Remote images blocked · Load" banner.
 - **Notes:**
   - A masonry grid (CSS columns, 280 px cards) with a capture bar on top. The tag tree lives in the secondary sidebar.
@@ -461,6 +462,7 @@ Every component lives in `components/ui` (primitives) or `components` (product c
 | Lists and boards | `J`/`K` or `↑`/`↓` move · `Enter` open peek · `⌘Enter` open full page · `X` select · `⇧`-click range · `⌘A` select all · `A` assign · `⇧A` assign to me · `S` status · `P` priority · `L` labels · `T` type · `D` due date · `E` edit title · `⌘⇧,` copy link · `⌘.` copy identifier · `⇧H` show/hide done items · `⌘⌫` delete (undo toast) · `Esc` clear selection |
 | Peek             | `Esc` close · `J`/`K` next/previous item · `M` comment                                                                                                                                                                                                                                                                                                              |
 | Create dialog    | `⌘Enter` create · `⌘⇧Enter` create and continue (keeps properties) · pasting multiple lines offers "Create N items"                                                                                                                                                                                                                                                 |
+| Mail (Phase 7)   | `J`/`K` or `↑`/`↓` open the next/previous conversation (more load at the end of the list) · `⌫` ignore the open conversation, with an undo toast (D-128)                                                                                                                                                                                                            |
 | Intake (Phase 3) | `Y` accept · `N` decline · `U` mark duplicate · `Z` snooze                                                                                                                                                                                                                                                                                                          |
 | Approvals        | `⌘⇧Y` approve · `⌘⇧N` deny, with a focus-trapped confirm on production hosts                                                                                                                                                                                                                                                                                        |
 

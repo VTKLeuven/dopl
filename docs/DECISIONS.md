@@ -1250,3 +1250,38 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 - The form maps Better Auth's discovery error codes to messages on the issuer field instead of a bare `server_error`.
 - The issuer must be entered exactly as the provider publishes it, path included (for VTK: `https://vtk.be/api/auth/better`). Dopl reads `<issuer>/.well-known/openid-configuration`.
 - Better Auth also reads `BETTER_AUTH_TRUSTED_ORIGINS` on its own. We don't use it: it skips `env.ts` validation and allows wildcards.
+
+## After going live
+
+### D-128: Mail is driven from the keyboard; Backspace ignores a thread, it doesn't delete it
+
+**Decision:**
+
+- In Mail, `↑`/`↓` (and `J`/`K`) open the previous or next conversation and move the focus to its row, as in the Inbox. At the end of the loaded list the next page loads. A thread that has left the list (solved, snoozed) keeps its place, so the next arrow goes to its neighbours, not back to the top.
+- `⌫` sets the open thread's status to **IGNORED**, the status the schema already has for "spam / newsletters / not actionable". It leaves Unassigned, Mine, Open, Snoozed and Solved, and stays under **All**, marked "Ignored", where "Move back to open" restores it. A toast offers Undo. The reader moves on to the next thread, so a run of reports can be cleared with one key. The reader also has an Ignore button with the shortcut in its tooltip.
+- Nothing is deleted in Dopl and nothing is changed in Gmail. A later message in an ignored thread doesn't reopen it (`statusAfterMessage`).
+- Key repeat is ignored for `⌫` (holding it must not empty the list), and neither key does anything while typing or with a menu or dialog open.
+- A status change removes the row from the cached lists it no longer belongs to at once, and rows with a change in flight stay hidden even if a refetch lands first (server actions run one at a time, so a fast run of `⌫` queues up while realtime refetches keep arriving).
+
+**Why:** triage in a shared mailbox is mostly "not for us" (DMARC reports, newsletters), and that should cost one key. Deleting would need Gmail's modify scope, would come back on the next sync unless mirrored there, and can't be undone by a teammate; ignoring is reversible and already excluded from the open counts and SLA stats.
+
+**Trade-off:** `⌫` without a modifier differs from lists and boards, where delete is `⌘⌫`. It is safe here because it is reversible and announced with an undo toast.
+
+### D-129: A denser sidebar than the reference
+
+**Decision:** sidebar rows are 32 px with `body` (14 px) medium labels and 16 px icons (was 36 px, `nav` 15 px, 18 px icons); project sub-items are 28 px in `small`; section labels sit 16 px below the block above; the search field is 36 px. The logo row grows to a 30 px mark with the wordmark in `title-lg` bold. The skeleton has the same geometry.
+
+**Why:** the owner's feedback after going live: the logo read as too small and the navigation as too large, which left the project list, the part that grows, with the least room on a laptop screen. This departs from the Spott measurements in DESIGN_SYSTEM §2 on purpose; the secondary sidebars (Mail, Notes, Messages) already used 32 px rows.
+
+### D-130: Every push to `main` deploys itself
+
+**Decision:** `.github/workflows/deploy.yml` runs after the CI workflow succeeds for a push to `main` (`workflow_run`), so the commit's images exist. It connects to the server with a dedicated SSH key and sends the commit SHA; on the server the key is bound in `authorized_keys` to `./dopl deploy "$SSH_ORIGINAL_COMMAND"` with `restrict`. `./dopl deploy` accepts a 40-character SHA only, fast-forwards the checkout and runs `./dopl update <sha>`, which pins `DOPL_VERSION` to that commit. The workflow then waits for `/sign-in` to answer. It can be started by hand with a SHA to redeploy or roll back.
+
+**Why:**
+
+- A separate workflow, not a job in CI: CI cancels a run in progress when a newer commit is pushed, and a deploy must not be cut off halfway. Deploy has its own concurrency group without cancelling.
+- `workflow_run` also fires for pull-request runs of CI, including from forks, and runs with the repository's secrets. The job therefore requires the triggering run to be a successful **push** to `main`.
+- The forced command means a leaked key can deploy a commit of this repository and nothing else. The host key is pinned in a secret (`DEPLOY_KNOWN_HOSTS`).
+- Pinning to the SHA deploys exactly what CI tested, and makes a rollback the same operation with an older SHA. Migrations still only move forward (deploy.md §7).
+
+**Trade-off:** there is no staging step; a commit that passes CI is live a few minutes later. Disable the workflow to go back to updating by hand.

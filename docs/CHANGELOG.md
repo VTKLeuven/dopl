@@ -1,5 +1,12 @@
 # Changelog
 
+## After going live (2026-09-30)
+
+- **Mail from the keyboard** (D-128): `↑`/`↓` (or `J`/`K`) move through the conversations and open them; `⌫` ignores the open one and moves on, with Undo. Ignored conversations leave every view except All, where they are marked and can be moved back to open. The reader has an Ignore button too, and the `?` overlay lists the keys.
+- Solving or ignoring a conversation takes it out of the list at once, without waiting for the refresh.
+- **Sidebar** (D-129): a larger logo and wordmark, and more compact navigation rows, so the project list gets more room.
+- **Automatic deploys** (D-130): every push to `main` that passes CI is deployed by the Deploy workflow (`./dopl deploy <sha>` over SSH). One-time setup in `docs/ops/deploy.md` §7.
+
 ## Going live (2026-09-30)
 
 - **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.
