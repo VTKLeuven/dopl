@@ -311,6 +311,7 @@ Patterns to follow (details in `CLAUDE.md`):
 - `SMTP_*`, `MAIL_FROM`
 - `STORAGE_DRIVER`, `STORAGE_LOCAL_DIR` (or the S3 variables)
 - optional `GOOGLE_CLIENT_ID`/`SECRET`
+- optional `SSO_TRUSTED_ORIGINS`: the identity-provider origins an admin may add as SSO (D-127)
 
 - `GMAIL_FAKE_DIR` (dev and CI only: the fake Gmail's directory, relative to the repo root)
 
