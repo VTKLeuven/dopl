@@ -27,7 +27,7 @@ services:
   # Applies migrations on every start, then exits. Also runs one-off commands:
   #   docker compose -f docker/compose.prod.yml run --rm migrate pnpm dopl:bootstrap --email …
   migrate:
-    image: ghcr.io/d1ff1cult0/dopl-migrate:${DOPL_VERSION:-latest}
+    image: ghcr.io/vtkleuven/dopl-migrate:${DOPL_VERSION:-latest}
     env_file: ../.env
     depends_on:
       postgres: { condition: service_healthy }
@@ -43,7 +43,7 @@ services:
     restart: "no"
 
   web:
-    image: ghcr.io/d1ff1cult0/dopl-web:${DOPL_VERSION:-latest}
+    image: ghcr.io/vtkleuven/dopl-web:${DOPL_VERSION:-latest}
     <<: *env
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -55,7 +55,7 @@ services:
       - uploads:/data/uploads
 
   worker:
-    image: ghcr.io/d1ff1cult0/dopl-worker:${DOPL_VERSION:-latest}
+    image: ghcr.io/vtkleuven/dopl-worker:${DOPL_VERSION:-latest}
     <<: *env
     depends_on:
       migrate: { condition: service_completed_successfully }

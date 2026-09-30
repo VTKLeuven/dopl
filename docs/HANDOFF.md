@@ -38,7 +38,7 @@ It's public at `dopl.vtk.be` and invite-only. The brief is `PROMPT.md`.
 
 **The owner approved Phases 1 and 2** and asked for 3 and 4 in one go. Phases 3 to 8 are built and merged (the owner asked for Phases 6, 7 and 8 right after the one before, and then for 5b and the carry-overs); their reviews are still pending, so show the screenshots in `docs/screenshots/phase-3/` to `docs/screenshots/phase-8/` at the start of the next session.
 
-Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
+Everything is committed and pushed to `main` on `github.com/VTKLeuven/dopl`. The dev workspace slug is `vtk` (URLs look like `/vtk/p/INFRA/items`).
 
 ### 1.0 Going live (read this first)
 
@@ -47,7 +47,7 @@ Everything is committed and pushed to `main` on `github.com/d1ff1cult0/dopl`. Th
 **To go live, the owner does:**
 
 1. A server with Docker and the compose plugin, DNS `dopl.vtk.be` → the server.
-2. `git clone https://github.com/d1ff1cult0/dopl.git /opt/dopl`, `cp .env.production.example .env`, generate the secrets and fill in the domain and SMTP (deploy.md §2). Keep a copy of `.env` in a password manager.
+2. `git clone https://github.com/VTKLeuven/dopl.git /opt/dopl`, `cp .env.production.example .env`, generate the secrets and fill in the domain and SMTP (deploy.md §2). Keep a copy of `.env` in a password manager.
 3. **SMTP:** allow the server's IP in the Google Workspace SMTP relay (or use SMTP AUTH). Without working email nobody can join (invite-only).
 4. HTTPS: `DOPL_CADDY=true`, or the existing reverse proxy with the two unbuffered SSE paths (deploy.md §4).
 5. `./dopl up`, `./dopl bootstrap you@vtk.be "Name"`, open the link, set a password and 2FA, invite the team.
@@ -205,7 +205,7 @@ CI (`.github/workflows/ci.yml`):
 - On `main` it also builds and pushes the Docker images to GHCR.
 - Newer pushes cancel older runs.
 - **Last verified:** `main` at `953a21a` (Phase 7 plus a Dockerfile fix) passed every job, images included. The Phase 7 merge itself (`5f62421`) passed the checks but failed the image build, because the Dockerfile didn't install the new `@dopl/server` package; `deploy.test.ts` now checks that every workspace package is installed there. From `46b88a3` to the Phase 6 merge, CI's e2e step failed on a different timing-sensitive test each run (the cold dev server); Playwright now retries once on CI, and a pass on retry shows as flaky (D-114). Locally the note-capture timing check exceeds 100 ms only while this machine is swapping. Image builds take over 10 minutes (multi-arch), and newer pushes cancel them, so a quick series of pushes to `main` never finishes one; confirm a completed image build before deploying.
-- Check its result before calling a phase done: `gh api repos/d1ff1cult0/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
+- Check its result before calling a phase done: `gh api repos/VTKLeuven/dopl/actions/runs --jq '.workflow_runs[:3][] | "\(.status) \(.conclusion) \(.head_sha[:7])"'`.
 
 ---
 
