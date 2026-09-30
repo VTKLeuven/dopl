@@ -1,6 +1,28 @@
 import "server-only";
 import { z } from "zod";
 
+/**
+ * Comma-separated http(s) origins. Each entry is reduced to its origin, and
+ * wildcards are rejected: these origins are trusted by Better Auth (D-127).
+ */
+export const originList = z
+  .string()
+  .default("")
+  .transform((value, ctx) => {
+    const origins = new Set<string>();
+    for (const entry of value.split(",")) {
+      const raw = entry.trim();
+      if (!raw) continue;
+      const url = !raw.includes("*") && URL.canParse(raw) ? new URL(raw) : null;
+      if (!url || (url.protocol !== "https:" && url.protocol !== "http:")) {
+        ctx.addIssue({ code: "custom", message: `"${raw}" is not an http(s) origin` });
+        return z.NEVER;
+      }
+      origins.add(url.origin);
+    }
+    return [...origins];
+  });
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.url(),
@@ -15,6 +37,7 @@ const schema = z.object({
     .string()
     .optional()
     .transform((v) => v || undefined),
+  SSO_TRUSTED_ORIGINS: originList,
   DOPL_ENCRYPTION_KEY: z.string().min(32),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default(".data/uploads"),

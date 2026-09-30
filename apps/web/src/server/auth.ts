@@ -20,7 +20,9 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: prismaAdapter(db, { provider: "postgresql" }),
-  trustedOrigins: [env.APP_URL],
+  // The SSO plugin only runs OIDC discovery against trusted origins, so an
+  // identity provider must be allowlisted here before it can be added (D-127).
+  trustedOrigins: [env.APP_URL, ...env.SSO_TRUSTED_ORIGINS],
   advanced: {
     database: { generateId: false },
     useSecureCookies: isProd,

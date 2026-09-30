@@ -1238,3 +1238,15 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 - `sendAndCommit` waits for the send action's response; `expectLive` then waits (default 10 s) for the change to show up in the other browser and records the latency as a test annotation. A `__noReload` flag proves it arrived through realtime, not a reload. Typing still has to disappear within 5 s, which is a timer, not server speed.
 
 **Why:** the e2e suite runs against `next dev`, which can't measure the 1 s acceptance bar. Measuring that belongs to a production-build run (HANDOFF §1, known risk).
+
+### D-127: SSO identity providers are allowlisted by origin in the environment
+
+**Decision:** `SSO_TRUSTED_ORIGINS` (comma-separated http(s) origins, no wildcards, parsed in `env.ts`) is added to Better Auth's `trustedOrigins` next to `APP_URL`. An admin can only add an OIDC provider in Settings → Authentication if its issuer, discovery document and endpoints sit on one of those origins. Production sets `https://vtk.be`.
+
+**Why:** `@better-auth/sso` refuses to run OIDC discovery against an origin that isn't in `trustedOrigins` (`discovery_untrusted_origin`). With only `APP_URL` trusted, no external provider could be registered at all. Keeping the list in the environment means the operator, not a workspace admin, decides which hosts the server will contact.
+
+**Trade-off:** `trustedOrigins` is one list in Better Auth. An origin on it also passes the origin (CSRF) check on `/api/auth/*` and is accepted as a redirect target. So only list identity providers you'd trust that far, and never a wildcard.
+
+- The form maps Better Auth's discovery error codes to messages on the issuer field instead of a bare `server_error`.
+- The issuer must be entered exactly as the provider publishes it, path included (for VTK: `https://vtk.be/api/auth/better`). Dopl reads `<issuer>/.well-known/openid-configuration`.
+- Better Auth also reads `BETTER_AUTH_TRUSTED_ORIGINS` on its own. We don't use it: it skips `env.ts` validation and allows wildcards.
