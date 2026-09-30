@@ -3,8 +3,9 @@
 import { headers } from "next/headers";
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { isAPIError } from "better-auth/api";
 import { canWorkspace, ForbiddenError } from "@dopl/shared/policy";
-import { run } from "../action-result";
+import { ConflictError, run } from "../action-result";
 import { auth } from "../auth";
 import { db } from "../db";
 import { audit, withMutation } from "../mutation";
@@ -30,21 +31,50 @@ const SsoProviderSchema = z.object({
   clientSecret: z.string().min(1),
 });
 
+/** Better Auth's OIDC discovery failures (`APIError.body.code`) that the form explains. */
+const SSO_DISCOVERY_CODES = new Set([
+  "discovery_untrusted_origin",
+  "discovery_not_found",
+  "discovery_timeout",
+  "discovery_private_host",
+  "discovery_invalid_url",
+  "discovery_invalid_json",
+  "discovery_incomplete",
+  "discovery_unexpected_error",
+  "issuer_mismatch",
+  "oidc_endpoint_redirect",
+  "unsupported_token_auth_method",
+]);
+
+/** Turns the registration failures an admin can fix into coded results instead of `server_error`. */
+function ssoRegistrationError(err: unknown): unknown {
+  if (!isAPIError(err)) return err;
+  const code: unknown = err.body?.code;
+  if (typeof code === "string" && SSO_DISCOVERY_CODES.has(code)) return new ConflictError(code);
+  // A provider id that already exists or is reserved (google, credential, …).
+  if (err.status === "UNPROCESSABLE_ENTITY") return new ConflictError("provider_id_unavailable");
+  return err;
+}
+
 /** Admin-only SSO registration (the client route is disabled, D-050). */
 export async function addSsoProviderAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);
   const res = await run(async () => {
     if (!canWorkspace(ctx.policyActor, "workspace.auth.manage")) throw new ForbiddenError();
     const p = SsoProviderSchema.parse(input);
-    await auth.api.registerSSOProvider({
-      body: {
-        providerId: p.providerId,
-        issuer: p.issuer,
-        domain: p.domain,
-        oidcConfig: { clientId: p.clientId, clientSecret: p.clientSecret, pkce: true },
-      },
-      headers: await headers(),
-    });
+    try {
+      await auth.api.registerSSOProvider({
+        body: {
+          providerId: p.providerId,
+          issuer: p.issuer,
+          domain: p.domain,
+          oidcConfig: { clientId: p.clientId, clientSecret: p.clientSecret, pkce: true },
+        },
+        headers: await headers(),
+      });
+    } catch (err) {
+      throw ssoRegistrationError(err);
+    }
     await withMutation(ctx, async ({ tx }) => {
       await audit(tx, ctx, {
         action: "auth.sso_provider_added",

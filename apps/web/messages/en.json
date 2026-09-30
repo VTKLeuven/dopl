@@ -607,6 +607,7 @@
       "providerId": "Provider ID",
       "providerIdHint": "Lowercase, used in the callback URL.",
       "issuer": "Issuer URL",
+      "issuerHint": "Include any path: Dopl reads /.well-known/openid-configuration under this URL.",
       "domain": "Email domain",
       "clientId": "Client ID",
       "clientSecret": "Client secret",
@@ -614,7 +615,17 @@
       "save": "Save provider",
       "saved": "SSO provider added",
       "none": "No SSO providers yet.",
-      "remove": "Remove"
+      "remove": "Remove",
+      "ssoErrors": {
+        "untrusted": "This origin isn't allowlisted on the server. Add it to SSO_TRUSTED_ORIGINS and restart Dopl.",
+        "notFound": "No discovery document found under this URL. Check the issuer, including its path.",
+        "issuerMismatch": "The discovery document names a different issuer. Copy it exactly as the provider lists it.",
+        "timeout": "The provider didn't answer in time. Try again.",
+        "privateHost": "This URL points to a private network address. Add its origin to SSO_TRUSTED_ORIGINS if that's intended.",
+        "discoveryFailed": "Couldn't read this provider's OIDC configuration.",
+        "providerIdTaken": "This provider ID is already in use or reserved.",
+        "generic": "Couldn't add the provider. Try again."
+      }
     }
   },
   "items": {
