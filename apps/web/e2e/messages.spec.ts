@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { compose, openChannel, send, signInAs, uniq } from "./chat-helpers";
+import {
+  compose,
+  expectLive,
+  openChannel,
+  send,
+  sendAndCommit,
+  signInAs,
+  uniq,
+} from "./chat-helpers";
 
 const SANDBOX = "E2E sandbox";
 
@@ -49,6 +57,8 @@ test("new channel: send, reply in a thread, react, and create a work item from a
 
 test("two people: live messages, typing indicator, unread dot", async ({ page, browser }) => {
   await openChannel(page, SANDBOX);
+  // Everything below must arrive through realtime, never a reload.
+  await page.evaluate(() => ((window as unknown as { __noReload: boolean }).__noReload = true));
   const chloe = await signInAs(browser, "chloe@dopl.test");
   await openChannel(chloe.page, SANDBOX);
 
@@ -56,11 +66,10 @@ test("two people: live messages, typing indicator, unread dot", async ({ page, b
   const warmup = `typing ${uniq()}`;
   await compose(chloe.page, [warmup]);
   const typing = page.getByTestId("typing-indicator");
-  await expect(typing).toContainText("Chloé is typing", { timeout: 3_000 });
+  await expect(typing).toContainText("Chloé is typing");
   await expect(typing).toHaveText("", { timeout: 5_000 });
 
-  // The first live message may still compile routes on a cold dev server
-  // (CI), so it isn't timed; the next one is.
+  // The first live message may still compile routes on a cold dev server (CI).
   await chloe.page.keyboard.press("Enter");
   await expect(page.getByTestId("message").filter({ hasText: warmup })).toBeVisible({
     timeout: 15_000,
@@ -69,17 +78,26 @@ test("two people: live messages, typing indicator, unread dot", async ({ page, b
   // A message arrives live.
   const text = `live ${uniq()}`;
   await chloe.page.keyboard.type(text);
-  await chloe.page.keyboard.press("Enter");
-  await expect(page.getByTestId("message").filter({ hasText: text.trim() })).toBeVisible({
-    timeout: 2_000,
-  });
+  await sendAndCommit(chloe.page, text);
+  await expectLive(
+    () => expect(page.getByTestId("message").filter({ hasText: text })).toBeVisible(),
+    "message",
+  );
+  expect(
+    await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload),
+  ).toBe(true);
 
   // Elsewhere, the sidebar shows it's unread until the channel is opened.
   await page.goto("/vtk/home");
   await expect(page.locator("html[data-realtime]")).toBeAttached();
-  await chloe.page.keyboard.type(`unread ${uniq()}`);
-  await chloe.page.keyboard.press("Enter");
-  await expect(page.getByTestId("messages-dot")).toBeVisible({ timeout: 3_000 });
+  await page.evaluate(() => ((window as unknown as { __noReload: boolean }).__noReload = true));
+  const unread = `unread ${uniq()}`;
+  await chloe.page.keyboard.type(unread);
+  await sendAndCommit(chloe.page, unread);
+  await expectLive(() => expect(page.getByTestId("messages-dot")).toBeVisible(), "unread dot");
+  expect(
+    await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload),
+  ).toBe(true);
 
   await chloe.context.close();
 });

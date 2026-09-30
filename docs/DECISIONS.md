@@ -1231,3 +1231,10 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 - **`.env.production.example`** is the production template (the service name `postgres` in `DATABASE_URL`, absolute storage path, backup settings); `.env.example` stays the development one. `deploy.test.ts` checks that neither holds worker secrets and that the uploads volume and backups are wired.
 
 **Why:** the first deployment should be one server, one command, and backups that are tested, not a plan to set them up later.
+
+### D-126: Live-delivery e2e checks assert arrival, not a latency budget
+
+- The chat e2e ("two people: live messages…") timed from Chloé's keypress with 2–3 s budgets. On CI's cold dev server the send action alone took 1.7 s, and it failed twice in a row on `45bd0f5`. Even timed from the commit, `next dev` on this machine delivered in 0.85–2.1 s (the 150 ms client batch plus a refetch the dev server is slow to serve), so no budget both holds on CI and still means something.
+- `sendAndCommit` waits for the send action's response; `expectLive` then waits (default 10 s) for the change to show up in the other browser and records the latency as a test annotation. A `__noReload` flag proves it arrived through realtime, not a reload. Typing still has to disappear within 5 s, which is a timer, not server speed.
+
+**Why:** the e2e suite runs against `next dev`, which can't measure the 1 s acceptance bar. Measuring that belongs to a production-build run (HANDOFF §1, known risk).
