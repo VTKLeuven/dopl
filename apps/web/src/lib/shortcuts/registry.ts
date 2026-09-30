@@ -4,7 +4,16 @@
  * overlay lists everything here. Labels are next-intl keys under "shortcuts".
  */
 export type ShortcutScope =
-  "global" | "list" | "table" | "calendar" | "timeline" | "peek" | "triage" | "inbox" | "messages";
+  | "global"
+  | "list"
+  | "table"
+  | "calendar"
+  | "timeline"
+  | "peek"
+  | "triage"
+  | "inbox"
+  | "messages"
+  | "mail";
 
 export interface ShortcutDef {
   id: string;
@@ -73,6 +82,12 @@ export const SHORTCUTS = [
   { id: "msgSend", keys: "enter", scope: "messages" },
   { id: "msgNewline", keys: "shift+enter", scope: "messages" },
   { id: "msgCloseThread", keys: "esc", scope: "messages" },
+  // Shared mailbox (Phase 7): moving opens the thread; ⌫ sets it aside as ignored.
+  { id: "mailDown", keys: "j", scope: "mail" },
+  { id: "mailUp", keys: "k", scope: "mail" },
+  { id: "mailDownArrow", keys: "down", scope: "mail" },
+  { id: "mailUpArrow", keys: "up", scope: "mail" },
+  { id: "mailIgnore", keys: "backspace", scope: "mail" },
   { id: "peekNext", keys: "j k", scope: "peek" },
   { id: "triageAccept", keys: "y", scope: "triage" },
   { id: "triageDecline", keys: "n", scope: "triage" },

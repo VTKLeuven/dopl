@@ -34,6 +34,7 @@ const SCOPE_ORDER: ShortcutScope[] = [
   "peek",
   "inbox",
   "messages",
+  "mail",
 ];
 
 /** `?` opens the shortcut overlay; `g` then a letter navigates (DESIGN_SYSTEM §7.1). */
