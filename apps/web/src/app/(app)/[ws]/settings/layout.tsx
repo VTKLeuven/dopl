@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { canWorkspace } from "@dopl/shared/policy";
+import { canMailbox, canWorkspace } from "@dopl/shared/policy";
 import { sidebarFolded } from "@/server/folded-sidebar";
 import { getWorkspaceCtx } from "@/server/session";
 import { PageHeader } from "@/components/shell/page-header";
@@ -29,6 +29,15 @@ async function Nav({ params }: { params: LayoutProps<"/[ws]/settings">["params"]
     <SettingsNav
       ws={ws}
       isAdmin={ctx ? canWorkspace(ctx.policyActor, "workspace.settings") : false}
+      hasOwnMailbox={
+        ctx
+          ? canMailbox(
+              ctx.policyActor,
+              { isMember: false, ownerId: ctx.actor.userId },
+              "mailbox.manage",
+            )
+          : false
+      }
       initialFolded={folded}
     />
   );

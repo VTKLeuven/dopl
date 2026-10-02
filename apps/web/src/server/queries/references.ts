@@ -147,7 +147,7 @@ async function loadEmailReferences(
           id: true,
           subject: true,
           mailboxId: true,
-          mailbox: { select: { emailAddress: true, displayName: true } },
+          mailbox: { select: { emailAddress: true, displayName: true, ownerId: true } },
         },
       },
     },
@@ -185,7 +185,10 @@ async function loadEmailReferences(
       thread: {
         id: t.id,
         subject: canRead ? t.subject : "",
-        mailbox: t.mailbox.displayName ?? t.mailbox.emailAddress,
+        // Someone's personal mailbox isn't named to others either (D-138).
+        mailbox:
+          canRead || !t.mailbox.ownerId ? (t.mailbox.displayName ?? t.mailbox.emailAddress) : "",
+        personal: t.mailbox.ownerId !== null,
         readable: canRead,
         messages: messages.map((m) => ({
           id: m.id,

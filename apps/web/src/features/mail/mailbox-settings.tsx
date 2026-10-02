@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   ChevronDown,
   ChevronRight,
+  Lock,
   Mail,
   Pause,
   Play,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/cn";
 import { useRelativeTime } from "@/lib/use-relative-time";
 import type { ActionResult } from "@/server/action-result";
 import {
+  connectPersonalMailboxAction,
   createMailboxAction,
   setMailboxStateAction,
   syncMailboxNowAction,
@@ -88,11 +90,15 @@ function useErrors() {
     toast.error(
       code === "mailbox_exists"
         ? t("exists")
-        : code === "invalid_member"
-          ? t("invalidMember")
-          : code === "invalid_input"
-            ? t("invalidInput")
-            : t("generic"),
+        : code === "mailbox_shared"
+          ? t("shared")
+          : code === "email_unverified"
+            ? t("unverified")
+            : code === "invalid_member"
+              ? t("invalidMember")
+              : code === "invalid_input"
+                ? t("invalidInput")
+                : t("generic"),
     );
 }
 
@@ -406,13 +412,19 @@ export function MailboxStatus({
   return (
     <div data-testid="mailbox-page">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-5 md:px-8">
-        <Link
-          href={`/${ws}/settings/mailboxes` as never}
-          className="text-small text-fg-muted hover:text-fg"
-        >
-          {t("title")}
-        </Link>
-        <ChevronRight className="size-4 text-icon" />
+        {mailbox.personal ? (
+          <Lock className="size-4 text-icon" />
+        ) : (
+          <>
+            <Link
+              href={`/${ws}/settings/mailboxes` as never}
+              className="text-small text-fg-muted hover:text-fg"
+            >
+              {t("title")}
+            </Link>
+            <ChevronRight className="size-4 text-icon" />
+          </>
+        )}
         <h1 className="text-title font-semibold text-fg">
           {mailbox.displayName ?? mailbox.emailAddress}
         </h1>
@@ -493,7 +505,12 @@ export function MailboxStatus({
         </div>
       </SettingsSection>
 
-      <SettingsSection title={t("settings")} description={t("settingsDescription")}>
+      <SettingsSection
+        title={t("settings")}
+        description={
+          mailbox.personal ? t("personal.settingsDescription") : t("settingsDescription")
+        }
+      >
         <label className="flex flex-col gap-1.5">
           <span className="text-small font-medium text-fg-secondary">
             {t("connectDialog.name")}
@@ -504,28 +521,35 @@ export function MailboxStatus({
             placeholder={mailbox.emailAddress}
           />
         </label>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-small font-medium text-fg-secondary">
-            {t("connectDialog.members")}
-          </span>
-          <PeoplePicker
-            people={people}
-            value={members}
-            onChange={setMembers}
-            multi
-            placeholder={t("connectDialog.membersPlaceholder")}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-small font-medium text-fg-secondary">{t("defaultAssignee")}</span>
-          <PeoplePicker
-            people={people}
-            value={assignee}
-            onChange={(ids) => setAssignee(ids.slice(-1))}
-            placeholder={t("nobody")}
-          />
-          <span className="text-small text-fg-muted">{t("defaultAssigneeHint")}</span>
-        </div>
+        {/* A personal mailbox has no members, and its mail is its owner's (D-138). */}
+        {mailbox.personal ? null : (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-small font-medium text-fg-secondary">
+                {t("connectDialog.members")}
+              </span>
+              <PeoplePicker
+                people={people}
+                value={members}
+                onChange={setMembers}
+                multi
+                placeholder={t("connectDialog.membersPlaceholder")}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-small font-medium text-fg-secondary">
+                {t("defaultAssignee")}
+              </span>
+              <PeoplePicker
+                people={people}
+                value={assignee}
+                onChange={(ids) => setAssignee(ids.slice(-1))}
+                placeholder={t("nobody")}
+              />
+              <span className="text-small text-fg-muted">{t("defaultAssigneeHint")}</span>
+            </div>
+          </>
+        )}
         <label className="flex items-start justify-between gap-4">
           <span className="flex flex-col gap-0.5">
             <span className="text-body font-medium text-fg">{t("sendEnabled")}</span>
@@ -549,8 +573,9 @@ export function MailboxStatus({
               updateMailboxAction(ws, {
                 id: mailbox.id,
                 displayName: name.trim() || null,
-                memberIds: members,
-                defaultAssigneeId: assignee[0] ?? null,
+                ...(mailbox.personal
+                  ? {}
+                  : { memberIds: members, defaultAssigneeId: assignee[0] ?? null }),
               }),
               t("saved"),
             )
@@ -560,7 +585,10 @@ export function MailboxStatus({
         </Button>
       </SettingsSection>
 
-      <SettingsSection title={t("ignoreTitle")} description={t("ignoreDescription")}>
+      <SettingsSection
+        title={t("ignoreTitle")}
+        description={mailbox.personal ? t("personal.ignoreDescription") : t("ignoreDescription")}
+      >
         <IgnoreRules ws={ws} mailboxId={mailbox.id} rules={mailbox.ignoreRules} />
       </SettingsSection>
 
@@ -596,22 +624,108 @@ export function MailboxStatus({
         )}
       </SettingsSection>
 
-      <SettingsSection title={t("disconnectTitle")} description={t("disconnectDescription")}>
+      <SettingsSection
+        title={t("disconnectTitle")}
+        description={
+          mailbox.personal ? t("personal.disconnectDescription") : t("disconnectDescription")
+        }
+      >
         <Button
           variant="danger"
           className="self-start"
           loading={busy === "disconnect"}
           onClick={() => {
-            if (!window.confirm(t("disconnectConfirm"))) return;
+            const confirm = mailbox.personal
+              ? t("personal.disconnectConfirm")
+              : t("disconnectConfirm");
+            if (!window.confirm(confirm)) return;
             void (async () => {
               const ok = await run(setMailboxStateAction(ws, mailbox.id, "disconnect"), onError);
-              if (ok) router.push(`/${ws}/settings/mailboxes` as never);
+              if (!ok) return;
+              if (mailbox.personal) router.refresh();
+              else router.push(`/${ws}/settings/mailboxes` as never);
             })();
           }}
+          data-testid="mailbox-disconnect"
         >
           <Unplug />
           {t("disconnect")}
         </Button>
+      </SettingsSection>
+    </div>
+  );
+}
+
+/* ───────────────────────── your own mailbox (D-138) ───────────────────────── */
+
+/**
+ * Settings → My mailbox: connect the work mailbox of the address you sign in
+ * with, or its status page once it's connected.
+ */
+export function PersonalMailbox({
+  ws,
+  email,
+  mailbox,
+}: {
+  ws: string;
+  /** The address on your account: the only one you can connect. */
+  email: string;
+  mailbox: MailboxAdmin | null;
+}) {
+  const t = useTranslations("mailboxes.personal");
+  const router = useRouter();
+  const onError = useErrors();
+  const [days, setDays] = useState("30");
+  const [busy, setBusy] = useState(false);
+  if (mailbox) return <MailboxStatus ws={ws} mailbox={mailbox} people={[]} />;
+  const connect = async () => {
+    setBusy(true);
+    const r = await run(
+      connectPersonalMailboxAction(ws, { backfillDays: Number(days) || 30 }),
+      onError,
+    );
+    setBusy(false);
+    if (r) router.refresh();
+  };
+  return (
+    <div data-testid="personal-mailbox">
+      <SettingsSection title={t("title")} description={t("description")}>
+        <div className="flex flex-col gap-4 rounded-card border border-border p-4">
+          <div className="flex items-start gap-3">
+            <Lock className="mt-0.5 size-4 shrink-0 text-icon" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-body font-medium text-fg">{t("connectTitle", { email })}</span>
+              <span className="text-small text-fg-muted">{t("connectDescription")}</span>
+            </div>
+          </div>
+          <ul className="list-disc pl-5 text-small text-fg-secondary">
+            <li>{t("privacy.onlyYou")}</li>
+            <li>{t("privacy.shared")}</li>
+            <li>{t("privacy.items")}</li>
+          </ul>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-small font-medium text-fg-secondary">{t("backfill")}</span>
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+              className="w-32"
+            />
+            <span className="text-small text-fg-muted">{t("backfillHint")}</span>
+          </label>
+          <Button
+            variant="primary"
+            className="self-start"
+            loading={busy}
+            onClick={() => void connect()}
+            data-testid="connect-personal-mailbox"
+          >
+            <Plug />
+            {t("connect")}
+          </Button>
+        </div>
       </SettingsSection>
     </div>
   );

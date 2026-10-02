@@ -123,11 +123,18 @@ async function findProject(principal: McpPrincipal, run: McpRun, identifier: str
   return project;
 }
 
-/** Email threads the agent may read: assigned to it, or linked to the run's item. */
+/**
+ * Email threads the agent may read: assigned to it, or linked to the run's
+ * item. Never from someone's personal mailbox, even one linked to an item (D-138).
+ */
 async function readableThreadsWhere(principal: McpPrincipal, run: McpRun) {
   const or: Prisma.EmailThreadWhereInput[] = [{ assigneeId: principal.agent.userId }];
   if (run.workItemId) or.push({ references: { some: { workItemId: run.workItemId } } });
-  return { workspaceId: run.workspaceId, OR: or } satisfies Prisma.EmailThreadWhereInput;
+  return {
+    workspaceId: run.workspaceId,
+    mailbox: { ownerId: null },
+    OR: or,
+  } satisfies Prisma.EmailThreadWhereInput;
 }
 
 /* ───────────────────────── the writes ───────────────────────── */

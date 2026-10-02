@@ -31,7 +31,7 @@ export function EmailReferenceEntry({ ws, r }: { ws: string; r: EmailReferenceVi
         ) : (
           <span className="inline-flex items-center gap-1">
             <Lock className="size-3" />
-            {t("private", { mailbox: r.thread.mailbox })}
+            {r.thread.personal ? t("personal") : t("private", { mailbox: r.thread.mailbox })}
           </span>
         )}
         <span className="tabular" suppressHydrationWarning>

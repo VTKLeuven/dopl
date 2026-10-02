@@ -36,9 +36,11 @@ export async function SidebarLoader({ params }: { params: Promise<{ ws: string }
     showRequests: ctx.role === "GUEST",
     showContacts: canWorkspace(ctx.policyActor, "contact.view"),
     showAnalytics: canWorkspace(ctx.policyActor, "analytics.view"),
-    // Mail: anyone who can read a mailbox, and admins (who connect them).
+    // Mail: anyone who can read a mailbox or connect one: admins a shared one,
+    // the whole team their own (D-138).
     showMail:
-      mailboxes.length > 0 || canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage"),
+      mailboxes.length > 0 ||
+      canMailbox(ctx.policyActor, { isMember: false, ownerId: ctx.actor.userId }, "mailbox.manage"),
     canChat: ctx.role !== "GUEST",
     agent: agent ? { name: agent.name, image: agent.image } : null,
   };

@@ -173,7 +173,10 @@ export interface EmailReferenceView extends ReferenceBase {
   thread: {
     id: string;
     subject: string;
+    /** Empty for someone else's personal mailbox. */
     mailbox: string;
+    /** From a personal mailbox (D-138): only its owner reads it. */
+    personal: boolean;
     /** false when the reader isn't a member of the mailbox: no content then. */
     readable: boolean;
     messages: Array<{

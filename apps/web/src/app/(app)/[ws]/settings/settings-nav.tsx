@@ -7,6 +7,7 @@ import {
   Bot,
   Building2,
   KeyRound,
+  Lock,
   Mail,
   ScrollText,
   ShieldCheck,
@@ -22,10 +23,13 @@ import {
 export function SettingsNav({
   ws,
   isAdmin,
+  hasOwnMailbox,
   initialFolded,
 }: {
   ws: string;
   isAdmin: boolean;
+  /** May connect a personal mailbox: the team, not guests (D-138). */
+  hasOwnMailbox: boolean;
   /** Folded to icons (D-137). */
   initialFolded: boolean;
 }) {
@@ -57,6 +61,9 @@ export function SettingsNav({
     { section: t("you") },
     { href: `/${ws}/settings/account`, label: t("account"), icon: <ShieldCheck /> },
     { href: `/${ws}/settings/notifications`, label: tn("nav"), icon: <Bell /> },
+    ...(hasOwnMailbox
+      ? [{ href: `/${ws}/settings/mailbox`, label: t("myMailbox"), icon: <Lock /> }]
+      : []),
   ];
   // Phones: a row of tabs under the header. From md up: a column that folds.
   return (
@@ -78,7 +85,7 @@ export function SettingsNav({
             icon={item.icon}
             label={item.label}
             href={item.href}
-            active={pathname.startsWith(item.href)}
+            active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
           />
         ),
       )}

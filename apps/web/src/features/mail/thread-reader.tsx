@@ -72,14 +72,11 @@ export function ThreadReader({
   ws,
   threadId,
   me,
-  canManage,
   onIgnore,
 }: {
   ws: string;
   threadId: string;
   me: string;
-  /** Workspace admins: may add ignore rules for the mailbox. */
-  canManage: boolean;
   /** Ignores the thread and moves the reader on (the list owns what comes next). */
   onIgnore: (thread: ThreadDetail) => void;
 }) {
@@ -98,7 +95,7 @@ export function ThreadReader({
         }
       />
     );
-  return <Reader ws={ws} thread={thread} me={me} canManage={canManage} onIgnore={onIgnore} />;
+  return <Reader ws={ws} thread={thread} me={me} onIgnore={onIgnore} />;
 }
 
 function ReaderSkeleton() {
@@ -120,13 +117,11 @@ function Reader({
   ws,
   thread,
   me,
-  canManage,
   onIgnore,
 }: {
   ws: string;
   thread: ThreadDetail;
   me: string;
-  canManage: boolean;
   onIgnore: (thread: ThreadDetail) => void;
 }) {
   const t = useTranslations("mail.reader");
@@ -147,6 +142,8 @@ function Reader({
   );
   const snoozed = thread.snoozedUntil && new Date(thread.snoozedUntil) > new Date();
   const canAct = thread.canAct;
+  // Ignore rules: admins for a shared mailbox, the owner for their own (D-138).
+  const canManage = thread.canManage;
 
   return (
     <article
@@ -166,6 +163,15 @@ function Reader({
                 : null}
               {thread.correspondent ? " · " : null}
               {thread.mailbox.displayName ?? thread.mailbox.emailAddress}
+              {thread.mailbox.personal ? (
+                <span
+                  className="ml-2 inline-flex items-center gap-1 align-middle text-caption font-medium text-fg-muted"
+                  data-testid="thread-personal"
+                >
+                  <Lock className="size-3" />
+                  {t("onlyYou")}
+                </span>
+              ) : null}
             </p>
           </div>
           {presence.length ? (

@@ -143,6 +143,14 @@ export async function inviteMembers(ctx: WorkspaceCtx, raw: InviteMembersInput) 
   });
 }
 
+/** A person's own mailbox in this workspace stops syncing (D-138); its mail stays theirs. */
+async function pausePersonalMailboxes(tx: TransactionClient, workspaceId: string, userId: string) {
+  await tx.mailbox.updateMany({
+    where: { workspaceId, ownerId: userId, deletedAt: null },
+    data: { status: "PAUSED" },
+  });
+}
+
 export async function changeMemberRole(ctx: WorkspaceCtx, raw: unknown) {
   assertAdmin(ctx);
   const { memberId, role } = ChangeRoleSchema.parse(raw);
@@ -161,6 +169,8 @@ export async function changeMemberRole(ctx: WorkspaceCtx, raw: unknown) {
       if (owners <= 1) throw new ConflictError("last_owner");
     }
     await tx.workspaceMember.update({ where: { id: member.id }, data: { role } });
+    // Guests have no mailboxes: their own one stops syncing (D-138).
+    if (role === "GUEST") await pausePersonalMailboxes(tx, ctx.workspace.id, member.userId);
     await audit(tx, ctx, {
       action: "member.role_changed",
       targetType: "WorkspaceMember",
@@ -227,7 +237,11 @@ export async function setMemberActive(ctx: WorkspaceCtx, memberId: string, activ
         ? { status: "ACTIVE", deactivatedAt: null }
         : { status: "DEACTIVATED", deactivatedAt: new Date() },
     });
-    if (!active) await tx.session.deleteMany({ where: { userId: member.userId } });
+    if (!active) {
+      await tx.session.deleteMany({ where: { userId: member.userId } });
+      // Nobody can read it any more, so their own mailbox stops syncing; they resume it on return.
+      await pausePersonalMailboxes(tx, ctx.workspace.id, member.userId);
+    }
     await audit(tx, ctx, {
       action: active ? "member.reactivated" : "member.deactivated",
       targetType: "WorkspaceMember",
@@ -301,11 +315,21 @@ export async function deleteMember(ctx: WorkspaceCtx, memberId: string) {
       },
       data: { revokedAt: new Date() },
     });
-    // Files on their notes go with the notes; the blobs are removed after commit.
-    const noteFiles = await tx.attachment.findMany({
-      where: { note: { ownerId: user.id } },
-      select: { storageKey: true },
-    });
+    // Files on their notes go with the notes, and their personal mailbox with its
+    // downloaded attachments (D-138); the blobs are removed after commit.
+    const noteFiles = [
+      ...(await tx.attachment.findMany({
+        where: { note: { ownerId: user.id } },
+        select: { storageKey: true },
+      })),
+      ...(await tx.emailAttachment.findMany({
+        where: {
+          message: { thread: { mailbox: { ownerId: user.id } } },
+          storageKey: { not: null },
+        },
+        select: { storageKey: true },
+      })),
+    ].flatMap((f) => (f.storageKey ? [{ storageKey: f.storageKey }] : []));
     // Semantic search vectors live outside Prisma (D-017) and have no FK.
     await tx.$executeRaw`DELETE FROM search.embeddings WHERE "ownerId" = ${user.id}::uuid`;
     await tx.user.delete({ where: { id: user.id } });

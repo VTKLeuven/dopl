@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Inbox,
   Layers,
+  Lock,
   Mail,
   Paperclip,
   Search,
@@ -175,14 +176,13 @@ export function MailView({
     <PageHeader
       crumbs={[{ label: t("title"), icon: <Mail /> }]}
       actions={
-        isAdmin ? (
-          <Button asChild variant="secondary">
-            <Link href={`/${ws}/settings/mailboxes` as never}>
-              <Settings />
-              <span className="hidden sm:inline">{t("manage")}</span>
-            </Link>
-          </Button>
-        ) : undefined
+        <Button asChild variant="secondary">
+          {/* Admins manage the shared mailboxes; everyone else their own (D-138). */}
+          <Link href={`/${ws}/settings/${isAdmin ? "mailboxes" : "mailbox"}` as never}>
+            <Settings />
+            <span className="hidden sm:inline">{isAdmin ? t("manage") : t("myMailbox")}</span>
+          </Link>
+        </Button>
       }
     />
   );
@@ -200,7 +200,13 @@ export function MailView({
               <Button asChild variant="primary">
                 <Link href={`/${ws}/settings/mailboxes` as never}>{t("connect")}</Link>
               </Button>
-            ) : undefined
+            ) : (
+              <Button asChild variant="primary">
+                <Link href={`/${ws}/settings/mailbox` as never} data-testid="mail-connect-own">
+                  {t("empty.connectOwn")}
+                </Link>
+              </Button>
+            )
           }
         />
       </>
@@ -241,9 +247,11 @@ export function MailView({
               {mailboxes.map((m) => (
                 <SidebarItem
                   key={m.id}
-                  icon={<Mail />}
+                  icon={m.personal ? <Lock /> : <Mail />}
                   label={m.displayName ?? m.emailAddress}
-                  title={m.emailAddress}
+                  title={
+                    m.personal ? `${m.emailAddress} · ${t("personalMailbox")}` : m.emailAddress
+                  }
                   active={url.mailbox === m.id}
                   count={m.counts.open}
                   onClick={() => void setUrl({ mailbox: m.id, thread: null })}
@@ -310,7 +318,6 @@ export function MailView({
                 ws={ws}
                 threadId={url.thread}
                 me={me}
-                canManage={isAdmin}
                 onIgnore={ignore}
               />
             </>

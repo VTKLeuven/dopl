@@ -18,15 +18,31 @@ import { accessibleProjectsWhere } from "./projects";
 
 const isAdmin = (ctx: WorkspaceCtx) => ctx.role === "OWNER" || ctx.role === "ADMIN";
 
-/** Mailboxes the reader may open (canMailbox "mailbox.read"). */
+/**
+ * Mailboxes the reader may open (canMailbox "mailbox.read"): the shared ones
+ * they're a member of (all of them for admins), and their own personal one.
+ * Nobody else's personal mailbox, whatever their role (D-138). Every read of
+ * mail (lists, threads, contacts, item timelines, realtime) goes through this.
+ */
+export function readableMailboxWhere(ctx: WorkspaceCtx): Prisma.MailboxWhereInput {
+  if (!canMailbox(ctx.policyActor, { isMember: true }, "mailbox.read")) return { id: { in: [] } };
+  return {
+    workspaceId: ctx.workspace.id,
+    deletedAt: null,
+    OR: [
+      { ownerId: ctx.actor.userId },
+      {
+        ownerId: null,
+        ...(isAdmin(ctx) ? {} : { members: { some: { userId: ctx.actor.userId } } }),
+      },
+    ],
+  };
+}
+
 export async function readableMailboxIds(ctx: WorkspaceCtx): Promise<string[]> {
   if (!canMailbox(ctx.policyActor, { isMember: true }, "mailbox.read")) return [];
   const rows = await db.mailbox.findMany({
-    where: {
-      workspaceId: ctx.workspace.id,
-      deletedAt: null,
-      ...(isAdmin(ctx) ? {} : { members: { some: { userId: ctx.actor.userId } } }),
-    },
+    where: readableMailboxWhere(ctx),
     select: { id: true },
   });
   return rows.map((r) => r.id);
@@ -59,17 +75,22 @@ export async function listMailboxes(ctx: WorkspaceCtx): Promise<MailboxSummary[]
   const now = new Date();
   const rows = await db.mailbox.findMany({
     where: { id: { in: ids } },
-    orderBy: { emailAddress: "asc" },
-    select: { id: true, emailAddress: true, displayName: true, status: true },
+    // The shared mailboxes first, then your own.
+    orderBy: [{ ownerId: { sort: "asc", nulls: "first" } }, { emailAddress: "asc" }],
+    select: { id: true, emailAddress: true, displayName: true, status: true, ownerId: true },
   });
   return Promise.all(
-    rows.map(async (m) => {
+    rows.map(async ({ ownerId, ...m }) => {
       const [unassigned, mine, open] = await Promise.all(
         (["unassigned", "mine", "open"] as const).map((v) =>
           db.emailThread.count({ where: { mailboxId: m.id, ...viewWhere(ctx, v, now) } }),
         ),
       );
-      return { ...m, counts: { unassigned: unassigned ?? 0, mine: mine ?? 0, open: open ?? 0 } };
+      return {
+        ...m,
+        personal: ownerId !== null,
+        counts: { unassigned: unassigned ?? 0, mine: mine ?? 0, open: open ?? 0 },
+      };
     }),
   );
 }
@@ -157,7 +178,16 @@ export async function listThreads(ctx: WorkspaceCtx, raw: unknown): Promise<Thre
   };
 }
 
-async function mailboxReaders(ctx: WorkspaceCtx, mailboxId: string): Promise<Person[]> {
+async function mailboxReaders(
+  ctx: WorkspaceCtx,
+  mailboxId: string,
+  ownerId: string | null,
+): Promise<Person[]> {
+  if (ownerId)
+    return db.user.findMany({
+      where: { id: ownerId },
+      select: { id: true, name: true, image: true },
+    });
   const users = await db.user.findMany({
     where: {
       kind: "HUMAN",
@@ -186,7 +216,15 @@ export async function getThread(ctx: WorkspaceCtx, id: string): Promise<ThreadDe
     where: { id, workspaceId: ctx.workspace.id, mailboxId: { in: readable } },
     select: {
       ...rowSelect,
-      mailbox: { select: { id: true, emailAddress: true, displayName: true, sendEnabled: true } },
+      mailbox: {
+        select: {
+          id: true,
+          emailAddress: true,
+          displayName: true,
+          sendEnabled: true,
+          ownerId: true,
+        },
+      },
       messages: {
         orderBy: { sentAt: "asc" },
         select: {
@@ -241,9 +279,10 @@ export async function getThread(ctx: WorkspaceCtx, id: string): Promise<ThreadDe
     (await db.mailboxMember.count({
       where: { mailboxId: t.mailboxId, userId: ctx.actor.userId },
     })) > 0;
+  const { ownerId, ...mailbox } = t.mailbox;
   return {
     ...toRow(t),
-    mailbox: t.mailbox,
+    mailbox: { ...mailbox, personal: ownerId !== null },
     messages: t.messages.map((m) => ({
       id: m.id,
       direction: m.direction,
@@ -279,24 +318,24 @@ export async function getThread(ctx: WorkspaceCtx, id: string): Promise<ThreadDe
           ]
         : [],
     ),
-    assignable: await mailboxReaders(ctx, t.mailboxId),
+    assignable: await mailboxReaders(ctx, t.mailboxId, ownerId),
     labelOptions: await db.label.findMany({
       where: { workspaceId: ctx.workspace.id, projectId: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true },
     }),
-    canAct: canMailbox(ctx.policyActor, { isMember }, "mailbox.act"),
+    canAct: canMailbox(ctx.policyActor, { isMember, ownerId }, "mailbox.act"),
+    canManage: canMailbox(ctx.policyActor, { isMember, ownerId }, "mailbox.manage"),
   };
 }
 
-/** The mailbox's settings and status page (admins). */
+/** The mailbox's settings and status page (admins; a personal mailbox's owner). */
 export async function getMailboxAdmin(ctx: WorkspaceCtx, id: string): Promise<MailboxAdmin> {
-  if (!canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage"))
-    throw new NotFoundError();
   const m = await db.mailbox.findFirst({
     where: { id, workspaceId: ctx.workspace.id, deletedAt: null },
     select: {
       id: true,
+      ownerId: true,
       emailAddress: true,
       displayName: true,
       status: true,
@@ -333,10 +372,12 @@ export async function getMailboxAdmin(ctx: WorkspaceCtx, id: string): Promise<Ma
       },
     },
   });
-  if (!m) throw new NotFoundError();
+  if (!m || !canMailbox(ctx.policyActor, { isMember: false, ownerId: m.ownerId }, "mailbox.manage"))
+    throw new NotFoundError();
   const [summary] = await listMailboxes(ctx).then((all) => all.filter((x) => x.id === id));
   return {
     id: m.id,
+    personal: m.ownerId !== null,
     emailAddress: m.emailAddress,
     displayName: m.displayName,
     status: m.status,
@@ -362,11 +403,20 @@ export async function getMailboxAdmin(ctx: WorkspaceCtx, id: string): Promise<Ma
   };
 }
 
-/** Admin list for Settings → Mailboxes (all connected mailboxes). */
+/** Your own mailbox's settings and status (Settings → My mailbox), if you connected one. */
+export async function getPersonalMailbox(ctx: WorkspaceCtx): Promise<MailboxAdmin | null> {
+  const own = await db.mailbox.findFirst({
+    where: { workspaceId: ctx.workspace.id, ownerId: ctx.actor.userId, deletedAt: null },
+    select: { id: true },
+  });
+  return own ? getMailboxAdmin(ctx, own.id).catch(() => null) : null;
+}
+
+/** Admin list for Settings → Mailboxes: the shared mailboxes (personal ones aren't theirs, D-138). */
 export async function listMailboxesForAdmin(ctx: WorkspaceCtx) {
   if (!canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage")) return [];
   return db.mailbox.findMany({
-    where: { workspaceId: ctx.workspace.id, deletedAt: null },
+    where: { workspaceId: ctx.workspace.id, deletedAt: null, ownerId: null },
     orderBy: { emailAddress: "asc" },
     select: {
       id: true,

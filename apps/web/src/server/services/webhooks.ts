@@ -29,7 +29,7 @@ function checkUrl(url: string) {
 async function checkMailboxes(m: Mutation, ids: string[]) {
   if (ids.length === 0) return;
   const n = await m.tx.mailbox.count({
-    where: { id: { in: ids }, workspaceId: m.ctx.workspace.id, deletedAt: null },
+    where: { id: { in: ids }, workspaceId: m.ctx.workspace.id, deletedAt: null, ownerId: null },
   });
   if (n !== new Set(ids).size) throw new ConflictError("invalid_mailbox");
 }
