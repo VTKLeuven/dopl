@@ -373,6 +373,8 @@ export function canDashboard(
 export interface PolicyMailbox {
   /** The actor is one of the mailbox's members. */
   isMember: boolean;
+  /** Set on a personal mailbox (D-138): the one person who may ever open it. */
+  ownerId?: string | null;
 }
 
 export type MailboxAction =
@@ -384,6 +386,10 @@ export type MailboxAction =
  * Only mailboxes someone connected are synced, and only their members (and
  * workspace admins, who set them up) read them. Guests and agents never do:
  * email is untrusted content for the AI teammate (D-033) and personal data.
+ *
+ * A personal mailbox (D-138) belongs to its owner alone: nobody else reads,
+ * works or manages it, admins included. Connecting one is "mailbox.manage"
+ * on a mailbox the actor would own, which every team member may do.
  */
 export function canMailbox(
   actor: PolicyActor,
@@ -391,6 +397,7 @@ export function canMailbox(
   action: MailboxAction,
 ): boolean {
   if (actor.kind !== "HUMAN" || actor.workspaceRole === "GUEST") return false;
+  if (mailbox.ownerId) return mailbox.ownerId === actor.userId;
   const admin = isAdmin(actor.workspaceRole);
   switch (action) {
     case "mailbox.manage":

@@ -23,6 +23,14 @@ export const CreateMailboxSchema = z.object({
   defaultAssigneeId: z.uuid().nullable().default(null),
 });
 
+/**
+ * Your own work mailbox (D-138). Only the address on your account can be
+ * connected: domain-wide delegation could open anyone's mailbox.
+ */
+export const ConnectPersonalMailboxSchema = z.object({
+  backfillDays: z.number().int().min(1).max(365).default(30),
+});
+
 export const UpdateMailboxSchema = z.object({
   id: z.uuid(),
   displayName: z.string().trim().max(80).nullable().optional(),

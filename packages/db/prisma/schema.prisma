@@ -498,6 +498,7 @@ model User {
 
   mailboxesCreated         Mailbox[]        @relation("MailboxCreatedBy")
   mailboxesDefaultAssignee Mailbox[]        @relation("MailboxDefaultAssignee")
+  mailboxesOwned           Mailbox[]        @relation("MailboxOwner")
   mailIgnoreRules          MailIgnoreRule[]
   mailboxMemberships       MailboxMember[]
   emailThreadsAssigned     EmailThread[]
@@ -1823,12 +1824,19 @@ model Mailbox {
   /// Dopl status → Gmail label id, e.g. { "SOLVED": "Label_123" }.
   gmailLabelMap       Json          @default("{}")
   sendEnabled         Boolean       @default(false)
+  /// The send-as aliases Gmail reported at the last sync, lowercased. Mail to a
+  /// shared mailbox or one of these stays out of personal mailboxes (D-138).
+  aliases             String[]      @default([])
   intakeProjectId     String?       @db.Uuid
   intakeProject       Project?      @relation(fields: [intakeProjectId], references: [id], onDelete: SetNull)
   defaultAssigneeId   String?       @db.Uuid
   defaultAssignee     User?         @relation("MailboxDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
   createdById         String?       @db.Uuid
   createdBy           User?         @relation("MailboxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  /// Set on a personal mailbox (D-138): the one person who ever reads it, never
+  /// the team or admins. NULL for a shared mailbox.
+  ownerId             String?       @db.Uuid
+  owner               User?         @relation("MailboxOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   deletedAt           DateTime?     @db.Timestamptz(3)
   createdAt           DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
@@ -1839,6 +1847,7 @@ model Mailbox {
   ignoreRules MailIgnoreRule[]
 
   @@unique([workspaceId, emailAddress])
+  @@index([ownerId])
   @@map("mailboxes")
 }
 
