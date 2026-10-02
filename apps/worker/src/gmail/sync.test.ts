@@ -141,6 +141,89 @@ describe("gmail sync", () => {
     expect(await count(mailbox.id)).toEqual([2, 4]);
   });
 
+  it("ignores mail that matches a rule, quietly, and keeps a group's real sender", async () => {
+    const { dir, address, mailbox, user, jobs, deps } = await setup();
+    await db.mailIgnoreRule.createMany({
+      data: [
+        {
+          workspaceId: mailbox.workspaceId,
+          mailboxId: mailbox.id,
+          field: "SENDER",
+          value: "renovate",
+        },
+        {
+          workspaceId: mailbox.workspaceId,
+          mailboxId: mailbox.id,
+          field: "SUBJECT",
+          value: "report domain:",
+        },
+      ],
+    });
+    await testConnection(deps, mailbox.id);
+    await backfill(deps, mailbox.id, "BACKFILL");
+    jobs.length = 0;
+
+    // Through a Google Group: From is the group, the real sender is in X-Original-From.
+    const bot = await appendMessage(dir, address, {
+      from: "it@vtk.test",
+      fromName: "'renovate[bot]' via IT",
+      subject: "[VTKLeuven/site] chore(deps): update dependency next",
+      text: "This PR contains the following updates.",
+      headers: [{ name: "X-Original-From", value: "renovate[bot] <notifications@github.test>" }],
+    });
+    await appendMessage(dir, address, {
+      from: "noreply-dmarc-support@google.test",
+      subject: "Report domain: vtk.be Submitter: google.com Report-ID: 123",
+      text: "This is an aggregate report.",
+    });
+    await appendMessage(dir, address, {
+      from: "it@vtk.test",
+      fromName: "'Lotte Peeters' via IT",
+      subject: "Projector broken",
+      text: "No signal.",
+      headers: [{ name: "X-Original-From", value: "Lotte Peeters <lotte@example.test>" }],
+    });
+    await sync(deps, mailbox.id, "push");
+
+    const threads = await db.emailThread.findMany({
+      where: { mailboxId: mailbox.id },
+      orderBy: { subject: "asc" },
+      select: { id: true, subject: true, status: true, contact: { select: { email: true } } },
+    });
+    expect(threads.map((t) => [t.subject.slice(0, 16), t.status, t.contact?.email])).toEqual([
+      ["Projector broken", "OPEN", "lotte@example.test"],
+      ["Report domain: v", "IGNORED", "noreply-dmarc-support@google.test"],
+      ["[VTKLeuven/site]", "IGNORED", "notifications@github.test"],
+    ]);
+    const stored = await db.emailMessage.findFirstOrThrow({
+      where: { mailboxId: mailbox.id, gmailMessageId: bot.id },
+    });
+    expect([stored.fromAddress, stored.fromName]).toEqual([
+      "notifications@github.test",
+      "renovate[bot]",
+    ]);
+    // Only the real mail notifies its assignee and reaches Discord.
+    const n = await db.notification.findMany({ where: { recipientId: user.id } });
+    expect(n).toHaveLength(1);
+    expect(n[0]?.emailThreadId).toBe(threads[0]?.id);
+    expect(jobs.filter((j) => j.queue === "webhook.deliver")).toHaveLength(1);
+
+    // A matching message doesn't reopen a solved thread; other mail still does.
+    const dmarc = threads[1]!;
+    await db.emailThread.update({ where: { id: dmarc.id }, data: { status: "SOLVED" } });
+    const dmarcGmail = await db.emailThread.findUniqueOrThrow({ where: { id: dmarc.id } });
+    await appendMessage(dir, address, {
+      from: "noreply-dmarc-support@google.test",
+      subject: "Re: Report domain: vtk.be",
+      text: "Another one.",
+      threadId: dmarcGmail.gmailThreadId,
+    });
+    await sync(deps, mailbox.id, "push");
+    expect((await db.emailThread.findUniqueOrThrow({ where: { id: dmarc.id } })).status).toBe(
+      "SOLVED",
+    );
+  });
+
   it("resyncs after a history 404 without duplicating anything", async () => {
     const { dir, address, mailbox, jobs, deps } = await setup();
     await appendMessage(dir, address, { from: "a@example.test", subject: "One", text: "1" });

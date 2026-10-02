@@ -3,8 +3,11 @@ import {
   baseSubject,
   decodeHeader,
   htmlToText,
+  matchIgnoreRule,
+  normalizeRuleValue,
   parseAddressList,
   parseGmailMessage,
+  senderRuleHint,
   statusAfterMessage,
   type GmailMessage,
 } from "./mail";
@@ -132,6 +135,80 @@ describe("mail domain", () => {
     ).toBe("OUTBOUND");
     expect(parseGmailMessage(base("x@y.test", ["SENT"]), ["it@vtk.be"]).direction).toBe("OUTBOUND");
     expect(parseGmailMessage(base("x@y.test"), ["it@vtk.be"]).text).toBe("hi");
+  });
+
+  it("finds the real sender behind a Google Group's rewritten From", () => {
+    const msg = (...headers: Array<{ name: string; value: string }>): GmailMessage => ({
+      id: "x",
+      threadId: "t",
+      payload: { mimeType: "text/plain", headers, body: { data: b64url("hi") } },
+    });
+    // DMARC rewrite: the original is in X-Original-From.
+    const dmarc = parseGmailMessage(
+      msg(
+        h("From", "'DMARC Aggregate Report' via IT <it@vtk.be>"),
+        h("X-Original-From", "DMARC Aggregate Report <dmarcreport@microsoft.com>"),
+        h("X-Original-Sender", "dmarcreport@microsoft.com"),
+      ),
+      ["it-inbox@vtk.be"],
+    );
+    expect(dmarc.from).toEqual({
+      email: "dmarcreport@microsoft.com",
+      name: "DMARC Aggregate Report",
+    });
+    expect(dmarc.direction).toBe("INBOUND");
+    // Only X-Original-Sender: the name comes from the wrapped one.
+    expect(
+      parseGmailMessage(
+        msg(
+          h("From", "'noreply-dmarc-support' via IT <it@vtk.be>"),
+          h("X-Original-Sender", "noreply-dmarc-support@google.com"),
+        ),
+        ["it-inbox@vtk.be"],
+      ).from,
+    ).toEqual({ email: "noreply-dmarc-support@google.com", name: "noreply-dmarc-support" });
+    // Every group mail has X-Original-Sender; unrewritten, From stays as it is.
+    expect(
+      parseGmailMessage(
+        msg(h("From", "Ann <ann@example.test>"), h("X-Original-Sender", "ann@example.test")),
+        ["it-inbox@vtk.be"],
+      ).from,
+    ).toEqual({ email: "ann@example.test", name: "Ann" });
+    // A forged original can't make mail ours: direction follows From.
+    const forged = parseGmailMessage(
+      msg(h("From", "x@evil.test"), h("X-Original-From", "it-inbox@vtk.be")),
+      ["it-inbox@vtk.be"],
+    );
+    expect(forged.direction).toBe("INBOUND");
+    expect(forged.from.email).toBe("x@evil.test");
+  });
+
+  it("matches ignore rules on sender address or name, or subject, ignoring case", () => {
+    const rules = [
+      { field: "SENDER" as const, value: normalizeRuleValue(" Renovate[bot] ") },
+      { field: "SENDER" as const, value: "noreply-dmarc" },
+      { field: "SUBJECT" as const, value: normalizeRuleValue("Report  Domain:") },
+    ];
+    const m = (email: string, name: string | null, subject = "Hello") =>
+      matchIgnoreRule(rules, { from: { email, name }, subject });
+    expect(m("bot@github.test", "renovate[bot]")).toBe(rules[0]);
+    expect(m("noreply-dmarc-support@google.com", null)).toBe(rules[1]);
+    expect(m("x@y.test", null, "Report domain: vtk.be Submitter: google.com")).toBe(rules[2]);
+    expect(m("ann@example.test", "Ann", "Printer broken")).toBeNull();
+    // A sender rule starts from the address, or from the name a group wrapped.
+    expect(senderRuleHint({ email: "bot@github.test", name: "renovate[bot]" })).toBe(
+      "bot@github.test",
+    );
+    expect(senderRuleHint({ email: "it@vtk.be", name: "'renovate[bot]' via IT" })).toBe(
+      "renovate[bot]",
+    );
+    // An empty rule would match everything: it matches nothing.
+    expect(
+      matchIgnoreRule([{ field: "SUBJECT", value: "" }], {
+        from: { email: "a@b.test", name: null },
+        subject: "x",
+      }),
+    ).toBeNull();
   });
 
   it("reopens solved threads on inbound mail only", () => {

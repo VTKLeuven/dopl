@@ -5,11 +5,13 @@ import { queueWebhookEvents, type WebhookEventInput } from "@dopl/server/webhook
 import {
   baseSubject,
   htmlToText,
+  matchIgnoreRule,
   normalizeEmail,
   parseGmailMessage,
   statusAfterMessage,
   type Address,
   type GmailMessage,
+  type IgnoreRule,
 } from "@dopl/shared/domain/mail";
 import { deliveryEnqueue, type TxEnqueue } from "../enqueue";
 import { emitRealtime } from "../realtime";
@@ -20,6 +22,8 @@ export interface MailboxRow {
   workspaceId: string;
   emailAddress: string;
   defaultAssigneeId: string | null;
+  /** Loaded once per sync run (D-136). */
+  ignoreRules: IgnoreRule[];
 }
 
 export interface IngestDeps {
@@ -73,6 +77,8 @@ export async function ingestMessage(
   // The person on the other side: the sender of inbound mail, the first recipient of ours.
   const counterpart: Address | undefined =
     p.direction === "INBOUND" ? p.from : [...p.to, ...p.cc].find((a) => !own.has(a.email));
+  // Mail the team said it never wants to see (renovate, DMARC reports…).
+  const ruled = p.direction === "INBOUND" && matchIgnoreRule(mailbox.ignoreRules, p) !== null;
 
   try {
     await db.$transaction(async (tx) => {
@@ -95,8 +101,8 @@ export async function ingestMessage(
             // Backfill lists newest first, so a thread can start from a reply: drop "Re:".
             subject: baseSubject(p.subject) || p.subject || "(no subject)",
             snippet: p.snippet,
-            // Mail from a blocked contact is kept but out of the way.
-            status: contact?.blockedAt ? "IGNORED" : "OPEN",
+            // Mail from a blocked contact or matching an ignore rule is kept but out of the way.
+            status: contact?.blockedAt || ruled ? "IGNORED" : "OPEN",
             assigneeId: mailbox.defaultAssigneeId,
             contactId: contact?.id ?? null,
             lastMessageAt: p.sentAt,
@@ -148,7 +154,10 @@ export async function ingestMessage(
 
       // Thread roll-up. Messages can arrive out of order (backfill pages), so compare dates.
       const latest = p.sentAt >= thread.lastMessageAt;
-      const next = statusAfterMessage(thread.status, p.direction);
+      // A rule-matching message doesn't bring a solved thread back to Open either.
+      const next = ruled
+        ? { status: thread.status, reopened: false }
+        : statusAfterMessage(thread.status, p.direction);
       const participants = mergeParticipants(
         thread.participants as unknown as Participant[],
         [p.from, ...p.to, ...p.cc].filter((a) => !own.has(a.email)),
@@ -210,7 +219,9 @@ export async function ingestMessage(
           payload: { id: thread.id },
         });
 
-      if (!opts.live) return;
+      // Ignored threads are kept quiet: no Inbox notification, nothing on Discord.
+      const status = opts.live && next.reopened ? next.status : thread.status;
+      if (!opts.live || status === "IGNORED") return;
 
       // Inbox: the assignee hears about new inbound mail (one row per thread).
       if (p.direction === "INBOUND" && thread.assigneeId) {

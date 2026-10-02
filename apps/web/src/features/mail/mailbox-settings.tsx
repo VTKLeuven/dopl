@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { SettingsSection } from "@/components/settings/section";
 import { Picker } from "@/features/work-items/pickers";
+import { IgnoreRules } from "./ignore-rules";
 import type { MailboxAdmin, MailboxSummary, Person } from "./types";
 
 type Status = MailboxSummary["status"];
@@ -557,6 +558,10 @@ export function MailboxStatus({
         >
           {t("save")}
         </Button>
+      </SettingsSection>
+
+      <SettingsSection title={t("ignoreTitle")} description={t("ignoreDescription")}>
+        <IgnoreRules ws={ws} mailboxId={mailbox.id} rules={mailbox.ignoreRules} />
       </SettingsSection>
 
       <SettingsSection title={t("logTitle")} description={t("logDescription")}>

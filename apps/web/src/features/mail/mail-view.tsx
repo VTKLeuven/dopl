@@ -323,6 +323,7 @@ export function MailView({
                 ws={ws}
                 threadId={url.thread}
                 me={me}
+                canManage={isAdmin}
                 onIgnore={ignore}
               />
             </>

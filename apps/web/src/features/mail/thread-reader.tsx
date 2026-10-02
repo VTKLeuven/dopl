@@ -10,6 +10,7 @@ import {
   Ban,
   Check,
   ChevronDown,
+  Ellipsis,
   ExternalLink,
   EyeOff,
   Link2,
@@ -22,6 +23,7 @@ import {
   Tags,
   UserRound,
 } from "lucide-react";
+import { senderRuleHint } from "@dopl/shared/domain/mail";
 import { cn } from "@/lib/cn";
 import { keysFor } from "@/lib/shortcuts/registry";
 import { useRelativeTime } from "@/lib/use-relative-time";
@@ -34,6 +36,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Tag, TagDot } from "@/components/ui/tag";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -53,6 +61,7 @@ import { useProjects } from "@/features/notes/data";
 import { Picker } from "@/features/work-items/pickers";
 import { useThread, useThreadActions } from "./data";
 import { EmailFrame } from "./email-frame";
+import { IgnoreRuleDialog } from "./ignore-rules";
 import { useThreadPresence } from "./presence";
 import type { EmailCommentView, MessageView, Person, ThreadDetail } from "./types";
 
@@ -61,11 +70,14 @@ export function ThreadReader({
   ws,
   threadId,
   me,
+  canManage,
   onIgnore,
 }: {
   ws: string;
   threadId: string;
   me: string;
+  /** Workspace admins: may add ignore rules for the mailbox. */
+  canManage: boolean;
   /** Ignores the thread and moves the reader on (the list owns what comes next). */
   onIgnore: (thread: ThreadDetail) => void;
 }) {
@@ -84,7 +96,7 @@ export function ThreadReader({
         }
       />
     );
-  return <Reader ws={ws} thread={thread} me={me} onIgnore={onIgnore} />;
+  return <Reader ws={ws} thread={thread} me={me} canManage={canManage} onIgnore={onIgnore} />;
 }
 
 function ReaderSkeleton() {
@@ -106,11 +118,13 @@ function Reader({
   ws,
   thread,
   me,
+  canManage,
   onIgnore,
 }: {
   ws: string;
   thread: ThreadDetail;
   me: string;
+  canManage: boolean;
   onIgnore: (thread: ThreadDetail) => void;
 }) {
   const t = useTranslations("mail.reader");
@@ -118,6 +132,8 @@ function Reader({
   const actions = useThreadActions(ws);
   const [replying, setReplying] = useState(false);
   const [dialog, setDialog] = useState<"promote" | "link" | null>(null);
+  const [rule, setRule] = useState<{ field: "SENDER" | "SUBJECT"; value: string } | null>(null);
+  const sender = [...thread.messages].reverse().find((m) => m.direction === "INBOUND")?.from;
   const presence = useThreadPresence(ws, thread.id, me, replying);
   const entries = useMemo<Entry[]>(
     () =>
@@ -264,6 +280,40 @@ function Reader({
                   </Button>
                 </Tooltip>
               ) : null}
+              {canManage ? (
+                <DropdownMenu>
+                  <Tooltip content={t("more")}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t("more")}
+                        data-testid="thread-more"
+                      >
+                        <Ellipsis />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </Tooltip>
+                  <DropdownMenuContent align="end">
+                    {sender ? (
+                      <DropdownMenuItem
+                        onSelect={() => setRule({ field: "SENDER", value: senderRuleHint(sender) })}
+                        data-testid="ignore-sender"
+                      >
+                        <Ban />
+                        {t("ignoreSender")}
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      onSelect={() => setRule({ field: "SUBJECT", value: thread.subject })}
+                      data-testid="ignore-subject"
+                    >
+                      <Ban />
+                      {t("ignoreSubject")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -326,6 +376,15 @@ function Reader({
         open={dialog === "link"}
         onClose={() => setDialog(null)}
       />
+      {canManage ? (
+        <IgnoreRuleDialog
+          ws={ws}
+          mailboxId={thread.mailbox.id}
+          initial={rule ?? { field: "SENDER", value: "" }}
+          open={rule !== null}
+          onClose={() => setRule(null)}
+        />
+      ) : null}
     </article>
   );
 }

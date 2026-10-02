@@ -309,6 +309,16 @@ export async function getMailboxAdmin(ctx: WorkspaceCtx, id: string): Promise<Ma
       sendEnabled: true,
       defaultAssigneeId: true,
       members: { select: { user: { select: { id: true, name: true, image: true } } } },
+      ignoreRules: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          field: true,
+          value: true,
+          createdAt: true,
+          createdBy: { select: { id: true, name: true, image: true } },
+        },
+      },
       syncLogs: {
         orderBy: { startedAt: "desc" },
         take: 20,
@@ -340,6 +350,7 @@ export async function getMailboxAdmin(ctx: WorkspaceCtx, id: string): Promise<Ma
     sendEnabled: m.sendEnabled,
     defaultAssigneeId: m.defaultAssigneeId,
     members: m.members.map((x) => x.user),
+    ignoreRules: m.ignoreRules.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
     logs: m.syncLogs.map((l) => ({
       id: l.id,
       kind: l.kind,

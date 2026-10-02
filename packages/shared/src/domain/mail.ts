@@ -182,6 +182,28 @@ export function unescapeSnippet(s: string): string {
 
 /* ───────────────────────── parsing ───────────────────────── */
 
+/** "'Ann Peeters' via IT" → "Ann Peeters": the name Google Groups wraps. */
+const VIA = /^'?(.*?)'?\s+via\s+[^<>]+$/;
+
+/**
+ * The real sender of mail a Google Group passed on. For senders whose domain
+ * enforces DMARC the group rewrites From to "'Ann' via IT <it@vtk.be>" and
+ * keeps the original in X-Original-From (or X-Original-Sender). Without this,
+ * every such mail would come from the group's own address (D-136).
+ */
+export function originalSender(headers: GmailHeader[] | undefined, from: Address): Address | null {
+  const wrapped = from.name ? VIA.exec(from.name) : null;
+  const xFrom = parseAddressList(header(headers, "X-Original-From"))[0];
+  if (xFrom && xFrom.email !== from.email)
+    return { email: xFrom.email, name: xFrom.name ?? (wrapped?.[1]?.trim() || null) };
+  // Older rewrites carry only X-Original-Sender, which every group mail has;
+  // it names someone else only when the group rewrote From.
+  const xSender = parseAddressList(header(headers, "X-Original-Sender"))[0];
+  if (wrapped && xSender && xSender.email !== from.email)
+    return { email: xSender.email, name: wrapped[1]?.trim() || null };
+  return null;
+}
+
 function walk(part: GmailPart, visit: (p: GmailPart) => void) {
   visit(part);
   for (const child of part.parts ?? []) walk(child, visit);
@@ -223,9 +245,12 @@ export function parseGmailMessage(msg: GmailMessage, mailboxAddresses: string[])
     }
   });
 
-  const from = parseAddressList(header(headers, "From"))[0] ?? { email: "", name: null };
+  const literalFrom = parseAddressList(header(headers, "From"))[0] ?? { email: "", name: null };
   const own = new Set(mailboxAddresses.map(normalizeEmail));
-  const outbound = own.has(from.email) || (msg.labelIds ?? []).includes("SENT");
+  // Direction follows the From header itself: X-Original-From is easy to forge.
+  const outbound = own.has(literalFrom.email) || (msg.labelIds ?? []).includes("SENT");
+  const original = originalSender(headers, literalFrom);
+  const from = original && !own.has(original.email) ? original : literalFrom;
   const dateHeader = header(headers, "Date");
   const sentAt = msg.internalDate
     ? new Date(Number(msg.internalDate))
@@ -287,4 +312,51 @@ export function htmlToText(html: string): string {
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/* ───────────────────────── ignore rules ───────────────────────── */
+
+/**
+ * What a sender rule should start from for this sender: the address, or the
+ * wrapped name of mail a group passed on before Dopl unwrapped it. Its From
+ * is the group itself, and a rule on that would ignore all of the group's mail.
+ */
+export function senderRuleHint(from: Address): string {
+  const wrapped = from.name ? VIA.exec(from.name)?.[1]?.trim() : null;
+  return wrapped || from.email;
+}
+
+export type IgnoreField = "SENDER" | "SUBJECT";
+
+export interface IgnoreRule {
+  field: IgnoreField;
+  /** Stored normalized (see `normalizeRuleValue`). */
+  value: string;
+}
+
+/** How a rule's text is stored and compared: trimmed, lowercased, single spaces. */
+export const normalizeRuleValue = (value: string) =>
+  value.trim().toLowerCase().replace(/\s+/g, " ");
+
+const has = (text: string | null | undefined, needle: string) =>
+  Boolean(text) && normalizeRuleValue(text ?? "").includes(needle);
+
+/**
+ * The first ignore rule an inbound message matches, or null (D-136). A sender
+ * rule looks at the address and the display name, a subject rule at the
+ * subject; both are case-insensitive "contains".
+ */
+export function matchIgnoreRule(
+  rules: readonly IgnoreRule[],
+  message: { from: Address; subject: string },
+): IgnoreRule | null {
+  for (const rule of rules) {
+    if (!rule.value) continue;
+    const hit =
+      rule.field === "SENDER"
+        ? has(message.from.email, rule.value) || has(message.from.name, rule.value)
+        : has(message.subject, rule.value);
+    if (hit) return rule;
+  }
+  return null;
 }
