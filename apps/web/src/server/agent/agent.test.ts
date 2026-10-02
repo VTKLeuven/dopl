@@ -399,6 +399,43 @@ describe("red team", () => {
     await setAgentPaused(ws.admin, { paused: false });
   });
 
+  it("8: someone's personal mailbox stays closed, even linked to the run's item (D-138)", async () => {
+    const i = await item(s, "Personal mail");
+    const mailbox = await db.mailbox.create({
+      data: {
+        workspaceId: s.ws.id,
+        emailAddress: `own-${s.ws.slug}@vtk.test`,
+        status: "ACTIVE",
+        ownerId: s.member.actor.userId,
+      },
+    });
+    const thread = await db.emailThread.create({
+      data: {
+        workspaceId: s.ws.id,
+        mailboxId: mailbox.id,
+        gmailThreadId: `p-${s.ws.slug}`,
+        subject: "Private",
+        lastMessageAt: new Date(),
+      },
+    });
+    await db.workItemReference.create({
+      data: {
+        workspaceId: s.ws.id,
+        workItemId: i.id,
+        kind: "LINKED",
+        sourceType: "EMAIL_THREAD",
+        emailThreadId: thread.id,
+      },
+    });
+    const { runToken } = await startRun(s, i.id, "read the email");
+    const read = await call(s.token, "get_email_thread", {
+      run_token: runToken,
+      thread_id: thread.id,
+    });
+    expect(read.isError).toBe(true);
+    expect(read.subject).toBeUndefined();
+  });
+
   it("7: a finished run's token is rejected", async () => {
     const i = await item(s, "Done run");
     const { run, runToken } = await startRun(s, i.id);

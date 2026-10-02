@@ -90,7 +90,8 @@ export function RealtimeProvider() {
         if (kind === "mailbox") {
           void qc.invalidateQueries({ queryKey: ["mail", ws, "threads"] });
           void qc.invalidateQueries({ queryKey: ["mail", ws, "mailboxes"] });
-          if (path.current.includes("/settings/mailboxes")) router.refresh();
+          // Settings → Mailboxes and a mailbox page, and Settings → My mailbox.
+          if (path.current.includes("/settings/mailbox")) router.refresh();
         } else if (id && ev.type !== "presence") {
           void qc.invalidateQueries({ queryKey: ["mail", ws, "thread", id] });
         }

@@ -5,6 +5,8 @@ export interface MailboxSummary {
   emailAddress: string;
   displayName: string | null;
   status: "CONNECTING" | "BACKFILLING" | "ACTIVE" | "PAUSED" | "ERROR" | "DISCONNECTED";
+  /** Your own work mailbox: nobody else sees it (D-138). */
+  personal: boolean;
   counts: Record<Extract<MailView, "unassigned" | "mine" | "open">, number>;
 }
 
@@ -69,7 +71,13 @@ export interface EmailCommentView {
 }
 
 export interface ThreadDetail extends ThreadRow {
-  mailbox: { id: string; emailAddress: string; displayName: string | null; sendEnabled: boolean };
+  mailbox: {
+    id: string;
+    emailAddress: string;
+    displayName: string | null;
+    sendEnabled: boolean;
+    personal: boolean;
+  };
   messages: MessageView[];
   comments: EmailCommentView[];
   items: Array<{
@@ -84,6 +92,8 @@ export interface ThreadDetail extends ThreadRow {
   /** Workspace labels (not tied to a project) for the label picker. */
   labelOptions: Array<{ id: string; name: string; color: string }>;
   canAct: boolean;
+  /** May change the mailbox's settings and ignore rules. */
+  canManage: boolean;
 }
 
 export interface MailboxAdmin extends MailboxSummary {

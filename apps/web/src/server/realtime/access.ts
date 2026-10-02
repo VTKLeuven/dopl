@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "../db";
 import { channelAccessById } from "../queries/channels";
+import { readableMailboxWhere } from "../queries/mail";
 import { accessibleProjectsWhere } from "../queries/projects";
 import type { WorkspaceCtx } from "../session";
 import type { RealtimeMessage } from "./listener";
@@ -15,7 +16,7 @@ export class TopicAccess {
   private itemProject = new Map<string, string | null>();
   /** channel id → may this member read it (same policy as the chat UI). */
   private channels = new Map<string, boolean>();
-  /** Mailboxes this member may read (members, and admins: canMailbox). */
+  /** Mailboxes this member may read (canMailbox: members, admins, a personal one's owner). */
   private mailboxes = new Set<string>();
   private threadMailbox = new Map<string, string | null>();
 
@@ -28,16 +29,11 @@ export class TopicAccess {
       select: { id: true },
     });
     this.projects = new Set(rows.map((r) => r.id));
-    const admin = this.ctx.role === "OWNER" || this.ctx.role === "ADMIN";
     const mailboxes =
       this.ctx.role === "GUEST"
         ? []
         : await db.mailbox.findMany({
-            where: {
-              workspaceId: this.ctx.workspace.id,
-              deletedAt: null,
-              ...(admin ? {} : { members: { some: { userId: this.ctx.actor.userId } } }),
-            },
+            where: readableMailboxWhere(this.ctx),
             select: { id: true },
           });
     this.mailboxes = new Set(mailboxes.map((m) => m.id));

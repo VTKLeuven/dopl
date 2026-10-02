@@ -518,7 +518,8 @@
       "integrations": "Integrations",
       "mailboxes": "Mailboxes",
       "agent": "AI teammate",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "myMailbox": "My mailbox"
     },
     "account": {
       "profile": "Profile",
@@ -2120,9 +2121,11 @@
   "mail": {
     "title": "Mail",
     "manage": "Mailboxes",
+    "myMailbox": "My mailbox",
     "connect": "Connect a mailbox",
     "mailboxes": "Mailboxes",
     "allMailboxes": "All mailboxes",
+    "personalMailbox": "Only you see this mailbox",
     "back": "Back to the list",
     "search": "Search subject, sender…",
     "loadMore": "Load more",
@@ -2139,9 +2142,10 @@
       "all": "All"
     },
     "empty": {
-      "noMailboxTitle": "No shared mailbox yet",
+      "noMailboxTitle": "No mailbox yet",
       "noMailboxAdmin": "Connect the team's mailbox (for example it@vtk.be) to read, assign and answer mail together.",
-      "noMailboxMember": "No mailbox is shared with you. Ask an admin to add you to one.",
+      "noMailboxMember": "No shared mailbox is shared with you. You can connect your own work mailbox: only you will see its mail.",
+      "connectOwn": "Connect my mailbox",
       "noThreadTitle": "Pick a conversation",
       "noThread": "Choose a thread on the left to read it, assign it or turn it into a work item. ↑ and ↓ move through the list.",
       "noResults": "No conversations match your search.",
@@ -2157,6 +2161,7 @@
     },
     "reader": {
       "errorTitle": "This conversation didn't load",
+      "onlyYou": "Only you",
       "errorDescription": "It may have been removed, or you no longer have access to the mailbox.",
       "retry": "Try again",
       "solve": "Solve",
@@ -2233,6 +2238,7 @@
       "createdFrom": "created this from the email",
       "linked": "linked the email",
       "private": "a conversation in {mailbox} (you're not a member)",
+      "personal": "a private email from their own mailbox",
       "wrote": "wrote",
       "replied": "replied"
     },
@@ -2261,7 +2267,7 @@
   },
   "mailboxes": {
     "title": "Mailboxes",
-    "description": "Shared mailboxes the team reads in Mail. Only connected mailboxes are synced, never anyone's personal mail.",
+    "description": "Shared mailboxes the team reads in Mail. Someone's own mailbox is theirs alone and isn't listed here.",
     "emptyTitle": "No mailbox connected",
     "emptyDescription": "Connect the IT address to read, assign and answer its mail in Dopl.",
     "connect": "Connect a mailbox",
@@ -2356,7 +2362,27 @@
       "exists": "That mailbox is already connected.",
       "invalidMember": "Only active team members can read a mailbox.",
       "invalidInput": "Check the address and the number of days.",
-      "generic": "Something went wrong. Try again."
+      "generic": "Something went wrong. Try again.",
+      "shared": "The team already tracks this address as a shared mailbox.",
+      "unverified": "Verify your email address first."
+    },
+    "personal": {
+      "title": "My mailbox",
+      "description": "Your own work mailbox, next to the shared ones in Mail. Only you see it: not your teammates, not the admins, not the AI teammate.",
+      "connectTitle": "Connect {email}",
+      "connectDescription": "Dopl reads the mailbox of the address you sign in with, and imports recent mail.",
+      "privacy": {
+        "onlyYou": "Only you see its conversations, notes and attachments. Nothing goes to the Inbox, Discord or contacts.",
+        "shared": "Mail to a shared mailbox you also receive (a group you're on) stays in the shared mailbox and isn't tracked twice.",
+        "items": "Turning an email into a work item copies its text into the item, which the project can see."
+      },
+      "backfill": "Import the last (days)",
+      "backfillHint": "Older mail stays in Gmail.",
+      "connect": "Connect my mailbox",
+      "settingsDescription": "How your mailbox shows up in Mail.",
+      "ignoreDescription": "Automated mail you never need (newsletters, notifications) arrives as Ignored instead of in Open. Removing a rule leaves what it ignored as it is.",
+      "disconnectDescription": "Stops syncing. The conversations already in Dopl stay, and only you see them.",
+      "disconnectConfirm": "Stop syncing your mailbox? Conversations already in Dopl stay, visible only to you."
     }
   },
   "agent": {

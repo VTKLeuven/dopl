@@ -33,8 +33,9 @@ async function Integrations({
       select: { id: true, name: true, color: true },
       orderBy: { name: "asc" },
     }),
+    // Personal mailboxes never post anywhere (D-138).
     db.mailbox.findMany({
-      where: { workspaceId: ctx.workspace.id, deletedAt: null },
+      where: { workspaceId: ctx.workspace.id, deletedAt: null, ownerId: null },
       select: { id: true, emailAddress: true, displayName: true },
       orderBy: { emailAddress: "asc" },
     }),

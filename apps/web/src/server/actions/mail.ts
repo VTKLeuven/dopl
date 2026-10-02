@@ -5,6 +5,7 @@ import { requireWorkspaceCtx } from "../session";
 import {
   addEmailComment,
   assignThread,
+  connectPersonalMailbox,
   createIgnoreRule,
   createMailbox,
   deleteIgnoreRule,
@@ -25,6 +26,10 @@ import {
 export async function createMailboxAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);
   return run(() => createMailbox(ctx, input));
+}
+export async function connectPersonalMailboxAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => connectPersonalMailbox(ctx, input));
 }
 export async function updateMailboxAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);

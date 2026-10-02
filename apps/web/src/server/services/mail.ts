@@ -11,6 +11,7 @@ import {
 } from "@dopl/shared/rich-text";
 import {
   AssignThreadSchema,
+  ConnectPersonalMailboxSchema,
   CreateIgnoreRuleSchema,
   CreateMailboxSchema,
   DeleteIgnoreRuleSchema,
@@ -56,7 +57,10 @@ async function loadMailbox(
     where: { id, workspaceId: ctx.workspace.id, deletedAt: null },
   });
   if (!mailbox) throw new NotFoundError();
-  const policy = { isMember: await isMember(tx, id, ctx.actor.userId) };
+  const policy = {
+    isMember: await isMember(tx, id, ctx.actor.userId),
+    ownerId: mailbox.ownerId,
+  };
   if (!canMailbox(ctx.policyActor, policy, "mailbox.read")) throw new NotFoundError();
   if (!canMailbox(ctx.policyActor, policy, action)) throw new ForbiddenError();
   return mailbox;
@@ -71,10 +75,15 @@ async function loadThread(m: Mutation, threadId: string, action: MailboxAction =
   return { thread, mailbox };
 }
 
-/** People who may read a mailbox: its members and the workspace admins. */
-async function readers(tx: TransactionClient, workspaceId: string, mailboxId: string) {
+/** People who may read a mailbox: its members and the workspace admins, or a personal mailbox's owner. */
+async function readers(
+  tx: TransactionClient,
+  workspaceId: string,
+  mailbox: { id: string; ownerId: string | null },
+) {
+  if (mailbox.ownerId) return new Set([mailbox.ownerId]);
   const [members, admins] = await Promise.all([
-    tx.mailboxMember.findMany({ where: { mailboxId }, select: { userId: true } }),
+    tx.mailboxMember.findMany({ where: { mailboxId: mailbox.id }, select: { userId: true } }),
     tx.workspaceMember.findMany({
       where: { workspaceId, status: "ACTIVE", role: { in: ["OWNER", "ADMIN"] } },
       select: { userId: true },
@@ -82,6 +91,13 @@ async function readers(tx: TransactionClient, workspaceId: string, mailboxId: st
   ]);
   return new Set([...members, ...admins].map((r) => r.userId));
 }
+
+/**
+ * Where "a mailbox appeared, changed or went" is announced: the workspace for
+ * a shared one, only its owner for a personal one (D-138).
+ */
+const listTopic = (ctx: WorkspaceCtx, mailbox: { ownerId: string | null }) =>
+  mailbox.ownerId ? `user:${mailbox.ownerId}` : `workspace:${ctx.workspace.id}`;
 
 function changed(m: Mutation, thread: { id: string; mailboxId: string }, type: string) {
   m.emit({ topic: `mailbox:${thread.mailboxId}`, type, payload: { id: thread.id } });
@@ -119,9 +135,11 @@ export async function createMailbox(ctx: WorkspaceCtx, raw: unknown) {
     const { tx } = m;
     const existing = await tx.mailbox.findFirst({
       where: { workspaceId: ctx.workspace.id, emailAddress: input.emailAddress },
-      select: { id: true, deletedAt: true },
+      select: { id: true, deletedAt: true, ownerId: true },
     });
-    if (existing && !existing.deletedAt) throw new ConflictError("mailbox_exists");
+    // Someone's personal mailbox, even a disconnected one, never becomes the team's (D-138).
+    if (existing && (!existing.deletedAt || existing.ownerId))
+      throw new ConflictError("mailbox_exists");
     const members = await validMembers(tx, ctx, input.memberIds);
     const [assignee] = input.defaultAssigneeId
       ? await validMembers(tx, ctx, [input.defaultAssigneeId])
@@ -169,23 +187,87 @@ export async function createMailbox(ctx: WorkspaceCtx, raw: unknown) {
   });
 }
 
+/**
+ * Connects the actor's own work mailbox (D-138): synced like a shared one, but
+ * only its owner ever reads it. The address is always the one on their
+ * account, never typed in, because the delegation could open any mailbox in
+ * the domain. Mail to the shared mailboxes stays out of it (the worker).
+ */
+export async function connectPersonalMailbox(ctx: WorkspaceCtx, raw: unknown) {
+  const input = ConnectPersonalMailboxSchema.parse(raw);
+  const me = ctx.actor.userId;
+  if (!canMailbox(ctx.policyActor, { isMember: false, ownerId: me }, "mailbox.manage"))
+    throw new ForbiddenError();
+  return withMutation(ctx, async (m) => {
+    const { tx } = m;
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: me },
+      select: { email: true, emailVerified: true },
+    });
+    if (!user.emailVerified) throw new ConflictError("email_unverified");
+    const emailAddress = normalizeEmail(user.email);
+    const existing = await tx.mailbox.findFirst({
+      where: { workspaceId: ctx.workspace.id, emailAddress },
+      select: { id: true, deletedAt: true, ownerId: true },
+    });
+    // The team already tracks this address, or it once did: that mail is the team's.
+    if (existing && existing.ownerId !== me) throw new ConflictError("mailbox_shared");
+    if (existing && !existing.deletedAt) throw new ConflictError("mailbox_exists");
+    const data = {
+      ownerId: me,
+      backfillDays: input.backfillDays,
+      defaultAssigneeId: me,
+      status: "CONNECTING" as const,
+      historyId: null,
+      backfillPageToken: null,
+      syncError: null,
+      deletedAt: null,
+      createdById: me,
+    };
+    const mailbox = existing
+      ? await tx.mailbox.update({ where: { id: existing.id }, data, select: { id: true } })
+      : await tx.mailbox.create({
+          data: { workspaceId: ctx.workspace.id, emailAddress, ...data },
+          select: { id: true },
+        });
+    await enqueue(tx, "gmail.test", { mailboxId: mailbox.id });
+    await audit(tx, ctx, {
+      action: "mailbox.connected",
+      targetType: "mailbox",
+      targetId: mailbox.id,
+      metadata: { emailAddress, personal: true },
+    });
+    m.emit({ topic: `user:${me}`, type: "mailbox.created", payload: { id: mailbox.id } });
+    return { id: mailbox.id };
+  });
+}
+
 export async function updateMailbox(ctx: WorkspaceCtx, raw: unknown) {
   const input = UpdateMailboxSchema.parse(raw);
   return withMutation(ctx, async (m) => {
     const { tx } = m;
     const mailbox = await loadMailbox(tx, ctx, input.id, "mailbox.manage");
+    // A personal mailbox has no members, and only its owner to assign to.
+    if (
+      mailbox.ownerId &&
+      (input.memberIds?.length ||
+        (input.defaultAssigneeId && input.defaultAssigneeId !== mailbox.ownerId))
+    )
+      throw new ConflictError("personal_mailbox");
     const data: Parameters<typeof tx.mailbox.update>[0]["data"] = {};
     if (input.displayName !== undefined) data.displayName = input.displayName;
     if (input.backfillDays !== undefined) data.backfillDays = input.backfillDays;
     if (input.sendEnabled !== undefined) data.sendEnabled = input.sendEnabled;
-    if (input.defaultAssigneeId !== undefined) {
+    if (input.defaultAssigneeId !== undefined && mailbox.ownerId)
+      data.defaultAssigneeId = input.defaultAssigneeId;
+    else if (input.defaultAssigneeId !== undefined) {
       const [a] = input.defaultAssigneeId
         ? await validMembers(tx, ctx, [input.defaultAssigneeId])
         : [];
       data.defaultAssigneeId = a ?? null;
     }
     await tx.mailbox.update({ where: { id: mailbox.id }, data });
-    if (input.memberIds) {
+    if (input.memberIds && !mailbox.ownerId) {
       const members = await validMembers(tx, ctx, input.memberIds);
       await tx.mailboxMember.deleteMany({ where: { mailboxId: mailbox.id } });
       if (members.length)
@@ -288,7 +370,10 @@ export async function createIgnoreRule(ctx: WorkspaceCtx, raw: unknown) {
       action: "mailbox.ignore_rule.created",
       targetType: "mailbox",
       targetId: mailbox.id,
-      metadata: { field: input.field, value: input.value, ignored },
+      // What someone ignores in their own mail is theirs: the audit log keeps only that it happened.
+      metadata: mailbox.ownerId
+        ? { field: input.field, ignored }
+        : { field: input.field, value: input.value, ignored },
     });
     m.emit({
       topic: `mailbox:${mailbox.id}`,
@@ -308,13 +393,13 @@ export async function deleteIgnoreRule(ctx: WorkspaceCtx, raw: unknown) {
       where: { id: input.id, workspaceId: ctx.workspace.id },
     });
     if (!rule) throw new NotFoundError();
-    await loadMailbox(tx, ctx, rule.mailboxId, "mailbox.manage");
+    const mailbox = await loadMailbox(tx, ctx, rule.mailboxId, "mailbox.manage");
     await tx.mailIgnoreRule.delete({ where: { id: rule.id } });
     await audit(tx, ctx, {
       action: "mailbox.ignore_rule.deleted",
       targetType: "mailbox",
       targetId: rule.mailboxId,
-      metadata: { field: rule.field, value: rule.value },
+      metadata: mailbox.ownerId ? { field: rule.field } : { field: rule.field, value: rule.value },
     });
     m.emit({
       topic: `mailbox:${rule.mailboxId}`,
@@ -351,7 +436,7 @@ export async function setMailboxState(
     }
     await audit(tx, ctx, { action: `mailbox.${action}`, targetType: "mailbox", targetId: id });
     m.emit({
-      topic: `workspace:${ctx.workspace.id}`,
+      topic: listTopic(ctx, mailbox),
       type: action === "disconnect" ? "mailbox.deleted" : "mailbox.updated",
       payload: { id },
     });
@@ -377,7 +462,7 @@ export async function assignThread(ctx: WorkspaceCtx, raw: unknown) {
   return withMutation(ctx, async (m) => {
     const { thread, mailbox } = await loadThread(m, input.threadId);
     if (input.assigneeId) {
-      const allowed = await readers(m.tx, ctx.workspace.id, mailbox.id);
+      const allowed = await readers(m.tx, ctx.workspace.id, mailbox);
       if (!allowed.has(input.assigneeId)) throw new ConflictError("assignee_cannot_read");
     }
     if (thread.assigneeId === input.assigneeId) return { id: thread.id };
@@ -527,7 +612,7 @@ export async function addEmailComment(ctx: WorkspaceCtx, raw: unknown) {
       },
       select: { id: true },
     });
-    const allowed = await readers(m.tx, ctx.workspace.id, mailbox.id);
+    const allowed = await readers(m.tx, ctx.workspace.id, mailbox);
     const mentioned = extractMentions(body).filter((id) => allowed.has(id));
     if (mentioned.length)
       await notify(m, {
