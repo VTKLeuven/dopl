@@ -10,6 +10,7 @@ import {
   Ban,
   Check,
   ChevronDown,
+  ChevronUp,
   Ellipsis,
   ExternalLink,
   EyeOff,
@@ -24,6 +25,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { senderRuleHint } from "@dopl/shared/domain/mail";
+import { docToPlainText, type PMNode } from "@dopl/shared/rich-text";
 import { cn } from "@/lib/cn";
 import { keysFor } from "@/lib/shortcuts/registry";
 import { useRelativeTime } from "@/lib/use-relative-time";
@@ -534,7 +536,8 @@ function CommentCard({ c }: { c: EmailCommentView }) {
 /**
  * The composer: a reply to the customer (when the mailbox allows replies) or
  * an internal note. The two look different on purpose, so a note is never
- * sent by mistake.
+ * sent by mistake. It starts folded to one row, so the conversation gets the
+ * room; a draft survives folding it again.
  */
 function Composer({
   thread,
@@ -549,6 +552,7 @@ function Composer({
 }) {
   const t = useTranslations("mail.reader");
   const canReply = thread.mailbox.sendEnabled;
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"reply" | "note">(canReply ? "reply" : "note");
   const [value, setValue] = useState<unknown>(null);
   const [key, setKey] = useState(0);
@@ -569,6 +573,22 @@ function Composer({
     : [];
   const reply = mode === "reply";
 
+  // A reply's text never carries over into a note, or the other way round.
+  const switchTo = (next: "reply" | "note") => {
+    if (next === mode) return;
+    setMode(next);
+    setValue(null);
+  };
+  const expand = (next: "reply" | "note") => {
+    switchTo(next);
+    setOpen(true);
+  };
+  // Folding unmounts the editor before it can blur: end "replying" presence here.
+  const collapse = () => {
+    setOpen(false);
+    onFocusChange(false);
+  };
+  const hasDraft = docToPlainText(value as PMNode | null).trim().length > 0;
   const submit = async () => {
     if (!value || busy) return;
     setBusy(true);
@@ -576,10 +596,46 @@ function Composer({
       await (reply ? onReply(value, replyAll) : onNote(value));
       setValue(null);
       setKey((k) => k + 1);
+      collapse();
     } finally {
       setBusy(false);
     }
   };
+
+  if (!open)
+    return (
+      <div
+        className="flex items-center gap-2 border-t border-border px-5 py-3 md:px-6"
+        data-testid="thread-composer"
+        data-state="closed"
+      >
+        {canReply ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => expand("reply")}
+            data-testid="composer-reply"
+          >
+            <Reply />
+            {t("reply")}
+          </Button>
+        ) : null}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => expand("note")}
+          aria-expanded={false}
+          className="text-warning-text [&>svg]:text-warning-text"
+          data-testid="composer-note"
+        >
+          <Lock />
+          {t("internalNote")}
+          <ChevronUp />
+        </Button>
+        {hasDraft ? <span className="text-small text-fg-muted">{t("draftKept")}</span> : null}
+      </div>
+    );
+
   return (
     <div
       className="border-t border-border px-5 py-3 md:px-6"
@@ -588,24 +644,39 @@ function Composer({
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusChange(false);
       }}
       data-testid="thread-composer"
+      data-state="open"
     >
-      {canReply ? (
-        <SegmentedControl
-          label={t("composerMode")}
-          value={mode}
-          onValueChange={(v) => setMode(v as "reply" | "note")}
-          className="mb-2"
-        >
-          <SegmentedControlItem value="reply" data-testid="composer-reply">
-            <Reply />
-            {t("reply")}
-          </SegmentedControlItem>
-          <SegmentedControlItem value="note" data-testid="composer-note">
-            <Lock />
-            {t("internalNote")}
-          </SegmentedControlItem>
-        </SegmentedControl>
-      ) : null}
+      <div className="mb-2 flex items-center gap-2">
+        {canReply ? (
+          <SegmentedControl
+            label={t("composerMode")}
+            value={mode}
+            onValueChange={(v) => switchTo(v as "reply" | "note")}
+          >
+            <SegmentedControlItem value="reply" data-testid="composer-mode-reply">
+              <Reply />
+              {t("reply")}
+            </SegmentedControlItem>
+            <SegmentedControlItem value="note" data-testid="composer-mode-note">
+              <Lock />
+              {t("internalNote")}
+            </SegmentedControlItem>
+          </SegmentedControl>
+        ) : null}
+        <Tooltip content={t("collapse")}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="ml-auto"
+            aria-label={t("collapse")}
+            aria-expanded
+            onClick={collapse}
+            data-testid="composer-collapse"
+          >
+            <ChevronDown />
+          </Button>
+        </Tooltip>
+      </div>
       <div
         className={cn(
           "rounded-card border px-3 py-2",
@@ -633,12 +704,13 @@ function Composer({
         )}
         <RichTextEditor
           key={`${mode}:${key}`}
-          value={null}
+          value={value}
           onChange={setValue}
           onSubmit={() => void submit()}
           placeholder={reply ? t("replyPlaceholder") : t("notePlaceholder")}
           sources={sources}
           minHeight="min-h-[44px]"
+          autoFocus
         />
         <div className="mt-2 flex justify-end">
           <Button
