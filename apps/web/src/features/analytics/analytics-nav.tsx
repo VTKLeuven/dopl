@@ -8,32 +8,31 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader, type Crumb } from "@/components/shell/page-header";
+import {
+  SecondarySidebar,
+  SidebarHeading,
+  SidebarItem,
+  UnfoldedOnly,
+} from "@/components/shell/secondary-sidebar";
 import { ProjectBadge } from "@/components/shell/project-badge";
 import { useDashboardMutations, useDashboards } from "./data";
 import type { DashboardSummary } from "./types";
 
-const rowClasses = (active: boolean) =>
-  cn(
-    "group/row flex h-8 w-full min-w-0 items-center gap-2 rounded-control px-2.5 text-left text-body font-medium text-fg-secondary focus-ring",
-    "[&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-icon",
-    active ? "bg-neutral-150 text-fg [&>svg]:text-icon-strong" : "hover:bg-surface-hover",
-  );
-
 function DashboardRow({ ws, d, active }: { ws: string; d: DashboardSummary; active: boolean }) {
   return (
-    <Link
-      href={`/${ws}/analytics/${d.id}` as never}
-      className={rowClasses(active)}
-      aria-current={active ? "page" : undefined}
-      data-testid="dashboard-link"
-    >
-      {d.project ? (
-        <ProjectBadge name={d.project.name} color={d.project.color} size={16} />
-      ) : (
-        <LayoutDashboard />
-      )}
-      <span className="truncate">{d.name}</span>
-    </Link>
+    <SidebarItem
+      icon={
+        d.project ? (
+          <ProjectBadge name={d.project.name} color={d.project.color} size={16} />
+        ) : (
+          <LayoutDashboard />
+        )
+      }
+      label={d.name}
+      href={`/${ws}/analytics/${d.id}`}
+      active={active}
+      testId="dashboard-link"
+    />
   );
 }
 
@@ -42,10 +41,13 @@ export function AnalyticsSidebar({
   ws,
   me,
   initial,
+  initialFolded,
 }: {
   ws: string;
   me: string;
   initial: DashboardSummary[];
+  /** Folded to icons (D-137). */
+  initialFolded: boolean;
 }) {
   const t = useTranslations("analytics");
   const pathname = usePathname();
@@ -54,26 +56,27 @@ export function AnalyticsSidebar({
   const shared = dashboards.filter((d) => d.owner.id !== me);
   const overview = pathname === `/${ws}/analytics`;
   return (
-    <nav
-      aria-label={t("title")}
-      data-testid="analytics-sidebar"
-      className="hidden w-60 shrink-0 scrollbar-thin flex-col gap-0.5 overflow-y-auto border-r border-border px-3 py-4 md:flex"
+    <SecondarySidebar
+      area="analytics"
+      initialFolded={initialFolded}
+      label={t("title")}
+      className="hidden md:flex"
+      width="md:w-60"
+      testId="analytics-sidebar"
     >
-      <Link
-        href={`/${ws}/analytics` as never}
-        className={rowClasses(overview)}
-        aria-current={overview ? "page" : undefined}
-      >
-        <BarChart3 />
-        <span className="truncate">{t("overview")}</span>
-        <span className="ml-auto text-caption text-fg-muted">{t("builtIn")}</span>
-      </Link>
+      <SidebarItem
+        icon={<BarChart3 />}
+        label={t("overview")}
+        href={`/${ws}/analytics`}
+        active={overview}
+        trailing={<span className="text-caption text-fg-muted">{t("builtIn")}</span>}
+      />
 
-      <p className="mt-5 mb-1 flex h-6 items-center px-2.5 text-caption font-medium text-fg-muted">
-        {t("yours")}
-      </p>
+      <SidebarHeading>{t("yours")}</SidebarHeading>
       {mine.length === 0 ? (
-        <p className="px-2.5 py-1 text-small text-fg-muted">{t("noDashboards")}</p>
+        <UnfoldedOnly>
+          <p className="px-2.5 py-1 text-small text-fg-muted">{t("noDashboards")}</p>
+        </UnfoldedOnly>
       ) : (
         mine.map((d) => (
           <DashboardRow key={d.id} ws={ws} d={d} active={pathname === `/${ws}/analytics/${d.id}`} />
@@ -82,10 +85,10 @@ export function AnalyticsSidebar({
 
       {shared.length > 0 ? (
         <>
-          <p className="mt-5 mb-1 flex h-6 items-center gap-1.5 px-2.5 text-caption font-medium text-fg-muted">
+          <SidebarHeading>
             <Users className="size-3.5" />
             {t("shared")}
-          </p>
+          </SidebarHeading>
           {shared.map((d) => (
             <DashboardRow
               key={d.id}
@@ -96,7 +99,7 @@ export function AnalyticsSidebar({
           ))}
         </>
       ) : null}
-    </nav>
+    </SecondarySidebar>
   );
 }
 

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
 import { listPeople, listSidebarChannels } from "@/server/queries/channels";
+import { sidebarFolded } from "@/server/folded-sidebar";
 import { requireWorkspaceCtx } from "@/server/session";
 import { chatKeys } from "@/features/messages/keys";
 import { ChannelSidebar } from "@/features/messages/channel-sidebar";
@@ -28,13 +29,17 @@ async function Sidebar({ params }: { params: LayoutProps<"/[ws]/messages">["para
   const ctx = await requireWorkspaceCtx(ws);
   // Team chat is for members (canChannel); guests have no Messages.
   if (ctx.role === "GUEST") notFound();
-  const [channels, people] = await Promise.all([listSidebarChannels(ctx), listPeople(ctx)]);
+  const [channels, people, folded] = await Promise.all([
+    listSidebarChannels(ctx),
+    listPeople(ctx),
+    sidebarFolded("messages"),
+  ]);
   const qc = new QueryClient();
   qc.setQueryData(chatKeys.channels(ws), channels);
   qc.setQueryData(chatKeys.people(ws), people);
   return (
     <HydrationBoundary state={dehydrate(qc)}>
-      <ChannelSidebar ws={ws} me={ctx.actor.userId} />
+      <ChannelSidebar ws={ws} me={ctx.actor.userId} initialFolded={folded} />
     </HydrationBoundary>
   );
 }

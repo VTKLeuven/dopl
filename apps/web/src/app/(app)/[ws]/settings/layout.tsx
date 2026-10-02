@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { canWorkspace } from "@dopl/shared/policy";
+import { sidebarFolded } from "@/server/folded-sidebar";
 import { getWorkspaceCtx } from "@/server/session";
 import { PageHeader } from "@/components/shell/page-header";
 import { SettingsNav } from "./settings-nav";
@@ -23,11 +24,12 @@ export default async function SettingsLayout({ children, params }: LayoutProps<"
 
 async function Nav({ params }: { params: LayoutProps<"/[ws]/settings">["params"] }) {
   const { ws } = await params;
-  const ctx = await getWorkspaceCtx(ws);
+  const [ctx, folded] = await Promise.all([getWorkspaceCtx(ws), sidebarFolded("settings")]);
   return (
     <SettingsNav
       ws={ws}
       isAdmin={ctx ? canWorkspace(ctx.policyActor, "workspace.settings") : false}
+      initialFolded={folded}
     />
   );
 }

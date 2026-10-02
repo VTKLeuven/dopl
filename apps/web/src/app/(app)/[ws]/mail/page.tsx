@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { canMailbox } from "@dopl/shared/policy";
 import { listMailboxes, listThreads } from "@/server/queries/mail";
+import { sidebarFolded } from "@/server/folded-sidebar";
 import { requireWorkspaceCtx } from "@/server/session";
 import { PageHeaderSkeleton } from "@/components/shell/page-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,9 +42,10 @@ function MailSkeleton() {
 async function Mail({ params }: Pick<PageProps<"/[ws]/mail">, "params">) {
   const { ws } = await params;
   const ctx = await requireWorkspaceCtx(ws);
-  const [mailboxes, page] = await Promise.all([
+  const [mailboxes, page, folded] = await Promise.all([
     listMailboxes(ctx),
     listThreads(ctx, { view: "open" }),
+    sidebarFolded("mail"),
   ]);
   return (
     <MailView
@@ -52,6 +54,7 @@ async function Mail({ params }: Pick<PageProps<"/[ws]/mail">, "params">) {
       isAdmin={canMailbox(ctx.policyActor, { isMember: false }, "mailbox.manage")}
       initialMailboxes={mailboxes}
       initialPage={page}
+      initialFolded={folded}
     />
   );
 }

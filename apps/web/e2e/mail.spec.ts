@@ -243,3 +243,40 @@ test("an internal note stays inside; a reply goes out through the mailbox", asyn
     )
     .toBe(true);
 });
+
+test("the views column folds and stays folded; the composer opens folded", async ({ page }) => {
+  const subject = `Beamer cable ${uniq()}`;
+  await receive({ from: "board@example.test", subject, text: "Which cable for the aula?" });
+  await openMail(page, "?view=all");
+  const sidebar = page.getByTestId("mail-sidebar");
+  await expect(sidebar).not.toHaveAttribute("data-folded");
+  await sidebar.getByTestId("sidebar-toggle").click();
+  await expect(sidebar).toHaveAttribute("data-folded", "true");
+  // Folded, the views still work, as icons.
+  await page.getByTestId("mail-view-open").click();
+  await expect(page).not.toHaveURL(/view=all/);
+  // The server renders it folded after a reload; [ unfolds it again (once
+  // the page has hydrated, which can be after the realtime stream connects).
+  await openMail(page);
+  await expect(sidebar).toHaveAttribute("data-folded", "true");
+  await expect(async () => {
+    await page.keyboard.press("[");
+    await expect(sidebar).not.toHaveAttribute("data-folded", { timeout: 1_000 });
+  }).toPass();
+
+  await openMail(page, "?view=all");
+  await row(page, subject).click();
+  const composer = page
+    .getByTestId("thread-reader")
+    .filter({ visible: true })
+    .getByTestId("thread-composer");
+  await expect(composer).toHaveAttribute("data-state", "closed");
+  await expect(composer.locator(".ProseMirror")).toHaveCount(0);
+  await composer.getByTestId("composer-note").click();
+  await expect(composer).toHaveAttribute("data-state", "open");
+  await page.keyboard.type("Draft that survives folding");
+  await composer.getByTestId("composer-collapse").click();
+  await expect(composer).toHaveAttribute("data-state", "closed");
+  await composer.getByTestId("composer-note").click();
+  await expect(composer.locator(".ProseMirror")).toContainText("Draft that survives folding");
+});

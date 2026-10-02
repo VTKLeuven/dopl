@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { canWorkspace } from "@dopl/shared/policy";
 import { listDashboards } from "@/server/queries/dashboards";
+import { sidebarFolded } from "@/server/folded-sidebar";
 import { requireWorkspaceCtx } from "@/server/session";
 import { PageHeaderSkeleton } from "@/components/shell/page-skeletons";
 import {
@@ -42,12 +43,17 @@ async function Shell({
   const { ws } = await params;
   const ctx = await requireWorkspaceCtx(ws);
   if (!canWorkspace(ctx.policyActor, "analytics.view")) notFound();
-  const dashboards = await listDashboards(ctx);
+  const [dashboards, folded] = await Promise.all([listDashboards(ctx), sidebarFolded("analytics")]);
   return (
     <>
       <AnalyticsHeader ws={ws} initial={dashboards} />
       <div className="flex min-h-0 flex-1">
-        <AnalyticsSidebar ws={ws} me={ctx.actor.userId} initial={dashboards} />
+        <AnalyticsSidebar
+          ws={ws}
+          me={ctx.actor.userId}
+          initial={dashboards}
+          initialFolded={folded}
+        />
         <div className="min-h-0 min-w-0 flex-1 scrollbar-thin overflow-y-auto">
           <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-4 px-4 py-5 md:px-6">
             <AnalyticsChips ws={ws} initial={dashboards} />

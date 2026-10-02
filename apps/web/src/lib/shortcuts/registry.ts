@@ -34,6 +34,7 @@ export const SHORTCUTS = [
   { id: "goInbox", keys: "g i", scope: "global" },
   { id: "goMessages", keys: "g m", scope: "global" },
   { id: "goAnalytics", keys: "g a", scope: "global" },
+  { id: "toggleSidebar", keys: "[", scope: "global" },
   { id: "create", keys: "c", scope: "list" },
   { id: "search", keys: "/", scope: "list" },
   { id: "down", keys: "j", scope: "list" },
