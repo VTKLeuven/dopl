@@ -2198,7 +2198,9 @@
       "send": "Send",
       "more": "More",
       "ignoreSender": "Always ignore this sender…",
-      "ignoreSubject": "Always ignore this subject…"
+      "ignoreSubject": "Always ignore this subject…",
+      "collapse": "Fold away",
+      "draftKept": "Your draft is kept"
     },
     "promote": {
       "title": "Create a work item from this email",
