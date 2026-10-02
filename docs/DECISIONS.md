@@ -1349,3 +1349,29 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 **Why:** a push took about 42 minutes to reach the server: 18 for one check job (the e2e suite alone 14.5, one test at a time on a cold dev server) and then 24 for the images, where arm64 was built under QEMU emulation (about 20 minutes, against 3 for amd64). Split and in parallel, the slowest path is one e2e shard, about 8 to 9 minutes.
 
 **Trade-off:** a commit that fails its checks still leaves untagged image versions in GHCR (nothing can deploy them); clean them up with a retention policy if they pile up. The first run after this change starts with an empty image cache.
+
+### D-136: Ignore rules keep automated mail out of Open; a Google Group's real sender is unwrapped
+
+**Decision:** a mailbox has **ignore rules** (`mail_ignore_rules`): "sender contains …" or "subject contains …", case-insensitive, at least 3 characters.
+
+- **On arrival** (worker ingest): an inbound message that matches a rule starts its thread as `IGNORED`, and doesn't reopen a solved one. Ignored threads notify nobody and post nothing to Discord; that now also holds for mail from a blocked contact.
+- **When a rule is added**, the open conversations it matches are ignored too (default on, at most 1000), each with its own activity row. Removing a rule leaves what it ignored as it is; "Move back to open" undoes one thread.
+- **Where:** Settings → Mailboxes → a mailbox → Ignore rules, and in the reader's ⋯ menu ("Always ignore this sender…/subject…", prefilled and editable). Admins only (`mailbox.manage`), like the rest of a mailbox's settings; audit-logged as `mailbox.ignore_rule.created`/`deleted`.
+- **Google Groups:** for senders whose domain enforces DMARC, a group rewrites From to `'Name' via IT <group@…>` and keeps the original in `X-Original-From` (or `X-Original-Sender`). `parseGmailMessage` now stores that original as the sender, so the contact, the name in the list and sender rules are the real sender. Direction still follows the From header itself (an `X-Original-From` is easy to forge), and an original that is one of the mailbox's own addresses is never used.
+
+**Why:** the owner's feedback: `it@vtk.be` receives renovate/dependabot mail and DMARC aggregate reports that fill Open. Every group-relayed mail used to come "from" the group address, so they all shared one contact (the GitHub mail showed up as "noreply-dmarc-support via IT"), and a sender rule on that address would have ignored the whole group.
+
+**Trade-off:** mail stored before this change keeps its group sender; sender rules still match it on the wrapped name ("renovate[bot] via IT"), which is also what the reader's prefill uses for it. A rule is a "contains" match, so a careless rule can hide real mail; it stays findable under All.
+
+### D-137: Secondary columns fold to icons; the mail composer starts folded
+
+**Decision:** one component, `SecondarySidebar` (`components/shell/secondary-sidebar.tsx`), for every page's second column: Mail's views, Notes, Settings, Analytics and Messages.
+
+- The button at the bottom of the column, or `[` (global shortcut), folds it to a 56 px rail of icons; labels move to tooltips and the accessible name, counts to a badge on the icon. Sections that only make sense with labels (the tag tree, other mailboxes, empty hints) step aside; headings become a little space.
+- **Per page, per browser:** the folded pages are in the `dopl-folded` cookie (e.g. `mail.notes`), which each page's server loader reads (`sidebarFolded(area)`), so a folded column renders folded without a jump. Loading skeletons are still drawn unfolded.
+- Folding only shows from `md` up. Below that a column is hidden, a row of tabs (Settings) or the whole screen (Messages) and keeps its labels.
+- **Mail's composer** starts folded to one row ("Reply", "Internal note"), so the conversation gets the height. It opens in the chosen mode with the cursor in it, folds again after sending, and keeps an unsent draft when folded. Switching between reply and note clears the text, so a note never becomes a reply.
+
+**Why:** the owner asked for more room to read mail, and then for the same fold everywhere there is a second column. `[` was already reserved in the keyboard map for toggling the sidebar; the main sidebar has no fold, so it folds the page's column.
+
+**Trade-off:** a cookie per browser, not a synced preference: folding on a laptop doesn't fold on a desktop.
