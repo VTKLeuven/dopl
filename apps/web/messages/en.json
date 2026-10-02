@@ -129,7 +129,9 @@
     "requests": "Requests",
     "intake": "Intake",
     "contacts": "Contacts",
-    "mail": "Mail"
+    "mail": "Mail",
+    "foldSidebar": "Fold the side column",
+    "unfoldSidebar": "Show the side column"
   },
   "palette": {
     "placeholder": "Search items, projects, people, or type a command…",
@@ -1463,6 +1465,7 @@
       "goInbox": "Go to Inbox",
       "goMessages": "Go to Messages",
       "goAnalytics": "Go to Analytics",
+      "toggleSidebar": "Fold or show the side column",
       "inboxDown": "Next notification",
       "inboxUp": "Previous notification",
       "inboxDownArrow": "Next notification",

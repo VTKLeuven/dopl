@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getNotesSummary, listTags } from "@/server/queries/notes";
+import { sidebarFolded } from "@/server/folded-sidebar";
 import { requireWorkspaceCtx } from "@/server/session";
 import { PageHeaderSkeleton } from "@/components/shell/page-skeletons";
 import { NotesHeader } from "@/features/notes/notes-header";
@@ -33,6 +34,12 @@ async function Header({ params }: { params: LayoutProps<"/[ws]/notes">["params"]
 async function Sidebar({ params }: { params: LayoutProps<"/[ws]/notes">["params"] }) {
   const { ws } = await params;
   const ctx = await requireWorkspaceCtx(ws);
-  const [summary, tags] = await Promise.all([getNotesSummary(ctx), listTags(ctx)]);
-  return <NotesSidebar ws={ws} initialSummary={summary} initialTags={tags} />;
+  const [summary, tags, folded] = await Promise.all([
+    getNotesSummary(ctx),
+    listTags(ctx),
+    sidebarFolded("notes"),
+  ]);
+  return (
+    <NotesSidebar ws={ws} initialSummary={summary} initialTags={tags} initialFolded={folded} />
+  );
 }

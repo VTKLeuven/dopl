@@ -28,6 +28,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TagDot } from "@/components/ui/tag";
 import { PageHeader } from "@/components/shell/page-header";
+import {
+  SecondarySidebar,
+  SidebarHeading,
+  SidebarItem,
+  UnfoldedOnly,
+} from "@/components/shell/secondary-sidebar";
 import { staysInView, useMailboxes, useThreadActions, useThreads, useVisibleRows } from "./data";
 import { ThreadReader } from "./thread-reader";
 import type { MailboxSummary, ThreadPage, ThreadRow } from "./types";
@@ -48,13 +54,6 @@ const VIEW_ICON: Record<View, React.ReactNode> = {
   all: <Layers />,
 };
 
-const rowClasses = (active: boolean) =>
-  cn(
-    "flex h-8 w-full min-w-0 items-center gap-2 rounded-control px-2.5 text-left text-body font-medium text-fg-secondary focus-ring",
-    "[&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-icon",
-    active ? "bg-neutral-150 text-fg [&>svg]:text-icon-strong" : "hover:bg-surface-hover",
-  );
-
 /** The shared mailbox (ROADMAP §7a.4): views, the thread list, the reader. */
 export function MailView({
   ws,
@@ -62,12 +61,15 @@ export function MailView({
   isAdmin,
   initialMailboxes,
   initialPage,
+  initialFolded = false,
 }: {
   ws: string;
   me: string;
   isAdmin: boolean;
   initialMailboxes: MailboxSummary[];
   initialPage?: ThreadPage;
+  /** The views column starts folded to icons (D-137). */
+  initialFolded?: boolean;
 }) {
   const t = useTranslations("mail");
   const [url, setUrl] = useQueryStates(parsers);
@@ -208,63 +210,48 @@ export function MailView({
     <>
       {header}
       <div className="flex min-h-0 flex-1">
-        {/* Views and mailboxes */}
-        <nav
-          aria-label={t("title")}
-          className="hidden w-56 shrink-0 scrollbar-thin flex-col gap-0.5 overflow-y-auto border-r border-border px-3 py-4 lg:flex"
-          data-testid="mail-sidebar"
+        {/* Views and mailboxes; folds to an icon rail */}
+        <SecondarySidebar
+          area="mail"
+          initialFolded={initialFolded}
+          label={t("title")}
+          className="hidden lg:flex"
+          testId="mail-sidebar"
         >
           {MAIL_VIEWS.map((v) => (
-            <button
+            <SidebarItem
               key={v}
-              type="button"
-              className={rowClasses(url.view === v)}
-              aria-current={url.view === v ? "page" : undefined}
+              icon={VIEW_ICON[v]}
+              label={t(`view.${v}`)}
+              active={url.view === v}
+              count={counts(v)}
               onClick={() => void setUrl({ view: v, thread: null })}
-              data-testid={`mail-view-${v}`}
-            >
-              {VIEW_ICON[v]}
-              <span className="truncate">{t(`view.${v}`)}</span>
-              {counts(v) ? (
-                <span className="ml-auto text-caption font-medium text-fg-muted tabular">
-                  {counts(v)}
-                </span>
-              ) : null}
-            </button>
+              testId={`mail-view-${v}`}
+            />
           ))}
           {mailboxes.length > 1 ? (
-            <>
-              <p className="mt-5 mb-1 px-2.5 text-caption font-medium text-fg-muted">
-                {t("mailboxes")}
-              </p>
-              <button
-                type="button"
-                className={rowClasses(!url.mailbox)}
+            <UnfoldedOnly>
+              <SidebarHeading>{t("mailboxes")}</SidebarHeading>
+              <SidebarItem
+                icon={<Mail />}
+                label={t("allMailboxes")}
+                active={!url.mailbox}
                 onClick={() => void setUrl({ mailbox: null, thread: null })}
-              >
-                <Mail />
-                <span className="truncate">{t("allMailboxes")}</span>
-              </button>
+              />
               {mailboxes.map((m) => (
-                <button
+                <SidebarItem
                   key={m.id}
-                  type="button"
-                  className={rowClasses(url.mailbox === m.id)}
-                  onClick={() => void setUrl({ mailbox: m.id, thread: null })}
+                  icon={<Mail />}
+                  label={m.displayName ?? m.emailAddress}
                   title={m.emailAddress}
-                >
-                  <Mail />
-                  <span className="truncate">{m.displayName ?? m.emailAddress}</span>
-                  {m.counts.open ? (
-                    <span className="ml-auto text-caption font-medium text-fg-muted tabular">
-                      {m.counts.open}
-                    </span>
-                  ) : null}
-                </button>
+                  active={url.mailbox === m.id}
+                  count={m.counts.open}
+                  onClick={() => void setUrl({ mailbox: m.id, thread: null })}
+                />
               ))}
-            </>
+            </UnfoldedOnly>
           ) : null}
-        </nav>
+        </SecondarySidebar>
 
         {/* Thread list */}
         <section

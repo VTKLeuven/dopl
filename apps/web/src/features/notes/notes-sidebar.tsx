@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -28,6 +27,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  SecondarySidebar,
+  SidebarHeading,
+  SidebarItem,
+  UnfoldedOnly,
+} from "@/components/shell/secondary-sidebar";
 import { useNotesSummary, useTags } from "./data";
 import { TagDialog, type TagDialogState } from "./tag-dialogs";
 import type { NotesSummary, TagRow } from "./types";
@@ -65,31 +70,18 @@ const rowClasses = (active: boolean) =>
     active ? "bg-neutral-150 text-fg [&>svg]:text-icon-strong" : "hover:bg-surface-hover",
   );
 
-function Count({ n, tone = "muted" }: { n: number | undefined; tone?: "muted" | "accent" }) {
-  if (!n) return null;
-  return (
-    <span
-      className={cn(
-        "ml-auto text-caption font-medium tabular",
-        tone === "accent"
-          ? "rounded-full bg-sky-600 px-1.5 leading-[18px] text-white"
-          : "text-fg-muted",
-      )}
-    >
-      {n}
-    </span>
-  );
-}
-
 /** The Notes page's secondary column: filters, to-dos, review and the tag tree. */
 export function NotesSidebar({
   ws,
   initialSummary,
   initialTags,
+  initialFolded = false,
 }: {
   ws: string;
   initialSummary?: NotesSummary;
   initialTags?: TagRow[];
+  /** Folded to icons (D-137). */
+  initialFolded?: boolean;
 }) {
   const t = useTranslations("notes");
   const pathname = usePathname();
@@ -107,81 +99,76 @@ export function NotesSidebar({
   ];
 
   return (
-    <nav
-      aria-label={t("title")}
-      data-testid="notes-sidebar"
-      className="hidden w-60 shrink-0 scrollbar-thin flex-col gap-0.5 overflow-y-auto border-r border-border px-3 py-4 md:flex"
+    <SecondarySidebar
+      area="notes"
+      initialFolded={initialFolded}
+      label={t("title")}
+      className="hidden md:flex"
+      width="md:w-60"
+      testId="notes-sidebar"
     >
       {filters.map(({ f, icon, count }) => (
-        <button
+        <SidebarItem
           key={f}
-          type="button"
-          className={rowClasses(filterActive(f))}
-          aria-current={filterActive(f) ? "page" : undefined}
+          icon={icon}
+          label={t(`filter.${f}`)}
+          active={filterActive(f)}
+          count={count}
           onClick={() => url.go({ filter: f })}
-        >
-          {icon}
-          <span className="truncate">{t(`filter.${f}`)}</span>
-          <Count n={count} />
-        </button>
+        />
       ))}
-      <Link
-        href={`/${ws}/notes/todos` as never}
-        className={rowClasses(pathname === `/${ws}/notes/todos`)}
-        aria-current={pathname === `/${ws}/notes/todos` ? "page" : undefined}
-      >
-        <ListChecks />
-        <span className="truncate">{t("nav.todos")}</span>
-        <Count n={summary?.openTodos} />
-      </Link>
-      <Link
-        href={`/${ws}/notes/review` as never}
-        className={rowClasses(pathname === `/${ws}/notes/review`)}
-        aria-current={pathname === `/${ws}/notes/review` ? "page" : undefined}
-        data-testid="nav-review"
-      >
-        <Repeat2 />
-        <span className="truncate">{t("nav.review")}</span>
-        <Count n={summary?.reviewLeft} tone="accent" />
-      </Link>
+      <SidebarItem
+        icon={<ListChecks />}
+        label={t("nav.todos")}
+        href={`/${ws}/notes/todos`}
+        active={pathname === `/${ws}/notes/todos`}
+        count={summary?.openTodos}
+      />
+      <SidebarItem
+        icon={<Repeat2 />}
+        label={t("nav.review")}
+        href={`/${ws}/notes/review`}
+        active={pathname === `/${ws}/notes/review`}
+        count={summary?.reviewLeft}
+        countTone="accent"
+        testId="nav-review"
+      />
 
-      <div className="mt-5 mb-1 flex h-6 items-center px-2.5">
-        <span className="text-caption font-medium text-fg-muted">{t("tags.title")}</span>
-      </div>
-      {tree.length === 0 ? (
-        <p className="px-2.5 py-1 text-small text-fg-muted">{t("tags.empty")}</p>
-      ) : (
-        <ul role="tree" aria-label={t("tags.title")} data-testid="tag-tree">
-          {tree.map((node) => (
-            <TagTreeNode
-              key={node.tag.id}
-              node={node}
-              depth={0}
-              active={url.onGrid ? url.tag : null}
-              onSelect={(path) => url.go({ filter: "all", tag: path })}
-              onAction={setDialog}
-            />
-          ))}
-        </ul>
-      )}
+      {/* The tag tree needs its labels: folded, it steps aside. */}
+      <UnfoldedOnly>
+        <SidebarHeading>{t("tags.title")}</SidebarHeading>
+        {tree.length === 0 ? (
+          <p className="px-2.5 py-1 text-small text-fg-muted">{t("tags.empty")}</p>
+        ) : (
+          <ul role="tree" aria-label={t("tags.title")} data-testid="tag-tree">
+            {tree.map((node) => (
+              <TagTreeNode
+                key={node.tag.id}
+                node={node}
+                depth={0}
+                active={url.onGrid ? url.tag : null}
+                onSelect={(path) => url.go({ filter: "all", tag: path })}
+                onAction={setDialog}
+              />
+            ))}
+          </ul>
+        )}
+      </UnfoldedOnly>
 
       <div className="mt-auto flex flex-col gap-0.5 pt-5">
         {(["archived", "trash"] as const).map((f) => (
-          <button
+          <SidebarItem
             key={f}
-            type="button"
-            className={rowClasses(filterActive(f))}
-            aria-current={filterActive(f) ? "page" : undefined}
+            icon={f === "archived" ? <Archive /> : <Trash2 />}
+            label={t(`filter.${f}`)}
+            active={filterActive(f)}
+            count={summary?.counts[f]}
             onClick={() => url.go({ filter: f })}
-          >
-            {f === "archived" ? <Archive /> : <Trash2 />}
-            <span className="truncate">{t(`filter.${f}`)}</span>
-            <Count n={summary?.counts[f]} />
-          </button>
+          />
         ))}
       </div>
       <TagDialog ws={ws} state={dialog} tags={tags} onClose={() => setDialog(null)} />
-    </nav>
+    </SecondarySidebar>
   );
 }
 

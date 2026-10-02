@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -14,10 +13,24 @@ import {
   Users,
   Webhook,
 } from "lucide-react";
-import { cn } from "@/lib/cn";
+import {
+  SecondarySidebar,
+  SidebarHeading,
+  SidebarItem,
+} from "@/components/shell/secondary-sidebar";
 
-export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
+export function SettingsNav({
+  ws,
+  isAdmin,
+  initialFolded,
+}: {
+  ws: string;
+  isAdmin: boolean;
+  /** Folded to icons (D-137). */
+  initialFolded: boolean;
+}) {
   const t = useTranslations("settings.nav");
+  const ts = useTranslations("settings");
   const tn = useTranslations("notificationSettings");
   const pathname = usePathname();
   const items = [
@@ -45,31 +58,30 @@ export function SettingsNav({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
     { href: `/${ws}/settings/account`, label: t("account"), icon: <ShieldCheck /> },
     { href: `/${ws}/settings/notifications`, label: tn("nav"), icon: <Bell /> },
   ];
+  // Phones: a row of tabs under the header. From md up: a column that folds.
   return (
-    <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-4 py-2 md:w-56 md:flex-col md:border-r md:border-b-0 md:px-3 md:py-4">
+    <SecondarySidebar
+      area="settings"
+      initialFolded={initialFolded}
+      label={ts("title")}
+      className="border-b md:border-b-0"
+      bodyClassName="flex-row gap-1 overflow-x-auto px-4 py-2 md:flex-col md:gap-0.5 md:overflow-x-hidden md:px-3 md:py-4"
+    >
       {items.map((item, i) =>
         "section" in item ? (
-          <span
-            key={i}
-            className="hidden px-2.5 pt-3 pb-1 text-caption font-medium text-fg-muted first:pt-0 md:block"
-          >
+          <SidebarHeading key={i} first={i === 0} className="hidden md:flex">
             {item.section}
-          </span>
+          </SidebarHeading>
         ) : (
-          <Link
+          <SidebarItem
             key={item.href}
-            href={item.href as never}
-            aria-current={pathname.startsWith(item.href) ? "page" : undefined}
-            className={cn(
-              "flex h-8 shrink-0 items-center gap-2 rounded-control px-2.5 text-body font-medium text-fg-secondary focus-ring [&_svg]:size-4 [&_svg]:text-icon",
-              pathname.startsWith(item.href) ? "bg-neutral-150 text-fg" : "hover:bg-surface-hover",
-            )}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
+            icon={item.icon}
+            label={item.label}
+            href={item.href}
+            active={pathname.startsWith(item.href)}
+          />
         ),
       )}
-    </nav>
+    </SecondarySidebar>
   );
 }
