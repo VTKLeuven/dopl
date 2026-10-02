@@ -61,6 +61,8 @@ export interface FakeMessageInput {
   date?: Date;
   /** More headers, e.g. a Google Group's X-Original-From. */
   headers?: Array<{ name: string; value: string }>;
+  /** The Message-ID, to deliver one message to several mailboxes as a group does. */
+  messageId?: string;
 }
 
 /** Adds a message to the fake mailbox, as if it had just arrived. */
@@ -74,7 +76,7 @@ export async function appendMessage(
   store.historyId += 1;
   const id = `fake${store.seq.toString(16).padStart(8, "0")}${Date.now().toString(16)}`;
   const threadId = input.threadId ?? id;
-  const messageId = `<${id}@fake.dopl.test>`;
+  const messageId = input.messageId ?? `<${id}@fake.dopl.test>`;
   const date = input.date ?? new Date();
   const headers = [
     { name: "From", value: input.fromName ? `${input.fromName} <${input.from}>` : input.from },

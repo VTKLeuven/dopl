@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addressedToShared,
   baseSubject,
   decodeHeader,
   htmlToText,
@@ -223,5 +224,46 @@ describe("mail domain", () => {
   it("strips reply prefixes and turns HTML into text", () => {
     expect(baseSubject("RE: Fwd: AW: VPN down")).toBe("VPN down");
     expect(htmlToText("<style>p{}</style><p>One</p><p>Two<br>Three</p>")).toBe("One\nTwo\nThree");
+  });
+
+  it("knows mail that a shared mailbox tracks, so a personal one leaves it (D-138)", () => {
+    const msg = (...headers: Array<{ name: string; value: string }>): GmailMessage => ({
+      id: "x",
+      threadId: "t",
+      payload: { mimeType: "text/plain", headers, body: { data: b64url("hi") } },
+    });
+    const shared = new Set(["it-inbox@vtk.be", "it@vtk.be"]);
+    const own = ["bram@vtk.be"];
+    // To or Cc the group, in any case.
+    const toGroup = parseGmailMessage(msg(h("From", "a@x.test"), h("To", "IT <IT@vtk.be>")), own);
+    expect(addressedToShared(toGroup, shared)).toBe(true);
+    const cc = parseGmailMessage(
+      msg(h("From", "a@x.test"), h("To", "bram@vtk.be"), h("Cc", "it@vtk.be")),
+      own,
+    );
+    expect(addressedToShared(cc, shared)).toBe(true);
+    // Bcc'd to the group: only the group's own headers say so.
+    const bcc = parseGmailMessage(
+      msg(
+        h("From", "a@x.test"),
+        h("To", "someone@x.test"),
+        h("Mailing-list", "list it@vtk.be; contact it+owners@vtk.be"),
+        h("List-Post", "<https://groups.google.com/a/vtk.be/group/it/post>, <mailto:it@vtk.be>"),
+      ),
+      own,
+    );
+    expect(bcc.lists).toEqual(["it@vtk.be"]);
+    expect(addressedToShared(bcc, shared)).toBe(true);
+    // Our own reply-all to the group is the team's too.
+    const reply = parseGmailMessage(
+      msg(h("From", "bram@vtk.be"), h("To", "a@x.test"), h("Cc", "it@vtk.be")),
+      own,
+    );
+    expect(reply.direction).toBe("OUTBOUND");
+    expect(addressedToShared(reply, shared)).toBe(true);
+    // Personal mail, and any mail when no shared mailbox is connected, stays.
+    const personal = parseGmailMessage(msg(h("From", "a@x.test"), h("To", "bram@vtk.be")), own);
+    expect(addressedToShared(personal, shared)).toBe(false);
+    expect(addressedToShared(toGroup, new Set())).toBe(false);
   });
 });

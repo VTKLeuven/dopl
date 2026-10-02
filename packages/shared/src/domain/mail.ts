@@ -66,6 +66,8 @@ export interface ParsedMessage {
   sentAt: Date;
   sizeEstimate: number | null;
   direction: "INBOUND" | "OUTBOUND";
+  /** Mailing lists (Google Groups) the message came through, by address. */
+  lists: string[];
 }
 
 /* ───────────────────────── addresses ───────────────────────── */
@@ -279,7 +281,36 @@ export function parseGmailMessage(msg: GmailMessage, mailboxAddresses: string[])
     sentAt: Number.isNaN(sentAt.getTime()) ? new Date(0) : sentAt,
     sizeEstimate: msg.sizeEstimate ?? null,
     direction: outbound ? "OUTBOUND" : "INBOUND",
+    lists: listAddresses(headers),
   };
+}
+
+/**
+ * The lists a message came through: Google Groups add `Mailing-list: list
+ * it@vtk.be; contact …` and `List-Post: <mailto:it@vtk.be>` to every copy
+ * they pass on, whatever its To says (a Bcc, a member alias).
+ */
+export function listAddresses(headers: GmailHeader[] | undefined): string[] {
+  const out = new Set<string>();
+  const list = /(?:^|;)\s*list\s+([^\s;]+@[^\s;]+)/i.exec(header(headers, "Mailing-list") ?? "");
+  if (list?.[1]) out.add(normalizeEmail(list[1]));
+  for (const m of (header(headers, "List-Post") ?? "").matchAll(/<mailto:([^>?]+)/gi))
+    if (m[1]) out.add(normalizeEmail(m[1]));
+  return [...out];
+}
+
+/**
+ * Personal mailboxes (D-138): a person also gets the mail of the shared
+ * addresses they're on (a Google Group), and that mail is the team's. It
+ * stays in the shared mailbox and out of the personal one when it was
+ * addressed to, or passed on by, a shared mailbox's address or alias.
+ */
+export function addressedToShared(p: ParsedMessage, shared: ReadonlySet<string>): boolean {
+  if (shared.size === 0) return false;
+  return (
+    [...p.to, ...p.cc, ...p.bcc].some((a) => shared.has(normalizeEmail(a.email))) ||
+    p.lists.some((a) => shared.has(a))
+  );
 }
 
 /* ───────────────────────── thread rules ───────────────────────── */
