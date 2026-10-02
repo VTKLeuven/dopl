@@ -2,7 +2,7 @@
 
 This guide is for the Google Workspace admin who connects the team's shared mailbox (for example `it@vtk.be`) to Dopl. You do it once. After that, workspace admins add or change mailboxes in **Settings → Mailboxes**.
 
-Dopl reads only the mailboxes you connect, never anyone's personal mail. Only the worker container holds the Google key; the web app, which faces the internet, never sees it (D-027).
+Dopl reads only the mailboxes someone connects: the shared ones an admin connects, and a person's own work mailbox when that person connects it themselves (§6). Only the worker container holds the Google key; the web app, which faces the internet, never sees it (D-027).
 
 **What you need:** a Google Cloud project you can administer, and super-admin rights in the Google Workspace admin console.
 
@@ -95,6 +95,17 @@ The status page shows:
 - the reason when something fails
 
 It also has buttons to test the connection again, sync now, pause and resume.
+
+## 6. Personal mailboxes
+
+Each team member can also connect **their own** work mailbox in **Settings → My mailbox** (D-138). It uses the same service account, delegation and Pub/Sub subscription, so there is nothing more to set up.
+
+- Only the address a person signs in with can be connected; they can't type another one. Delegation could open any mailbox in the domain, so this is the guard.
+- Only that person sees its mail: not their teammates, not workspace admins, not the AI teammate. It never posts to Discord or adds contacts. Connecting and disconnecting are in the audit log (the address, not the mail).
+- **Group mail isn't tracked twice.** A person on the `it@vtk.be` group gets the team's mail in their own mailbox too. Mail addressed to a shared mailbox or one of its send-as aliases (the worker records them at every sync), mail a Google Group passed on for such an address, and any copy of a message a shared mailbox already holds stays out of the personal mailbox. If the personal mailbox happened to sync first, the shared mailbox takes the message over when its copy arrives.
+- When an admin deactivates someone, their mailbox is paused; deleting the account deletes it.
+
+If people sign in with an address outside your Google Workspace, their connection test fails with `unauthorized_client` or "token is for…".
 
 ## Troubleshooting
 

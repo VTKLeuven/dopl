@@ -117,7 +117,8 @@ Phase 7 was built on `claude/phase-7` and merged into `main`.
 - **No real mailbox yet.** Everything runs against the file-backed fake Gmail (`GMAIL_FAKE_DIR=.data/fake-gmail` in `.env`, D-111). Connecting `it@vtk.be` for real needs Q-16 and Q-20 and the steps in `docs/ops/gmail-setup.md`.
 - **Migration:** `20260929131612_mailbox_connection_test`. **New file:** `worker.env` (from `worker.env.example`) for the worker's Google key and Pub/Sub names; only the worker reads it (D-110). **New package:** `@dopl/server` (D-107). **New queues:** `gmail.test`, `gmail.backfill`, `gmail.sync`, `gmail.watch-renew` (03:40), `gmail.poll` (every 5 minutes), `gmail.fetch-attachment`, `gmail.send`. **New dependencies (worker):** `google-auth-library`, `dompurify` + `jsdom`.
 - **Seed:** the `it@vtk.be` mailbox ("IT support", members Bram and Chloé, replies on) with six conversations. The worker connects it on its next poll, up to 5 minutes after seeding.
-- **Screenshots:** `docs/screenshots/phase-7/` (10, including two at phone width).
+- **Screenshots:** `docs/screenshots/phase-7/` (10, including two at phone width; 19–22 show personal mailboxes).
+- **Personal mailboxes** (added 2026-10-02, D-138): Settings → My mailbox connects your own work mailbox; only you see it, and mail a shared mailbox tracks (a group you're on) stays out of it. Migration `20261002165515_personal_mailboxes`. Every read of mail goes through `readableMailboxWhere` in `server/queries/mail.ts`; keep it that way. The e2e test connects Dries's mailbox in the fake Gmail.
 
 ### 1.5 Phase 8 status
 

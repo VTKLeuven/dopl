@@ -18,6 +18,14 @@
 - **Folding columns** (D-137): Mail's views, Notes, Settings, Analytics and Messages fold their second column to icons with the button at the bottom or `[`, remembered per page.
 - **Folded composer** (D-137): the reply/internal-note box starts as one row and opens when you pick Reply or Internal note; a draft survives folding it.
 
+## Personal mailboxes (2026-10-02)
+
+- **My mailbox** (D-138): Settings → My mailbox connects your own work mailbox (the address you sign in with). It shows up in Mail with a lock, next to the shared mailboxes, and **only you** see it: not your teammates, not the admins, not the AI teammate. It adds no contacts, sends nothing to the Inbox or Discord, and you set its ignore rules and replies yourself.
+- **Group mail isn't tracked twice:** mail to a shared mailbox (or one of its aliases) that you also get through a group stays in the shared mailbox only. If your mailbox happens to sync first, the shared mailbox takes it over.
+- Everyone on the team now sees **Mail** in the sidebar, with a way to connect their own mailbox when no shared one is theirs.
+- An email from your own mailbox linked to a work item shows teammates only "a private email from their own mailbox".
+- Deactivating someone pauses their mailbox; deleting the account deletes it. Migration `20261002165515_personal_mailboxes`; no new env vars or queues.
+
 ## Going live (2026-09-30)
 
 - **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.
