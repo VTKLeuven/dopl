@@ -496,8 +496,9 @@ model User {
   tags      Tag[]
   noteTodos NoteTodo[]
 
-  mailboxesCreated         Mailbox[]       @relation("MailboxCreatedBy")
-  mailboxesDefaultAssignee Mailbox[]       @relation("MailboxDefaultAssignee")
+  mailboxesCreated         Mailbox[]        @relation("MailboxCreatedBy")
+  mailboxesDefaultAssignee Mailbox[]        @relation("MailboxDefaultAssignee")
+  mailIgnoreRules          MailIgnoreRule[]
   mailboxMemberships       MailboxMember[]
   emailThreadsAssigned     EmailThread[]
   emailMessagesSent        EmailMessage[]
@@ -587,13 +588,13 @@ model TwoFactor {
 /// @better-auth/sso providers (OIDC / SAML), registered by workspace admins.
 /// oidcConfig / samlConfig are JSON strings owned by the plugin.
 model SsoProvider {
-  id             String  @id @default(uuid(7)) @db.Uuid
+  id             String   @id @default(uuid(7)) @db.Uuid
   issuer         String
   oidcConfig     String?
   samlConfig     String?
-  userId         String? @db.Uuid
-  user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  providerId     String  @unique
+  userId         String?  @db.Uuid
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  providerId     String   @unique
   organizationId String?
   domain         String
   /// `domainVerification` (D-131): set when an admin registers the provider.
@@ -1832,12 +1833,37 @@ model Mailbox {
   createdAt           DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
 
-  members  MailboxMember[]
-  threads  EmailThread[]
-  syncLogs MailboxSyncLog[]
+  members     MailboxMember[]
+  threads     EmailThread[]
+  syncLogs    MailboxSyncLog[]
+  ignoreRules MailIgnoreRule[]
 
   @@unique([workspaceId, emailAddress])
   @@map("mailboxes")
+}
+
+enum MailIgnoreField {
+  SENDER // the sender's address or name
+  SUBJECT
+}
+
+/// Mail that matches a rule arrives as IGNORED: it never shows up in Open,
+/// notifies nobody and posts nothing to Discord (D-136). Matching is
+/// case-insensitive "contains" on the inbound message (shared domain/mail).
+model MailIgnoreRule {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  workspaceId String          @db.Uuid
+  mailboxId   String          @db.Uuid
+  mailbox     Mailbox         @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+  field       MailIgnoreField
+  /// Lowercased and trimmed; matched as a substring.
+  value       String
+  createdById String?         @db.Uuid
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([mailboxId, field, value])
+  @@map("mail_ignore_rules")
 }
 
 /// Who can see and work a mailbox (workspace admins always can).

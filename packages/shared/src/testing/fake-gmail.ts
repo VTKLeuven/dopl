@@ -59,6 +59,8 @@ export interface FakeMessageInput {
   attachments?: Array<{ filename: string; mimeType: string; content: string }>;
   /** Defaults to now. */
   date?: Date;
+  /** More headers, e.g. a Google Group's X-Original-From. */
+  headers?: Array<{ name: string; value: string }>;
 }
 
 /** Adds a message to the fake mailbox, as if it had just arrived. */
@@ -86,6 +88,7 @@ export async function appendMessage(
           { name: "References", value: input.inReplyTo },
         ]
       : []),
+    ...(input.headers ?? []),
   ];
   const bodies: GmailPart[] = [];
   if (input.text !== undefined)

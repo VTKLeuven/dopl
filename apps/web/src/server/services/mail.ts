@@ -1,5 +1,5 @@
 import "server-only";
-import type { TransactionClient } from "@dopl/db";
+import type { Prisma, TransactionClient } from "@dopl/db";
 import { canMailbox, ForbiddenError, type MailboxAction } from "@dopl/shared/policy";
 import { normalizeEmail, type Address } from "@dopl/shared/domain/mail";
 import {
@@ -11,7 +11,9 @@ import {
 } from "@dopl/shared/rich-text";
 import {
   AssignThreadSchema,
+  CreateIgnoreRuleSchema,
   CreateMailboxSchema,
+  DeleteIgnoreRuleSchema,
   EmailCommentSchema,
   LinkThreadSchema,
   MailboxIdSchema,
@@ -212,6 +214,114 @@ export async function updateMailbox(ctx: WorkspaceCtx, raw: unknown) {
       payload: { id: mailbox.id },
     });
     return { id: mailbox.id };
+  });
+}
+
+/** At most this many open conversations are ignored when a rule is added. */
+const APPLY_LIMIT = 1000;
+
+/**
+ * An ignore rule (D-136): the worker marks matching inbound mail ignored as it
+ * arrives. With `applyToOpen`, the open conversations it matches now are
+ * ignored too, each with its own activity row.
+ */
+export async function createIgnoreRule(ctx: WorkspaceCtx, raw: unknown) {
+  const input = CreateIgnoreRuleSchema.parse(raw);
+  return withMutation(ctx, async (m) => {
+    const { tx } = m;
+    const mailbox = await loadMailbox(tx, ctx, input.mailboxId, "mailbox.manage");
+    const key = { mailboxId: mailbox.id, field: input.field, value: input.value };
+    const rule =
+      (await tx.mailIgnoreRule.findUnique({
+        where: { mailboxId_field_value: key },
+        select: { id: true },
+      })) ??
+      (await tx.mailIgnoreRule.create({
+        data: { ...key, workspaceId: ctx.workspace.id, createdById: ctx.actor.userId },
+        select: { id: true },
+      }));
+
+    let ignored = 0;
+    if (input.applyToOpen) {
+      const contains = { contains: input.value, mode: "insensitive" as const };
+      const match: Prisma.EmailThreadWhereInput =
+        input.field === "SUBJECT"
+          ? { subject: contains }
+          : {
+              messages: {
+                some: {
+                  direction: "INBOUND",
+                  OR: [{ fromAddress: contains }, { fromName: contains }],
+                },
+              },
+            };
+      const threads = await tx.emailThread.findMany({
+        where: { mailboxId: mailbox.id, status: "OPEN", ...match },
+        select: { id: true, mailboxId: true },
+        take: APPLY_LIMIT,
+      });
+      if (threads.length) {
+        await tx.emailThread.updateMany({
+          where: { id: { in: threads.map((t) => t.id) } },
+          data: { status: "IGNORED", solvedAt: null, snoozedUntil: null },
+        });
+        for (const thread of threads) {
+          m.activity({
+            entityType: "EMAIL_THREAD",
+            entityId: thread.id,
+            verb: "updated",
+            field: "status",
+            fromValue: "OPEN",
+            toValue: "IGNORED",
+            meta: { ignoreRuleId: rule.id },
+          });
+          m.emit({
+            topic: `emailThread:${thread.id}`,
+            type: "email.thread.updated",
+            payload: { id: thread.id },
+          });
+        }
+      }
+      ignored = threads.length;
+    }
+    await audit(tx, ctx, {
+      action: "mailbox.ignore_rule.created",
+      targetType: "mailbox",
+      targetId: mailbox.id,
+      metadata: { field: input.field, value: input.value, ignored },
+    });
+    m.emit({
+      topic: `mailbox:${mailbox.id}`,
+      type: "mailbox.updated",
+      payload: { id: mailbox.id },
+    });
+    return { id: rule.id, ignored };
+  });
+}
+
+/** Removing a rule leaves the conversations it ignored as they are. */
+export async function deleteIgnoreRule(ctx: WorkspaceCtx, raw: unknown) {
+  const input = DeleteIgnoreRuleSchema.parse(raw);
+  return withMutation(ctx, async (m) => {
+    const { tx } = m;
+    const rule = await tx.mailIgnoreRule.findFirst({
+      where: { id: input.id, workspaceId: ctx.workspace.id },
+    });
+    if (!rule) throw new NotFoundError();
+    await loadMailbox(tx, ctx, rule.mailboxId, "mailbox.manage");
+    await tx.mailIgnoreRule.delete({ where: { id: rule.id } });
+    await audit(tx, ctx, {
+      action: "mailbox.ignore_rule.deleted",
+      targetType: "mailbox",
+      targetId: rule.mailboxId,
+      metadata: { field: rule.field, value: rule.value },
+    });
+    m.emit({
+      topic: `mailbox:${rule.mailboxId}`,
+      type: "mailbox.updated",
+      payload: { id: rule.mailboxId },
+    });
+    return { id: rule.id };
   });
 }
 

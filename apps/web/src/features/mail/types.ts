@@ -96,6 +96,7 @@ export interface MailboxAdmin extends MailboxSummary {
   sendEnabled: boolean;
   defaultAssigneeId: string | null;
   members: Person[];
+  ignoreRules: IgnoreRuleView[];
   logs: Array<{
     id: string;
     kind: string;
@@ -104,4 +105,12 @@ export interface MailboxAdmin extends MailboxSummary {
     startedAt: string;
     finishedAt: string | null;
   }>;
+}
+
+export interface IgnoreRuleView {
+  id: string;
+  field: "SENDER" | "SUBJECT";
+  value: string;
+  createdAt: string;
+  createdBy: Person | null;
 }

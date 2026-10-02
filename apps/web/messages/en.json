@@ -2195,7 +2195,10 @@
       "replyTo": "To",
       "replyAll": "Reply all",
       "replyPlaceholder": "Write your reply…",
-      "send": "Send"
+      "send": "Send",
+      "more": "More",
+      "ignoreSender": "Always ignore this sender…",
+      "ignoreSubject": "Always ignore this subject…"
     },
     "promote": {
       "title": "Create a work item from this email",
@@ -2227,6 +2230,28 @@
       "private": "a conversation in {mailbox} (you're not a member)",
       "wrote": "wrote",
       "replied": "replied"
+    },
+    "ignoreRules": {
+      "dialogTitle": "Ignore mail like this",
+      "description": "Mail that matches arrives as Ignored: it never shows up in Open, notifies nobody and stays findable under All. Upper and lower case don't matter.",
+      "field": "Match on",
+      "fieldSENDER": "Sender",
+      "fieldSUBJECT": "Subject",
+      "contains": "contains",
+      "value": "Text to look for",
+      "senderPlaceholder": "e.g. renovate or noreply-dmarc",
+      "subjectPlaceholder": "e.g. Report domain:",
+      "applyToOpen": "Also ignore the open conversations that match now",
+      "add": "Add rule",
+      "added": "Rule added.",
+      "addedWithCount": "{count, plural, =0 {Rule added. No open conversations matched.} one {Rule added. # open conversation ignored.} other {Rule added. # open conversations ignored.}}",
+      "tooShort": "Use at least 3 characters, so the rule doesn't catch too much.",
+      "error": "The rule wasn't saved. Try again.",
+      "ruleLabelSENDER": "Sender contains",
+      "ruleLabelSUBJECT": "Subject contains",
+      "remove": "Remove rule",
+      "empty": "No rules yet: everything that arrives lands in Open.",
+      "cancel": "Cancel"
     }
   },
   "mailboxes": {
@@ -2294,6 +2319,8 @@
     "sendEnabledHint": "Needs the gmail.send scope on the delegation. Replies go out from this mailbox.",
     "save": "Save",
     "saved": "Saved",
+    "ignoreTitle": "Ignore rules",
+    "ignoreDescription": "Automated mail the team never needs (dependency bots, DMARC reports) arrives as Ignored instead of in Open. Removing a rule leaves what it ignored as it is.",
     "logTitle": "Sync log",
     "logDescription": "The last 20 runs.",
     "logEmpty": "Nothing yet. The first run starts right after connecting.",

@@ -7,7 +7,9 @@ import { makeMember, makeProject, makeWorkspace } from "../testing/fixtures";
 import {
   addEmailComment,
   assignThread,
+  createIgnoreRule,
   createMailbox,
+  deleteIgnoreRule,
   linkThread,
   promoteThread,
   replyToThread,
@@ -122,6 +124,88 @@ describe("shared mailbox", () => {
     });
     const [row] = (await listThreads(mia, { view: "all" })).rows;
     expect(row?.labels.map((l) => l.name).sort()).toEqual(["Network", "Urgent"]);
+  });
+
+  it("adds ignore rules (admins only) and ignores the open conversations they match", async () => {
+    const { ws, admin, mia, mailboxId, thread } = await setup();
+    const bot = await db.emailThread.create({
+      data: {
+        workspaceId: ws.id,
+        mailboxId,
+        gmailThreadId: `bot-${Date.now()}`,
+        subject: "chore(deps): update dependency next",
+        lastMessageAt: new Date(),
+        snoozedUntil: new Date(Date.now() + 3_600_000),
+      },
+    });
+    // Mail a Google Group passed on before Dopl unwrapped it: the name says who it was.
+    await db.emailMessage.create({
+      data: {
+        workspaceId: ws.id,
+        mailboxId,
+        threadId: bot.id,
+        direction: "INBOUND",
+        fromAddress: "it@vtk.test",
+        fromName: "'renovate[bot]' via IT",
+        subject: bot.subject,
+        sentAt: new Date(),
+      },
+    });
+
+    await expect(
+      createIgnoreRule(mia, { mailboxId, field: "SENDER", value: "renovate" }),
+    ).rejects.toThrow(ForbiddenError);
+    await expect(
+      createIgnoreRule(admin, { mailboxId, field: "SENDER", value: "re" }),
+    ).rejects.toThrow();
+
+    const rule = await createIgnoreRule(admin, {
+      mailboxId,
+      field: "SENDER",
+      value: "  Renovate[BOT] ",
+    });
+    expect(rule.ignored).toBe(1);
+    const after = await db.emailThread.findUniqueOrThrow({ where: { id: bot.id } });
+    expect([after.status, after.snoozedUntil]).toEqual(["IGNORED", null]);
+    expect((await db.emailThread.findUniqueOrThrow({ where: { id: thread.id } })).status).toBe(
+      "OPEN",
+    );
+    const stored = await db.mailIgnoreRule.findUniqueOrThrow({ where: { id: rule.id } });
+    expect(stored.value).toBe("renovate[bot]");
+    // Adding it again is a no-op, not an error.
+    expect(
+      (await createIgnoreRule(admin, { mailboxId, field: "SENDER", value: "renovate[bot]" })).id,
+    ).toBe(rule.id);
+
+    // Without applyToOpen, what's open stays open.
+    const subject = await createIgnoreRule(admin, {
+      mailboxId,
+      field: "SUBJECT",
+      value: "VPN keeps",
+      applyToOpen: false,
+    });
+    expect(subject.ignored).toBe(0);
+    expect((await db.emailThread.findUniqueOrThrow({ where: { id: thread.id } })).status).toBe(
+      "OPEN",
+    );
+
+    await expect(deleteIgnoreRule(mia, { id: rule.id })).rejects.toThrow(ForbiddenError);
+    await deleteIgnoreRule(admin, { id: rule.id });
+    expect(await db.mailIgnoreRule.count({ where: { mailboxId } })).toBe(1);
+    // Removing the rule leaves what it ignored alone.
+    expect((await db.emailThread.findUniqueOrThrow({ where: { id: bot.id } })).status).toBe(
+      "IGNORED",
+    );
+    const actions = await db.auditLog.findMany({
+      where: { targetId: mailboxId, action: { startsWith: "mailbox.ignore_rule" } },
+      select: { action: true },
+    });
+    expect(actions.map((a) => a.action).sort()).toEqual([
+      "mailbox.ignore_rule.created",
+      "mailbox.ignore_rule.created",
+      "mailbox.ignore_rule.created",
+      "mailbox.ignore_rule.deleted",
+    ]);
   });
 
   it("notifies only mentioned people who can read the mailbox", async () => {

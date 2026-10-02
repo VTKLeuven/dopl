@@ -34,6 +34,7 @@ const mailboxSelect = {
   backfillPageToken: true,
   sendEnabled: true,
   deletedAt: true,
+  ignoreRules: { select: { field: true, value: true } },
 } satisfies Prisma.MailboxSelect;
 
 async function load(db: DbClient, id: string) {

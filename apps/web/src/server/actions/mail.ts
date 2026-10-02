@@ -5,7 +5,9 @@ import { requireWorkspaceCtx } from "../session";
 import {
   addEmailComment,
   assignThread,
+  createIgnoreRule,
   createMailbox,
+  deleteIgnoreRule,
   linkThread,
   promoteThread,
   replyToThread,
@@ -27,6 +29,14 @@ export async function createMailboxAction(ws: string, input: unknown) {
 export async function updateMailboxAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);
   return run(() => updateMailbox(ctx, input));
+}
+export async function createIgnoreRuleAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => createIgnoreRule(ctx, input));
+}
+export async function deleteIgnoreRuleAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => deleteIgnoreRule(ctx, input));
 }
 export async function setMailboxStateAction(
   ws: string,

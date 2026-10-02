@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeRuleValue } from "../domain/mail";
 import { RichTextSchema } from "./work-item";
 
 /** Shared mailbox inputs (ROADMAP §Phase 7). */
@@ -31,6 +32,16 @@ export const UpdateMailboxSchema = z.object({
   /** Replies from Dopl (Phase 7b); needs the gmail.send scope on the delegation. */
   sendEnabled: z.boolean().optional(),
 });
+
+/** Mail that matches arrives ignored (D-136); matching is "contains", ignoring case. */
+export const CreateIgnoreRuleSchema = z.object({
+  mailboxId: z.uuid(),
+  field: z.enum(["SENDER", "SUBJECT"]),
+  value: z.string().transform(normalizeRuleValue).pipe(z.string().min(3).max(200)),
+  /** Also ignore the open conversations it matches now. */
+  applyToOpen: z.boolean().default(true),
+});
+export const DeleteIgnoreRuleSchema = z.object({ id: z.uuid() });
 
 export const MailboxIdSchema = z.uuid();
 export const ThreadIdSchema = z.uuid();
