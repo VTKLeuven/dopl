@@ -11,6 +11,13 @@
 - **The AI teammate's picture** (D-133): upload one in Settings → AI teammate. The sidebar, the agent page and run cards show its own name and picture.
 - **Sidebar** (D-134): smaller rows so a project's views, analytics and intake fit without scrolling; Analytics moved up with the other pages, Contacts into your account menu; a larger logo with "Dopl" in Outfit, in the same space.
 
+## Mail cleanup and folding columns (2026-10-02)
+
+- **Ignore rules** (D-136): Settings → Mailboxes → a mailbox → Ignore rules, or ⋯ → "Always ignore this sender…/subject…" in the reader. Mail whose sender or subject contains the text arrives as Ignored: never in Open, no notification, nothing on Discord, still under All. Adding a rule can also ignore the open conversations it matches. Admins only; audit-logged. Migration `20261002141647_mail_ignore_rules`.
+- **Real senders behind a Google Group** (D-136): mail the group rewrote to "'Name' via IT" is stored under the original sender, so contacts and the list name the right person and sender rules match the real address.
+- **Folding columns** (D-137): Mail's views, Notes, Settings, Analytics and Messages fold their second column to icons with the button at the bottom or `[`, remembered per page.
+- **Folded composer** (D-137): the reply/internal-note box starts as one row and opens when you pick Reply or Internal note; a draft survives folding it.
+
 ## Going live (2026-09-30)
 
 - **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.

@@ -32,7 +32,7 @@ This document explains the shape, the invariants and the reasoning. Decision ref
 | Inbox & infra                                             | `Notification`, `NotificationPreference`, `OutboundEmail`, `RealtimeEvent`, `Presence`, `RateLimitCounter`                                                                      |
 | Messages                                                  | `Channel`, `ChannelMember`, `Message`, `ThreadFollower`                                                                                                                         |
 | Notes                                                     | `Note`, `Tag`, `NoteTag`, `NoteTodo` (+ `search.embeddings`, raw SQL)                                                                                                           |
-| Mail                                                      | `Mailbox`, `MailboxMember`, `MailboxSyncLog`, `EmailThread`, `EmailThreadLabel`, `EmailMessage`, `EmailAttachment`, `EmailComment`                                              |
+| Mail                                                      | `Mailbox`, `MailboxMember`, `MailboxSyncLog`, `MailIgnoreRule`, `EmailThread`, `EmailThreadLabel`, `EmailMessage`, `EmailAttachment`, `EmailComment`                            |
 | Agent                                                     | `AgentProfile`, `AgentHost`, `AgentCommandRule`, `ApiToken`, `AgentRun`, `AgentRunStep`, `AgentApproval`, `AuditLog`                                                            |
 | Analytics                                                 | `Dashboard`, `DashboardWidget`, `ProjectDailyStat`                                                                                                                              |
 | Integrations                                              | `OutgoingWebhook` (Discord), `WebhookDelivery`                                                                                                                                  |
@@ -300,6 +300,7 @@ erDiagram
   WORKSPACE ||--o{ MAILBOX : connects
   MAILBOX ||--o{ MAILBOX_MEMBER : "access"
   MAILBOX ||--o{ MAILBOX_SYNC_LOG : logs
+  MAILBOX ||--o{ MAIL_IGNORE_RULE : "ignore rules (D-136)"
   MAILBOX ||--o{ EMAIL_THREAD : contains
   EMAIL_THREAD ||--o{ EMAIL_MESSAGE : contains
   EMAIL_MESSAGE ||--o{ EMAIL_ATTACHMENT : has
@@ -316,6 +317,10 @@ erDiagram
     string historyId "sync cursor"
     string backfillPageToken "resumable"
     timestamptz watchExpiresAt
+  }
+  MAIL_IGNORE_RULE {
+    enum field "SENDER | SUBJECT"
+    string value UK "lowercased, per mailbox + field"
   }
   EMAIL_THREAD {
     string gmailThreadId UK "per mailbox"
