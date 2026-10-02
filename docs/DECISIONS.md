@@ -1375,3 +1375,18 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 **Why:** the owner asked for more room to read mail, and then for the same fold everywhere there is a second column. `[` was already reserved in the keyboard map for toggling the sidebar; the main sidebar has no fold, so it folds the page's column.
 
 **Trade-off:** a cookie per browser, not a synced preference: folding on a laptop doesn't fold on a desktop.
+
+### D-138: Personal mailboxes are their owner's alone; the team's mail stays in the shared mailbox
+
+**Decision:** next to the shared mailboxes, every team member (not guests, not agents) can connect **their own work mailbox** in Settings → My mailbox. It is a `Mailbox` with `ownerId` set, synced by the same worker code, service account and Pub/Sub subscription.
+
+- **Only the owner, admins included.** `canMailbox` returns true for a personal mailbox only when the actor is its owner, for every action. `readableMailboxWhere` (lists, threads, contact pages, item timelines, realtime topics) follows it, Settings → Mailboxes lists shared mailboxes only, and a personal mailbox's events (`mailbox.created/updated/deleted`) go to `user:<owner>` instead of the workspace. Assignees and @mentions are limited to the owner.
+- **Only your own address.** The address is always the account's (verified) email, never input: domain-wide delegation could open any mailbox in the domain. A shared mailbox can't take over a personal address (even a disconnected one), and nobody connects an address the team already tracks.
+- **Quiet.** Personal mail creates no contacts (it links to ones the team already has), no Inbox notifications (Gmail already tells its owner), no Discord posts (and the delivery job drops one if it ever got queued), and isn't IGNORED because the team blocked a contact. The AI teammate can't read it, even linked to its run's item. Ignore rules on it are audit-logged without their text.
+- **No double tracking.** A person on the `it@vtk.be` group gets the team's mail in their own mailbox too. The worker skips a message in a personal mailbox when it is addressed (To/Cc/Bcc) to a shared mailbox's address or one of its send-as aliases (`Mailbox.aliases`, recorded at every sync), when a Google Group passed it on for such an address (`Mailing-list`, `List-Post`), or when a shared mailbox already holds a message with the same Message-ID **and** sender. In the other order (the personal mailbox synced first), the shared mailbox's ingest deletes the personal copy, and its thread when nothing else is left in it.
+- **Linking to items is allowed.** Promoting or linking a personal email is a deliberate act; the item's description is a copy the project sees. Teammates see on the timeline only "a private email from their own mailbox", without subject or mailbox name.
+- **Leaving.** Deactivating someone or making them a guest pauses their mailbox (they resume it on return); deleting the account deletes it, with its downloaded attachments.
+
+**Why:** the owner wants to track their own work mail in Dopl next to the shared mailbox, visible to nobody else, without the group's mail showing up twice.
+
+**Trade-off:** matching on Message-ID plus sender means a message that only reaches the team through an alias Dopl doesn't know (a group alias that isn't a shared mailbox's send-as alias, before the shared copy arrives) is stored personally for a moment and then taken over, which also removes any note the owner made on that copy. Admins can't see or offboard someone's personal mail from Settings; deactivation pauses it and deletion removes it.

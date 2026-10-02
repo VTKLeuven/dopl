@@ -311,8 +311,12 @@ erDiagram
   CONTACT |o--o{ EMAIL_THREAD : "primary correspondent"
   EMAIL_THREAD ||--o{ WORK_ITEM_REFERENCE : "promoted / linked"
 
+  USER |o--o{ MAILBOX : "owns a personal one (D-138)"
+
   MAILBOX {
     string emailAddress UK "real user mailbox"
+    uuid ownerId "NULL = shared; set = personal"
+    string_array aliases "send-as, lowercased"
     enum status
     string historyId "sync cursor"
     string backfillPageToken "resumable"
@@ -427,6 +431,7 @@ erDiagram
 8. `ChannelKind.PROJECT` ⇔ `projectId` is set, and it is unique. A DM's `dmKey` is the sorted pair of member ids.
 9. `AuditLog` rows are never updated or deleted (trigger).
 10. Counters (`childCount`, `childDoneCount`, `commentCount`, `attachmentCount`, `Note.openTodoCount`, `Message.replyCount`) change only inside the transaction that caused the change.
+11. A personal mailbox (`Mailbox.ownerId` set, D-138) is read, worked and managed by its owner only (`canMailbox`), has no `MailboxMember` rows, and its address is its owner's account email. Its mail never creates contacts, Inbox notifications or webhook deliveries, and a message that a shared mailbox in the workspace tracks (same Message-ID and sender, or addressed to a shared address or alias) is never stored in it.
 
 ## 5. Filters, grouping and display options
 
