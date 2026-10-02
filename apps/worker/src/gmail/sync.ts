@@ -1,5 +1,6 @@
 import type { Logger } from "pino";
 import type { DbClient, MailboxSyncKind, Prisma } from "@dopl/db";
+import { normalizeEmail } from "@dopl/shared/domain/mail";
 import type { TxEnqueue } from "../enqueue";
 import { emitRealtime } from "../realtime";
 import { HistoryGoneError, type GmailApi } from "./client";
@@ -34,11 +35,41 @@ const mailboxSelect = {
   backfillPageToken: true,
   sendEnabled: true,
   deletedAt: true,
+  ownerId: true,
+  aliases: true,
   ignoreRules: { select: { field: true, value: true } },
 } satisfies Prisma.MailboxSelect;
 
 async function load(db: DbClient, id: string) {
   return db.mailbox.findUnique({ where: { id }, select: mailboxSelect });
+}
+
+type Loaded = NonNullable<Awaited<ReturnType<typeof load>>>;
+
+/**
+ * What ingest needs for one run. A personal mailbox also gets the shared
+ * mailboxes' addresses and aliases: mail to those is the team's (D-138).
+ */
+async function forIngest(db: DbClient, mailbox: Loaded): Promise<MailboxRow> {
+  if (!mailbox.ownerId) return mailbox;
+  const shared = await db.mailbox.findMany({
+    where: { workspaceId: mailbox.workspaceId, ownerId: null, deletedAt: null },
+    select: { emailAddress: true, aliases: true },
+  });
+  return {
+    ...mailbox,
+    sharedAddresses: new Set(
+      shared.flatMap((m) => [m.emailAddress, ...m.aliases]).map(normalizeEmail),
+    ),
+  };
+}
+
+/** Remembers the mailbox's send-as aliases for the personal mailboxes' check. */
+async function rememberAliases(db: DbClient, mailbox: Loaded, addresses: string[]) {
+  const own = normalizeEmail(mailbox.emailAddress);
+  const aliases = [...new Set(addresses.map(normalizeEmail))].filter((a) => a !== own).sort();
+  if (aliases.join() === [...mailbox.aliases].sort().join()) return;
+  await db.mailbox.update({ where: { id: mailbox.id }, data: { aliases } });
 }
 
 /** Runs `fn` inside a sync log; errors are recorded on the log and the mailbox. */
@@ -159,6 +190,8 @@ export async function backfill(
       token = null;
     }
     const addresses = await gmail.sendAs();
+    await rememberAliases(deps.db, mailbox, addresses);
+    const row = await forIngest(deps.db, mailbox);
     let created = 0;
     let updated = 0;
     let pages = 0;
@@ -170,7 +203,7 @@ export async function backfill(
       for (const { id } of page.ids) {
         const msg = await gmail.getMessage(id);
         if (!msg) continue;
-        const r = await ingestMessage(deps, mailbox, msg, { addresses, live: false });
+        const r = await ingestMessage(deps, row, msg, { addresses, live: false });
         if (r === "created") created++;
         else if (r === "updated") updated++;
       }
@@ -217,6 +250,8 @@ export async function sync(
   try {
     await logged(deps, mailbox, reason === "poll" ? "POLL" : "PARTIAL", async (stats) => {
       const addresses = await gmail.sendAs();
+      await rememberAliases(deps.db, mailbox, addresses);
+      const row = await forIngest(deps.db, mailbox);
       const from = mailbox.historyId as string;
       let token: string | null = null;
       let latest: string;
@@ -235,10 +270,7 @@ export async function sync(
       let created = 0;
       for (const id of ids) {
         const msg = await gmail.getMessage(id);
-        if (
-          msg &&
-          (await ingestMessage(deps, mailbox, msg, { addresses, live: true })) === "created"
-        )
+        if (msg && (await ingestMessage(deps, row, msg, { addresses, live: true })) === "created")
           created++;
       }
       for (const [id, labelIds] of labelChanges) {

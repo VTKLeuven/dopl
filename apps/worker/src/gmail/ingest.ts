@@ -3,6 +3,7 @@ import type { DbClient, Prisma, TransactionClient } from "@dopl/db";
 import { notify, type NotifyContext } from "@dopl/server/notify";
 import { queueWebhookEvents, type WebhookEventInput } from "@dopl/server/webhooks";
 import {
+  addressedToShared,
   baseSubject,
   htmlToText,
   matchIgnoreRule,
@@ -12,6 +13,7 @@ import {
   type Address,
   type GmailMessage,
   type IgnoreRule,
+  type ParsedMessage,
 } from "@dopl/shared/domain/mail";
 import { deliveryEnqueue, type TxEnqueue } from "../enqueue";
 import { emitRealtime } from "../realtime";
@@ -24,6 +26,13 @@ export interface MailboxRow {
   defaultAssigneeId: string | null;
   /** Loaded once per sync run (D-136). */
   ignoreRules: IgnoreRule[];
+  /** Set on a personal mailbox (D-138). */
+  ownerId: string | null;
+  /**
+   * Personal mailboxes only: the workspace's shared mailbox addresses and
+   * aliases, lowercased. Mail to them is the team's and stays out (D-138).
+   */
+  sharedAddresses?: ReadonlySet<string>;
 }
 
 export interface IngestDeps {
@@ -71,6 +80,8 @@ export async function ingestMessage(
   }
 
   const p = parseGmailMessage(raw, opts.addresses);
+  // A person gets the team's mail too (a Google Group): the shared mailbox tracks it.
+  if (mailbox.ownerId && (await isTeamMail(db, mailbox, p))) return "skipped";
   const own = new Set(opts.addresses.map(normalizeEmail));
   const safe = p.html ? sanitizeEmailHtml(p.html) : null;
   const bodyText = (p.text ?? (p.html ? htmlToText(p.html) : "")).slice(0, MAX_TEXT);
@@ -82,8 +93,9 @@ export async function ingestMessage(
 
   try {
     await db.$transaction(async (tx) => {
+      // Personal mail links to contacts the team already knows but adds none (D-138).
       const contact = counterpart?.email
-        ? await resolveContact(tx, mailbox.workspaceId, counterpart)
+        ? await resolveContact(tx, mailbox.workspaceId, counterpart, !mailbox.ownerId)
         : null;
 
       let thread = await tx.emailThread.findUnique({
@@ -102,7 +114,8 @@ export async function ingestMessage(
             subject: baseSubject(p.subject) || p.subject || "(no subject)",
             snippet: p.snippet,
             // Mail from a blocked contact or matching an ignore rule is kept but out of the way.
-            status: contact?.blockedAt || ruled ? "IGNORED" : "OPEN",
+            // A contact the team blocked is the team's call, not one for someone's own mail.
+            status: (contact?.blockedAt && !mailbox.ownerId) || ruled ? "IGNORED" : "OPEN",
             assigneeId: mailbox.defaultAssigneeId,
             contactId: contact?.id ?? null,
             lastMessageAt: p.sentAt,
@@ -197,6 +210,10 @@ export async function ingestMessage(
         },
       });
 
+      // A personal mailbox that synced first gives the team's mail up to the shared one.
+      if (!mailbox.ownerId && p.rfc822MessageId)
+        await takeOverPersonalCopies(tx, mailbox.workspaceId, p.rfc822MessageId, p.from.email);
+
       // Realtime: the mailbox's lists, the open thread, and items that link to it.
       const events: Array<{ topic: string; type: string }> = [
         {
@@ -220,8 +237,9 @@ export async function ingestMessage(
         });
 
       // Ignored threads are kept quiet: no Inbox notification, nothing on Discord.
+      // So is personal mail: Gmail already tells its owner, and the team never hears of it.
       const status = opts.live && next.reopened ? next.status : thread.status;
-      if (!opts.live || status === "IGNORED") return;
+      if (!opts.live || status === "IGNORED" || mailbox.ownerId) return;
 
       // Inbox: the assignee hears about new inbound mail (one row per thread).
       if (p.direction === "INBOUND" && thread.assigneeId) {
@@ -295,16 +313,81 @@ function jobNotifyContext(tx: TransactionClient, workspaceId: string) {
 }
 
 /**
- * The correspondent's Contact: found by normalized address, created on first
- * mail (DATA_MODEL §3.4). Team members aren't contacts.
+ * Personal mailboxes (D-138): mail addressed to a shared mailbox, or a copy of
+ * a message a shared mailbox already holds (same Message-ID and sender: a Bcc,
+ * a group alias), belongs to the team.
  */
-async function resolveContact(tx: TransactionClient, workspaceId: string, who: Address) {
+async function isTeamMail(db: DbClient, mailbox: MailboxRow, p: ParsedMessage) {
+  if (addressedToShared(p, mailbox.sharedAddresses ?? new Set())) return true;
+  if (!p.rfc822MessageId) return false;
+  const shared = await db.emailMessage.count({
+    where: {
+      workspaceId: mailbox.workspaceId,
+      rfc822MessageId: p.rfc822MessageId,
+      fromAddress: p.from.email,
+      thread: { mailbox: { ownerId: null, deletedAt: null } },
+    },
+  });
+  return shared > 0;
+}
+
+/**
+ * The other order: a personal mailbox stored a message before the shared
+ * mailbox got its copy. The personal copy goes, with its thread when nothing
+ * else is left in it, so the message is tracked once, by the team.
+ */
+async function takeOverPersonalCopies(
+  tx: TransactionClient,
+  workspaceId: string,
+  rfc822MessageId: string,
+  fromAddress: string,
+) {
+  const copies = await tx.emailMessage.findMany({
+    where: {
+      workspaceId,
+      rfc822MessageId,
+      fromAddress,
+      thread: { mailbox: { ownerId: { not: null } } },
+    },
+    select: { id: true, threadId: true, mailboxId: true },
+  });
+  if (copies.length === 0) return;
+  await tx.emailMessage.deleteMany({ where: { id: { in: copies.map((c) => c.id) } } });
+  for (const { threadId, mailboxId } of new Map(copies.map((c) => [c.threadId, c])).values()) {
+    const left = await tx.emailMessage.count({ where: { threadId } });
+    if (left === 0) await tx.emailThread.delete({ where: { id: threadId } });
+    else await tx.emailThread.update({ where: { id: threadId }, data: { messageCount: left } });
+    for (const topic of [`mailbox:${mailboxId}`, `emailThread:${threadId}`])
+      await emitRealtime(tx, {
+        workspaceId,
+        topic,
+        type: "email.thread.updated",
+        payload: { id: threadId },
+      });
+  }
+}
+
+/**
+ * The correspondent's Contact: found by normalized address, created on first
+ * mail (DATA_MODEL §3.4) unless `create` is off. Team members aren't contacts.
+ */
+async function resolveContact(
+  tx: TransactionClient,
+  workspaceId: string,
+  who: Address,
+  create: boolean,
+) {
   const email = normalizeEmail(who.email);
   const member = await tx.workspaceMember.findFirst({
     where: { workspaceId, user: { email } },
     select: { userId: true },
   });
   if (member) return null;
+  if (!create)
+    return tx.contact.findUnique({
+      where: { workspaceId_emailNormalized: { workspaceId, emailNormalized: email } },
+      select: { id: true, blockedAt: true },
+    });
   const contact = await tx.contact.upsert({
     where: { workspaceId_emailNormalized: { workspaceId, emailNormalized: email } },
     create: {

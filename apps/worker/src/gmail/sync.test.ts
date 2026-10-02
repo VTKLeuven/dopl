@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import pino from "pino";
 import { createDbClient } from "@dopl/db";
 import type { TxEnqueue } from "../enqueue";
+import { writeStore } from "@dopl/shared/testing/fake-gmail";
 import { appendMessage, expireHistory, FakeGmail, readStore } from "./fake";
 import { sendReply } from "./send";
 import { backfill, sync, testConnection, type SyncDeps } from "./sync";
@@ -348,5 +349,115 @@ describe("gmail send (Phase 7b)", () => {
     const failed = await db.emailMessage.findUniqueOrThrow({ where: { id: reply.id } });
     expect(failed.outboundStatus).toBe("FAILED");
     expect(failed.outboundError).toMatch(/turned off/);
+  });
+
+  it("keeps personal mail private and the team's mail in the shared mailbox (D-138)", async () => {
+    const { dir, address: shared, mailbox, user, jobs, deps } = await setup();
+    const own = `bram-${crypto.randomUUID().slice(0, 6)}@vtk.test`;
+    const personal = await db.mailbox.create({
+      data: {
+        workspaceId: mailbox.workspaceId,
+        emailAddress: own,
+        ownerId: user.id,
+        defaultAssigneeId: user.id,
+      },
+    });
+    for (const m of [mailbox, personal]) {
+      await testConnection(deps, m.id);
+      await backfill(deps, m.id, "BACKFILL");
+    }
+    jobs.length = 0;
+    const deliver = (to: string, messageId: string, extra: Record<string, unknown> = {}) =>
+      appendMessage(dir, to, {
+        from: "lotte@example.test",
+        to: "someone@example.test",
+        subject: `Mail ${messageId}`,
+        text: "Hi",
+        messageId,
+        ...extra,
+      });
+
+    // 1. Addressed to the shared mailbox (a group the owner is on): never stored as personal.
+    await deliver(own, "<group@x>", { to: shared });
+    // 2. A copy the shared mailbox already holds (a Bcc to the group): skipped by Message-ID.
+    await deliver(shared, "<bcc@x>");
+    await sync(deps, mailbox.id, "push");
+    await deliver(own, "<bcc@x>");
+    // 3. The personal mailbox syncs first; the shared copy arrives later and takes over.
+    await deliver(own, "<race@x>");
+    // 4. A forged Message-ID from someone else doesn't make personal mail the team's.
+    await appendMessage(dir, own, {
+      from: "other@example.test",
+      to: own,
+      subject: "Private",
+      text: "Just for you",
+      messageId: "<bcc@x>",
+    });
+    // 5. Plain personal mail from someone the team doesn't know.
+    await appendMessage(dir, own, {
+      from: "friend@example.test",
+      to: own,
+      subject: "Lunch?",
+      text: "Friday",
+    });
+    await sync(deps, personal.id, "push");
+    const subjects = async (mailboxId: string) =>
+      (await db.emailThread.findMany({ where: { mailboxId }, select: { subject: true } }))
+        .map((t) => t.subject)
+        .sort();
+    expect(await subjects(personal.id)).toEqual(["Lunch?", "Mail <race@x>", "Private"]);
+
+    await deliver(shared, "<race@x>");
+    await sync(deps, mailbox.id, "push");
+    expect(await subjects(personal.id)).toEqual(["Lunch?", "Private"]);
+    expect(await subjects(mailbox.id)).toEqual(["Mail <bcc@x>", "Mail <race@x>"]);
+
+    // Personal mail is the owner's, adds no contacts, and stays off the Inbox and Discord.
+    const lunch = await db.emailThread.findFirstOrThrow({
+      where: { mailboxId: personal.id, subject: "Lunch?" },
+    });
+    expect(lunch.assigneeId).toBe(user.id);
+    expect(lunch.contactId).toBeNull();
+    expect(
+      await db.contact.count({
+        where: { workspaceId: mailbox.workspaceId, emailNormalized: "friend@example.test" },
+      }),
+    ).toBe(0);
+    expect(
+      await db.notification.count({
+        where: { recipientId: user.id, emailThreadId: lunch.id },
+      }),
+    ).toBe(0);
+    const posted = await db.webhookDelivery.findMany({
+      where: { workspaceId: mailbox.workspaceId },
+      select: { eventType: true },
+    });
+    // Only the shared mailbox's two new threads.
+    expect(posted).toHaveLength(2);
+  });
+
+  it("remembers a shared mailbox's aliases, so mail to them stays out of personal ones", async () => {
+    const { dir, address: shared, mailbox, user, deps } = await setup();
+    const store = await readStore(dir, shared);
+    store.sendAs = ["it-alias@vtk.test"];
+    await writeStore(dir, shared, store);
+    const own = `bram-${crypto.randomUUID().slice(0, 6)}@vtk.test`;
+    const personal = await db.mailbox.create({
+      data: { workspaceId: mailbox.workspaceId, emailAddress: own, ownerId: user.id },
+    });
+    await testConnection(deps, mailbox.id);
+    await backfill(deps, mailbox.id, "BACKFILL");
+    expect((await db.mailbox.findUniqueOrThrow({ where: { id: mailbox.id } })).aliases).toEqual([
+      "it-alias@vtk.test",
+    ]);
+    await appendMessage(dir, own, {
+      from: "lotte@example.test",
+      to: "IT <IT-Alias@vtk.test>",
+      subject: "Projector",
+      text: "Broken",
+    });
+    await testConnection(deps, personal.id);
+    await backfill(deps, personal.id, "BACKFILL");
+    expect(await count(personal.id)).toEqual([0, 0]);
   });
 });

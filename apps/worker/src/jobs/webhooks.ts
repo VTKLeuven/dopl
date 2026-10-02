@@ -77,13 +77,14 @@ async function loadEntity(
         subject: true,
         snippet: true,
         status: true,
-        mailbox: { select: { emailAddress: true, displayName: true } },
+        mailbox: { select: { emailAddress: true, displayName: true, ownerId: true } },
         assignee: { select: { name: true } },
         contact: { select: { name: true, email: true } },
         participants: true,
       },
     });
-    if (!thread) return null;
+    // Personal mail never leaves its owner (D-138), whatever got queued.
+    if (!thread || thread.mailbox.ownerId) return null;
     const first = (thread.participants as Array<{ email: string; name: string | null }>)[0];
     const from = thread.contact
       ? thread.contact.name
