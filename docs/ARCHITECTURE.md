@@ -311,6 +311,7 @@ sequenceDiagram
   - a blocked-contacts list
   - attachment limits (size, MIME allowlist, count) enforced at presign time and again on confirm
 - **Status-page statuses** are derived from the work item's state group, and the internal state names are never shown (Q-12).
+- **`/feedback`** (D-139) is one public address for every project's feedback: a list of the published forms whose `settings.showOnFeedbackPage` is on (projects not archived, intake on), each linking to its `/f/<slug>`, which then links back. The list is a `'use cache'` read tagged `feedback-page`; every action that can change it (form save/publish/delete, intake on/off, project rename/archive, workspace rename) calls `updateTag`.
 
 ## 7. Authentication and authorization
 

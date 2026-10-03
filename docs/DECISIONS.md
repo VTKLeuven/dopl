@@ -1390,3 +1390,17 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 **Why:** the owner wants to track their own work mail in Dopl next to the shared mailbox, visible to nobody else, without the group's mail showing up twice.
 
 **Trade-off:** matching on Message-ID plus sender means a message that only reaches the team through an alias Dopl doesn't know (a group alias that isn't a shared mailbox's send-as alias, before the shared copy arrives) is stored personally for a moment and then taken over, which also removes any note the owner made on that copy. Admins can't see or offboard someone's personal mail from Settings; deactivation pauses it and deletion removes it.
+
+### D-139: One public /feedback page lists the forms that opt in
+
+**Decision:** `/feedback` is a public page (no session, like `/f/*` and `/s/*`) that lists intake forms and links each to its own `/f/<slug>`.
+
+- **Opt-in per form:** `showOnFeedbackPage` in the form's `settings` JSON (default off), switched in the builder's Details section and saved with the rest of the form. Whoever may manage the form (`project.manage`) decides. Listed means: published, not archived or deleted, the project not archived and its intake on: the same conditions as the form page itself, so the list never links to a form that says "isn't available".
+- **What a row shows:** the project's badge and name, the form's title and its description (two lines at most), ordered by project name, then title. The page names the workspace when there is exactly one (a deployment is one workspace).
+- **One URL, not one per workspace:** `/feedback`, not `/<ws>/feedback`, because it is the address people get told; a second workspace's listed forms would simply join the list.
+- **Back link:** a listed form's hosted page (not the embeds) shows "All feedback forms" above the card.
+- **Caching:** `getFeedbackPage()` is `'use cache'` with the tag `feedback-page` (hours), rendered per request behind `connection()` so the build never queries the database. Form save/publish/delete, intake on/off, project rename/archive and workspace rename call `updateTag`.
+
+**Why:** the owner made a form per project (24UL, Burgieclan, Career, Cudi, Logi, Website) and wanted one address where people pick the project and land on its form, choosing which forms appear there.
+
+**Trade-off:** a listed form shows its project's name publicly, including a private project's; the switch is off by default and its hint says so. No migration, since a JSON setting was enough; there's no custom order or per-page intro text yet.

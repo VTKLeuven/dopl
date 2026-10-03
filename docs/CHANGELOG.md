@@ -26,6 +26,12 @@
 - An email from your own mailbox linked to a work item shows teammates only "a private email from their own mailbox".
 - Deactivating someone pauses their mailbox; deleting the account deletes it. Migration `20261002165515_personal_mailboxes`; no new env vars or queues.
 
+## One feedback page (2026-10-03)
+
+- **`/feedback`** (D-139): one public page (`https://dopl.vtk.be/feedback`) that lists the projects' feedback forms; picking one opens that form, which links back with "All feedback forms". No account needed, like the forms themselves.
+- **Choose which forms are listed:** a form's builder → Details → "Show on the feedback page". Only published forms of projects with intake on appear; the forms list marks the listed ones with an icon. It's off for existing and new forms until you turn it on.
+- No migration (the switch lives in the form's settings), no new env vars. Screenshots `docs/screenshots/phase-3/10` to `14`.
+
 ## Going live (2026-09-30)
 
 - **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.
