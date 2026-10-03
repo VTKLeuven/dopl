@@ -102,6 +102,47 @@ test.describe.serial("intake", () => {
     await expect(page.getByTestId("snippet-script")).toContainText(`data-form="${slug}"`);
   });
 
+  test("a form switched onto /feedback is listed there, opens from it and leads back", async ({
+    page,
+    browser,
+  }) => {
+    const setListed = async (on: boolean) => {
+      const toggle = page.getByTestId("form-feedback-page");
+      // A click before hydration is lost (and Save stays disabled): repeat it.
+      await expect(async () => {
+        if ((await toggle.getAttribute("aria-checked")) !== String(on)) await toggle.click();
+        await expect(toggle).toHaveAttribute("aria-checked", String(on), { timeout: 1_500 });
+      }).toPass({ timeout: 20_000 });
+      await page.getByTestId("form-save").click();
+      await expect(page.getByTestId("form-save")).toHaveText("Saved");
+    };
+    await page.goto("/vtk/p/E2E/intake/forms");
+    await clickUntil(
+      page.getByTestId("form-row").filter({ hasText: formTitle }),
+      page.getByTestId("form-fields"),
+    );
+    await setListed(true);
+
+    const visitor = await anonymous(browser);
+    await visitor.goto("/feedback");
+    const card = visitor.getByTestId("feedback-form").filter({ hasText: formTitle });
+    await expect(card).toContainText("E2E sandbox");
+    await card.click();
+    await visitor.waitForURL(`**/f/${slug}`);
+    await expect(visitor.getByTestId("public-form")).toBeVisible();
+    await visitor.getByTestId("back-to-feedback").click();
+    await visitor.waitForURL("**/feedback");
+
+    // Switched off again (also keeps the dev database's page clean).
+    await setListed(false);
+    await visitor.reload();
+    await expect(visitor.getByRole("heading", { name: "Feedback" })).toBeVisible();
+    await expect(visitor.getByTestId("feedback-form").filter({ hasText: formTitle })).toHaveCount(
+      0,
+    );
+    await visitor.context().close();
+  });
+
   test("a submission from an embed on another origin reaches triage and gets a number on accept", async ({
     page,
     browser,

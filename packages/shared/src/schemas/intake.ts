@@ -116,6 +116,8 @@ export const FormSettingsSchema = z.object({
   maxFiles: z.number().int().min(1).max(10).default(5),
   /** Empty = the built-in safe list (images, documents, logs). */
   allowedMimeTypes: z.array(z.string().trim().min(3).max(120)).max(50).default([]),
+  /** Listed on the public /feedback page (with its project's name) while published. */
+  showOnFeedbackPage: z.boolean().default(false),
 });
 export type FormSettings = z.infer<typeof FormSettingsSchema>;
 
@@ -218,6 +220,8 @@ export interface PublicFormDefinition {
   title: string;
   description: string;
   workspaceName: string;
+  /** Listed on /feedback, so the hosted page links back to it. */
+  onFeedbackPage: boolean;
   successMessage: string;
   turnstileSiteKey: string | null;
   allowedEmbedOrigins: string[];

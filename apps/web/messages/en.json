@@ -1641,6 +1641,9 @@
     "description": "Description",
     "descriptionPlaceholder": "Tell people what this form is for and what happens next.",
     "address": "Public address",
+    "feedbackPage": "Show on the feedback page",
+    "feedbackPageHint": "Lists the form under its project's name at {url} while it's published.",
+    "onFeedbackPage": "On the feedback page",
     "successMessage": "Message after sending",
     "successPlaceholder": "Thanks! We'll reply by email.",
     "fields": "Fields",
@@ -1763,6 +1766,13 @@
     "removeFile": "Remove {name}",
     "unavailableTitle": "This form isn't available",
     "unavailableBody": "It may have been unpublished or moved. Ask whoever sent you the link."
+  },
+  "feedbackPage": {
+    "title": "Feedback",
+    "intro": "Which project is your feedback about? Pick one to open its form.",
+    "emptyTitle": "No forms here yet",
+    "emptyBody": "Ask whoever sent you here for a direct link to the form.",
+    "back": "All feedback forms"
   },
   "requests": {
     "title": "Requests",

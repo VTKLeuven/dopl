@@ -1,6 +1,9 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { ArrowLeft } from "lucide-react";
 import { getPublicForm } from "@/server/queries/public-forms";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PublicForm, type FormMode } from "@/features/intake/public-form";
@@ -33,13 +36,31 @@ async function Form({
   if (mode === "page")
     return (
       <div className="flex min-h-dvh justify-center px-4 pt-[8vh] pb-16">
-        <PublicForm form={form} mode={mode} />
+        <div className="flex w-full flex-col gap-3 sm:max-w-[560px]">
+          {form.onFeedbackPage ? <BackToFeedback /> : null}
+          <PublicForm form={form} mode={mode} />
+        </div>
       </div>
     );
   return (
     <div className="min-h-dvh bg-surface">
       <PublicForm form={form} mode={mode} originParam={origin} />
     </div>
+  );
+}
+
+/** Forms listed on /feedback (D-139) lead back to the others. */
+async function BackToFeedback() {
+  const t = await getTranslations("feedbackPage");
+  return (
+    <Link
+      href="/feedback"
+      className="inline-flex items-center gap-1.5 self-start rounded-chip text-small font-medium text-fg-muted focus-ring transition-colors hover:text-fg"
+      data-testid="back-to-feedback"
+    >
+      <ArrowLeft className="size-3.5" aria-hidden />
+      {t("back")}
+    </Link>
   );
 }
 

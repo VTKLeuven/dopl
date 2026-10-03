@@ -1,9 +1,10 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { run } from "../action-result";
 import { requireWorkspaceCtx } from "../session";
 import * as svc from "../services/project-settings";
+import { feedbackPageTag } from "../queries/public-forms";
 
 async function act<T>(
   ws: string,
@@ -15,11 +16,16 @@ async function act<T>(
   return res;
 }
 
+/* /feedback shows project names and colours, and hides archived projects */
 export async function updateProjectAction(ws: string, input: unknown) {
-  return act(ws, (ctx) => svc.updateProject(ctx, input));
+  const res = await act(ws, (ctx) => svc.updateProject(ctx, input));
+  if (res.ok) updateTag(feedbackPageTag);
+  return res;
 }
 export async function setProjectArchivedAction(ws: string, projectId: string, archived: boolean) {
-  return act(ws, (ctx) => svc.setProjectArchived(ctx, projectId, archived));
+  const res = await act(ws, (ctx) => svc.setProjectArchived(ctx, projectId, archived));
+  if (res.ok) updateTag(feedbackPageTag);
+  return res;
 }
 export async function createStateAction(ws: string, input: unknown) {
   return act(ws, (ctx) => svc.createState(ctx, input));

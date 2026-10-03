@@ -469,6 +469,7 @@ export async function listForms(access: ProjectAccess) {
       slug: true,
       title: true,
       isPublished: true,
+      settings: true,
       updatedAt: true,
       _count: { select: { submissions: true } },
     },
@@ -478,6 +479,8 @@ export async function listForms(access: ProjectAccess) {
     slug: f.slug,
     title: f.title,
     isPublished: f.isPublished,
+    onFeedbackPage: FormSettingsSchema.catch(FormSettingsSchema.parse({})).parse(f.settings)
+      .showOnFeedbackPage,
     updatedAt: f.updatedAt.toISOString(),
     submissions: f._count.submissions,
   }));

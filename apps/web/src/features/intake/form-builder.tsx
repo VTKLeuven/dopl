@@ -267,6 +267,7 @@ export function FormBuilder({
     title: draft.title || t("untitled"),
     description: draft.description,
     workspaceName,
+    onFeedbackPage: draft.settings.showOnFeedbackPage,
     successMessage: draft.settings.successMessage,
     turnstileSiteKey: null,
     allowedEmbedOrigins: draft.settings.allowedEmbedOrigins,
@@ -374,6 +375,21 @@ export function FormBuilder({
                 <FieldHint className="text-danger-text">{t("errors.slug")}</FieldHint>
               ) : null}
             </div>
+            <label className="flex items-center justify-between gap-3">
+              <span className="flex flex-col">
+                <span className="text-body font-medium">{t("feedbackPage")}</span>
+                <FieldHint>
+                  {t("feedbackPageHint", {
+                    url: `${appOrigin.replace(/^https?:\/\//, "")}/feedback`,
+                  })}
+                </FieldHint>
+              </span>
+              <Switch
+                checked={draft.settings.showOnFeedbackPage}
+                onCheckedChange={(showOnFeedbackPage) => patchSettings({ showOnFeedbackPage })}
+                data-testid="form-feedback-page"
+              />
+            </label>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="fb-success">{t("successMessage")}</Label>
               <Textarea
