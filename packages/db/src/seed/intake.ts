@@ -317,6 +317,7 @@ export async function seedIntake(
     maxFileSizeMb: 10,
     maxFiles: 5,
     allowedMimeTypes: [],
+    showOnFeedbackPage: false,
   };
   const keys = keysBetween(null, null, fields.length);
   const form = await db.intakeForm.create({
@@ -329,7 +330,7 @@ export async function seedIntake(
         "Something broken, missing or slow? Tell the VTK IT team. You'll get an email with a link to follow your request.",
       ),
       isPublished: true,
-      settings,
+      settings: { ...settings, showOnFeedbackPage: true },
       theme: { buttonText: "IT help", position: "bottom-right" },
       createdById: lead.id,
       fields: {

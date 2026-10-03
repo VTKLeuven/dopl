@@ -13,6 +13,7 @@ const PUBLIC_PREFIXES = [
   "/api/public/",
   "/api/mcp", // bearer tokens for the AI teammate (D-032), checked in the route
   "/f/",
+  "/feedback",
   "/s/",
   "/embed.js",
   "/dev/",

@@ -1338,7 +1338,7 @@ model IntakeForm {
   isPublished Boolean   @default(false)
   /// successMessage, defaults (type/priority/labels/assignees), notify list,
   /// turnstileEnabled, allowedEmbedOrigins, maxFileSizeMb, allowedMimeTypes,
-  /// rateLimit overrides, confirmation email copy.
+  /// rateLimit overrides, confirmation email copy, showOnFeedbackPage (D-139).
   settings    Json      @default("{}")
   /// Embed button text/position, accent override (token name only).
   theme       Json      @default("{}")

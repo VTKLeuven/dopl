@@ -1,17 +1,21 @@
 "use server";
 
 import { headers } from "next/headers";
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { run } from "../action-result";
 import { db } from "../db";
 import { requireWorkspaceCtx } from "../session";
 import { addSsoProvider, removeSsoProvider } from "../services/sso";
 import { updateWorkspace } from "../services/workspace";
+import { feedbackPageTag } from "../queries/public-forms";
 
 export async function updateWorkspaceAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);
   const res = await run(() => updateWorkspace(ctx, input));
-  if (res.ok) refresh();
+  if (res.ok) {
+    refresh();
+    updateTag(feedbackPageTag); // /feedback shows the workspace's name
+  }
   return res;
 }
 

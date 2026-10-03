@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { FileText, Inbox, Plus } from "lucide-react";
+import { FileText, Inbox, MessageSquareText, Plus } from "lucide-react";
 import type { FormListItem } from "@/server/queries/intake";
 import { createFormAction } from "@/server/actions/intake";
 import { useRelativeTime } from "@/lib/use-relative-time";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Label } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogBody,
@@ -118,6 +119,17 @@ export function FormsList({
                   <span className="hidden truncate text-small text-fg-muted md:inline">
                     /f/{f.slug}
                   </span>
+                  {f.onFeedbackPage && f.isPublished && intakeEnabled ? (
+                    <Tooltip content={t("onFeedbackPage")}>
+                      <span
+                        className="inline-flex size-6 shrink-0 items-center justify-center text-icon"
+                        aria-label={t("onFeedbackPage")}
+                        data-testid="form-on-feedback-page"
+                      >
+                        <MessageSquareText className="size-4" />
+                      </span>
+                    </Tooltip>
+                  ) : null}
                   <span
                     className={cn(
                       "inline-flex h-6 items-center rounded-[7px] border px-2 text-small font-medium",

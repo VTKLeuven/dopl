@@ -20,7 +20,7 @@ import {
   setIntakeEnabled,
 } from "../services/intake-forms";
 import type { AcceptIntakeInput, SaveFormInput } from "@dopl/shared/schemas/intake";
-import { publicFormTag } from "../queries/public-forms";
+import { feedbackPageTag, publicFormTag } from "../queries/public-forms";
 
 /* triage */
 export async function acceptIntakeAction(ws: string, input: AcceptIntakeInput) {
@@ -54,9 +54,10 @@ export async function replyToRequestAction(ws: string, input: unknown) {
   return run(() => replyToRequest(ctx, input));
 }
 
-/* forms: saving refreshes the cached public page (/f/<slug>) right away */
+/* forms: saving refreshes the cached public pages (/f/<slug>, /feedback) right away */
 const refreshForms = (slugs: string[]) => {
   for (const slug of slugs) updateTag(publicFormTag(slug));
+  updateTag(feedbackPageTag);
 };
 
 export async function createFormAction(ws: string, input: unknown) {
