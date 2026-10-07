@@ -12,7 +12,13 @@ import { env } from "../env";
 import { makeMember, makeProject, makeWorkspace } from "../testing/fixtures";
 import { createComment } from "../services/comments";
 import { createWorkItem } from "../services/work-items";
-import { decideApproval, markItemReviewed, setAgentPaused, stopAgentRun } from "../services/agent";
+import {
+  decideApproval,
+  markItemReviewed,
+  setAgentApprovalsSkipped,
+  setAgentPaused,
+  stopAgentRun,
+} from "../services/agent";
 
 // Tool calls give up waiting quickly in tests (production: 10 minutes).
 process.env.DOPL_MCP_WAIT_MS = "1500";
@@ -484,5 +490,88 @@ describe("untrusted items (D-033)", () => {
       status: "CANCELLED",
       cancelledById: s.member.actor.userId,
     });
+  });
+});
+
+describe("skip approvals (D-140)", () => {
+  it("only admins switch it, and it's audit-logged", async () => {
+    const ws = await setup();
+    await expect(setAgentApprovalsSkipped(ws.member, { skipApprovals: true })).rejects.toThrow();
+    await setAgentApprovalsSkipped(ws.admin, { skipApprovals: true });
+    const profile = await db.agentProfile.findUniqueOrThrow({ where: { userId: ws.agent.id } });
+    expect(profile.settings).toMatchObject({ skipApprovals: true });
+    await setAgentApprovalsSkipped(ws.admin, { skipApprovals: false });
+    expect(
+      await db.auditLog.findMany({
+        where: { targetId: profile.id, action: { startsWith: "agent.approvals." } },
+        orderBy: { createdAt: "asc" },
+        select: { action: true, actorId: true },
+      }),
+    ).toEqual([
+      { action: "agent.approvals.skipped", actorId: ws.admin.actor.userId },
+      { action: "agent.approvals.required", actorId: ws.admin.actor.userId },
+    ]);
+  });
+
+  it("a tainted run runs commands on production and writes without asking; refusals still apply", async () => {
+    const ws = await setup();
+    await setAgentApprovalsSkipped(ws.admin, { skipApprovals: true });
+    const i = await item(ws, "From a form", { untrusted: true });
+    const { run, runToken } = await startRun(ws, i.id);
+    expect(run.untrusted).toBe(true);
+
+    const hosts = await call(ws.token, "list_hosts", { run_token: runToken });
+    expect(String(hosts.note)).toContain("Approvals are switched off");
+
+    // app-01 is production and always asks; neither matters now.
+    const exec = await call(ws.token, "infra_exec", {
+      run_token: runToken,
+      host: "app-01",
+      command: "docker compose up -d",
+      reason: "deploy",
+    });
+    // No worker in this test: the call times out waiting and says so.
+    expect(exec.status).toBe("running");
+    const step = await db.agentRunStep.findFirstOrThrow({
+      where: { runId: run.id, kind: "COMMAND" },
+    });
+    expect(step.input).toMatchObject({ decision: "approvals_skipped", ruleId: null });
+    const jobs = await db.$queryRaw<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM pgboss.job WHERE name = 'agent.exec' AND data->>'stepId' = ${step.id}`;
+    expect(jobs[0]!.n).toBe(1);
+
+    const write = await call(ws.token, "add_comment", {
+      run_token: runToken,
+      identifier: i.identifier,
+      body: "Deployed.",
+    });
+    expect(write.comment_id).toEqual(expect.any(String));
+    expect(await db.agentApproval.count({ where: { runId: run.id } })).toBe(0);
+
+    // A DENY rule and an unknown host are refusals, not questions.
+    const reboot = await call(ws.token, "infra_exec", {
+      run_token: runToken,
+      host: "lab-01",
+      command: "reboot",
+      reason: "fix it",
+    });
+    expect(reboot.status).toBe("denied");
+    const unknown = await call(ws.token, "infra_exec", {
+      run_token: runToken,
+      host: "db-99",
+      command: "uptime",
+      reason: "check",
+    });
+    expect(unknown.status).toBe("denied");
+
+    // Switched back on: the next command waits for a person again.
+    await setAgentApprovalsSkipped(ws.admin, { skipApprovals: false });
+    const again = await call(ws.token, "infra_exec", {
+      run_token: runToken,
+      host: "app-01",
+      command: "docker compose up -d",
+      reason: "deploy",
+    });
+    expect(again.status).toBe("pending_approval");
   });
 });

@@ -46,7 +46,16 @@ type Rule = AgentSettings["rules"][number];
 
 /* ───────────────────────── hosts ───────────────────────── */
 
-export function HostsSection({ ws, hosts }: { ws: string; hosts: Host[] }) {
+export function HostsSection({
+  ws,
+  hosts,
+  skipApprovals,
+}: {
+  ws: string;
+  hosts: Host[];
+  /** Approvals are off (D-140): no host asks, whatever its own setting says. */
+  skipApprovals: boolean;
+}) {
   const t = useTranslations("agentSettings.hosts");
   const router = useRouter();
   const [editing, setEditing] = useState<Host | "new" | null>(null);
@@ -68,7 +77,7 @@ export function HostsSection({ ws, hosts }: { ws: string; hosts: Host[] }) {
                 <span className="flex items-center gap-2">
                   <span className="truncate font-medium text-fg">{h.name}</span>
                   <EnvBadge environment={h.environment} />
-                  {h.alwaysRequireApproval ? (
+                  {h.alwaysRequireApproval && !skipApprovals ? (
                     <span className="text-caption text-fg-muted">{t("alwaysApprove")}</span>
                   ) : null}
                 </span>
@@ -497,7 +506,7 @@ function RuleTester({ ws, hosts, rules }: { ws: string; hosts: Host[]; rules: Ru
     matchingRuleIds: string[];
   } | null>(null);
   const [pending, start] = useTransition();
-  const ruleText = (id?: string) => rules.find((r) => r.id === id)?.pattern ?? "";
+  const ruleText = (id?: string | null) => rules.find((r) => r.id === id)?.pattern ?? "";
   const test = () =>
     start(async () => {
       const res = await testCommandAction(ws, { hostId, command, tainted });
@@ -554,7 +563,7 @@ function RuleTester({ ws, hosts, rules }: { ws: string; hosts: Host[]; rules: Ru
         <div data-testid="tester-result" data-decision={d.decision}>
           {d.decision === "run" ? (
             <Banner tone="success" title={t("runs")}>
-              {t("matched", { pattern: ruleText(d.ruleId) })}
+              {d.ruleId ? t("matched", { pattern: ruleText(d.ruleId) }) : t("approvalsSkipped")}
             </Banner>
           ) : d.decision === "deny" ? (
             <Banner tone="danger" title={t("refused")}>

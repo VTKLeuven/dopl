@@ -137,6 +137,12 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
                 {t("pause.bannerBody", { name: data.paused.by ?? "?" })}
               </Banner>
             </div>
+          ) : data.skipApprovals ? (
+            <div data-testid="agent-approvals-skipped-banner">
+              <Banner tone="danger" title={t("approvalsSkipped.bannerTitle", { name })}>
+                {t("approvalsSkipped.bannerBody")}
+              </Banner>
+            </div>
           ) : null}
 
           <section className="flex flex-col gap-3" data-testid="pending-approvals">
@@ -151,7 +157,11 @@ export function AgentView({ ws, initial }: { ws: string; initial: AgentActivity 
                 compact
                 icon={<CircleCheck />}
                 title={t("pendingEmptyTitle")}
-                description={t("pendingEmptyBody", { name })}
+                description={
+                  data.skipApprovals
+                    ? t("pendingEmptySkipped", { name })
+                    : t("pendingEmptyBody", { name })
+                }
               />
             ) : (
               data.pending.map((a) => (

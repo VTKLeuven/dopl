@@ -14,6 +14,7 @@ import {
   createAgentAction,
   createMcpTokenAction,
   revokeMcpTokenAction,
+  setAgentApprovalsSkippedAction,
   setAgentPausedAction,
   setAgentStatusAction,
   updateAgentProfileAction,
@@ -42,7 +43,7 @@ import { HostsSection, RulesSection } from "./hosts-rules";
 export const selectClass =
   "h-9 rounded-control border border-border-strong bg-surface px-3 text-body shadow-xs focus-ring";
 
-/** Settings → AI teammate (Phase 8): profile, kill switch, hosts, rules, MCP tokens. */
+/** Settings → AI teammate (Phase 8): profile, kill switch, approvals, hosts, rules, MCP tokens. */
 export function AgentSettingsView({
   ws,
   settings,
@@ -88,7 +89,8 @@ export function AgentSettingsView({
     <>
       <ProfileSection ws={ws} settings={settings} />
       <PauseSection ws={ws} paused={settings.paused} />
-      <HostsSection ws={ws} hosts={settings.hosts} />
+      <ApprovalsSection ws={ws} skipApprovals={settings.profile.skipApprovals} />
+      <HostsSection ws={ws} hosts={settings.hosts} skipApprovals={settings.profile.skipApprovals} />
       <RulesSection ws={ws} rules={settings.rules} hosts={settings.hosts} />
       <TokensSection ws={ws} settings={settings} appUrl={appUrl} />
     </>
@@ -443,6 +445,78 @@ function PauseSection({ ws, paused }: { ws: string; paused: AgentSettings["pause
           }}
         />
       </label>
+    </SettingsSection>
+  );
+}
+
+/**
+ * "Skip approvals" (D-140): Dopl stops asking for anything. Turning it on
+ * asks once, here, because it also drops the prompt-injection boundary.
+ */
+function ApprovalsSection({ ws, skipApprovals }: { ws: string; skipApprovals: boolean }) {
+  const t = useTranslations("agentSettings.approvals");
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const save = async (on: boolean) => {
+    setBusy(true);
+    const res = await setAgentApprovalsSkippedAction(ws, { skipApprovals: on });
+    setBusy(false);
+    if (res.ok) router.refresh();
+    else toast.error(t("error"));
+  };
+  return (
+    <SettingsSection title={t("title")} description={t("hint")}>
+      <label className="flex items-center gap-3 rounded-card border border-border p-3">
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="font-medium text-fg">{skipApprovals ? t("on") : t("off")}</span>
+          <span className="text-small text-fg-muted">
+            {skipApprovals ? t("onHint") : t("offHint")}
+          </span>
+        </span>
+        <Switch
+          checked={skipApprovals}
+          disabled={busy}
+          data-testid="settings-agent-skip-approvals"
+          onCheckedChange={(on) => (on ? setConfirming(true) : void save(false))}
+        />
+      </label>
+      {skipApprovals ? (
+        <Banner tone="danger" title={t("bannerTitle")}>
+          {t("bannerBody")}
+        </Banner>
+      ) : null}
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("confirmTitle")}</DialogTitle>
+            <DialogDescription>{t("confirmBody")}</DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-small text-fg-secondary">
+              <li>{t("confirmCommands")}</li>
+              <li>{t("confirmUntrusted")}</li>
+              <li>{t("confirmKept")}</li>
+            </ul>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              loading={busy}
+              data-testid="confirm-skip-approvals"
+              onClick={async () => {
+                await save(true);
+                setConfirming(false);
+              }}
+            >
+              {t("confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SettingsSection>
   );
 }

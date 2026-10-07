@@ -6,7 +6,7 @@ import {
   canWorkspace,
   ForbiddenError,
 } from "@dopl/shared/policy";
-import type { AuditFilter } from "@dopl/shared/schemas/agent";
+import { skipsApprovals, type AuditFilter } from "@dopl/shared/schemas/agent";
 import { formatIdentifier } from "@dopl/shared/schemas/work-item";
 import { NotFoundError } from "../action-result";
 import { DEFAULT_CONTEXT_BUDGET, findAgent } from "../agent/runs";
@@ -338,7 +338,7 @@ export async function listAgentActivity(ctx: WorkspaceCtx) {
       { triggeredById: ctx.actor.userId },
     ],
   };
-  const [pending, runs, paused, agent] = await Promise.all([
+  const [pending, runs, paused, agent, profile] = await Promise.all([
     db.agentApproval.findMany({
       where: { workspaceId: ctx.workspace.id, status: "PENDING", run: visible },
       orderBy: { requestedAt: "asc" },
@@ -356,10 +356,16 @@ export async function listAgentActivity(ctx: WorkspaceCtx) {
       select: { agentPausedAt: true, agentPausedBy: { select: { name: true } } },
     }),
     findAgent(db, ctx.workspace.id),
+    db.agentProfile.findFirst({
+      where: { workspaceId: ctx.workspace.id },
+      select: { settings: true },
+    }),
   ]);
   return {
     /** Its chosen name and picture (D-133); null before one is added. */
     agent: agent ? { name: agent.name, image: agent.image } : null,
+    /** Approvals switched off in Settings (D-140): everyone sees it on the agent page. */
+    skipApprovals: skipsApprovals(profile?.settings),
     canApprove: canApproveAgentAction(ctx.policyActor),
     canPause: canWorkspace(ctx.policyActor, "agent.pause"),
     paused: paused.agentPausedAt
@@ -479,6 +485,7 @@ export async function getAgentSettings(ctx: WorkspaceCtx) {
           approvalTimeoutSec: p.approvalTimeoutSec,
           contextBudgetChars: settings.contextBudgetChars ?? DEFAULT_CONTEXT_BUDGET,
           lastCheck: settings.lastCheck ?? null,
+          skipApprovals: skipsApprovals(p.settings),
         }
       : null,
     paused: workspace.agentPausedAt
