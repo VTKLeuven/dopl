@@ -1404,3 +1404,19 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 **Why:** the owner made a form per project (24UL, Burgieclan, Career, Cudi, Logi, Website) and wanted one address where people pick the project and land on its form, choosing which forms appear there.
 
 **Trade-off:** a listed form shows its project's name publicly, including a private project's; the switch is off by default and its hint says so. No migration, since a JSON setting was enough; there's no custom order or per-page intro text yet.
+
+### D-140: Admins can switch the AI teammate's approvals off (amends D-030, D-031, D-033)
+
+**Decision:** Settings → AI teammate → Approvals has a switch, "Skip every approval" (`skipApprovals` in `AgentProfile.settings`, off by default). With it on, Dopl asks nobody for anything:
+
+- **`infra_exec`** runs every command that isn't refused, on every host: `evaluateInfraExec` returns `run` with `ruleId: null` (the step's `decision` is `approvals_skipped`). That includes tainted runs and hosts with "Always ask for approval".
+- **MCP writes in a tainted run** (D-033) are performed at once instead of becoming `MCP_WRITE` approvals.
+- **Hermes-raised approvals** are answered `once` by the worker straight away (still never `session` or `always`), recorded as a finished step and an `agent.approval.skipped` audit entry. A request seen again after a re-attach is answered once. If Hermes refuses the answer, it falls back to a normal approval.
+
+**What still applies:** these are refusals, not questions. A host that isn't listed or is disabled, a DENY rule (also inside a chained command), Pause, a stopped run and the run tokens all work as before. Taint is still tracked and shown on runs, so the history says which runs read outside content. Every command is still a step on the run and an `agent.command.started` audit entry (with `approvalsSkipped: true`). The worker re-checks the setting before it connects: a command queued while the switch was on doesn't run if an admin turned it off in between.
+
+**Who and how:** admins only (`agent.manage`). Turning it on goes through a confirmation that spells out the risk; turning it off doesn't. Both are audit-logged (`agent.approvals.skipped`, `agent.approvals.required`). While it's on, the agent page shows everyone a banner, the hosts list drops "always asks", the rule tester says why a command runs, and `list_hosts` tells the agent. Approvals that were already pending stay pending; decide them as usual.
+
+**Why:** the owner found approving the agent every couple of minutes unworkable and asked for the equivalent of `--dangerously-skip-permissions`, explicitly for tainted runs and production hosts too, after being told the risk.
+
+**Trade-off:** this gives up the brief's prompt-injection boundary (PROMPT.md §8) while it's on. Anyone who can get text in front of the agent (an email to the shared mailbox, a public intake form, a guest comment) can try to make it run commands on the listed hosts the moment a team member asks it to look at that content, and nobody sees the command before it runs. The remaining guards are the host allowlist, DENY rules, the Warpgate user's own permissions (D-122) and Pause. Keep DENY rules for what must never happen, and keep the `dopl-agent` Warpgate roles least-privilege.
