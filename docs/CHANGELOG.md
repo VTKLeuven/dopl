@@ -32,6 +32,12 @@
 - **Choose which forms are listed:** a form's builder → Details → "Show on the feedback page". Only published forms of projects with intake on appear; the forms list marks the listed ones with an icon. It's off for existing and new forms until you turn it on.
 - No migration (the switch lives in the form's settings), no new env vars. Screenshots `docs/screenshots/phase-3/10` to `14`.
 
+## Skip approvals (2026-10-07)
+
+- **Approvals can be switched off** (D-140): Settings → AI teammate → Approvals → "Skip every approval". Dopl then runs every command and change at once, on every host, also after reading email or form content, and answers Hermes' own requests with "once". Hosts that aren't listed, DENY rules and Pause still stop it, and everything stays on the run and in the audit log. Admins only, with a confirmation; audit-logged.
+- While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
+- No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
+
 ## Going live (2026-09-30)
 
 - **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.

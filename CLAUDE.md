@@ -95,8 +95,8 @@ pnpm db:drift          # prisma migrate diff migrations→schema; must print an 
 
 ## Security rules (non-negotiable)
 
-- Content from intake forms, emails, contacts and guests is **untrusted**. It is never sent to the agent automatically, and any run that sees it (at start or via an MCP read) is tainted: every action then needs approval (D-033).
-- Infrastructure is reachable only through Dopl's `infra_exec` tool, with its host allowlist, DENY rules, read-only allowlist and human approval. The worker runs the command over SSH via Warpgate (D-031).
+- Content from intake forms, emails, contacts and guests is **untrusted**. It is never sent to the agent automatically, and any run that sees it (at start or via an MCP read) is tainted: every action then needs approval (D-033), unless an admin switched approvals off (D-140).
+- Infrastructure is reachable only through Dopl's `infra_exec` tool, with its host allowlist, DENY rules, read-only allowlist and human approval. The worker runs the command over SSH via Warpgate (D-031). An admin can switch approvals off (D-140); the host allowlist, DENY rules and Pause must never depend on that switch.
 - Email HTML is rendered only as `bodyHtmlSanitized`, inside a sandboxed iframe with no `allow-scripts` and no `allow-same-origin` (D-028).
 - `audit_logs` is append-only (a DB trigger enforces it). Auth, role, settings, mailbox and agent events must be audit-logged.
 

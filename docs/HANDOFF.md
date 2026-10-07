@@ -128,7 +128,8 @@ Phase 8 was built on `claude/phase-8` and merged into `main`.
 - **No real Hermes or Warpgate yet.** Dev and CI use the worker's fake Hermes and fake executor (D-121): `.env` has `HERMES_FAKE_PORT=8643`, `HERMES_FAKE_MCP_TOKEN=…` and `AGENT_EXEC_FAKE=true`, and `pnpm db:seed` points the agent at the fake and registers the token. Ask the fake things like "run \`uptime\` on lab-01", "read the email", "list hosts" (see the file's header).
 - **No migrations.** **New env:** worker.env gets `HERMES_API_KEY`, `WARPGATE_HOST`, `WARPGATE_PORT`, `WARPGATE_HOST_KEY`, `AGENT_SSH_USER`, `AGENT_SSH_KEY_FILE`, `AGENT_EXEC_TIMEOUT_SEC`. **New queues:** `agent.run`, `agent.exec` (never retried), `agent.runtime-approval`, `agent.stop`, `agent.check`, `agent.reconcile` (every minute). **New dependencies:** `@modelcontextprotocol/sdk` (web, worker), `ssh2` (worker).
 - **Seed:** the agent's profile (on), three hosts (`lab-01`, `staging-01`, `app-01` production), 13 default rules, and Bram may approve (so the e2e tests can). It also runs on an already-seeded database.
-- **Screenshots:** `docs/screenshots/phase-8/` (12, including phone width).
+- **Screenshots:** `docs/screenshots/phase-8/` (12, including phone width; 12–17 show "Skip every approval").
+- **Skip approvals** (added 2026-10-07, D-140): an admin switch in Settings → AI teammate that makes the agent ask nobody, tainted runs and production hosts included. It's one flag (`skipApprovals` in `AgentProfile.settings`, read with `skipsApprovals()`), passed to `evaluateInfraExec` by the MCP server, the worker's executor and the rule tester; the tainted-write gate in `server/agent/mcp.ts` and `openRuntimeApproval` in the worker check it too. Refusals (host list, DENY, Pause) never depend on it; keep it that way.
 - **Deployment:** add `/api/mcp` to Caddy's unbuffered block (see `docs/ops/agent-setup.md` §1).
 
 ### What the user has decided so far
@@ -146,6 +147,7 @@ These answers shape the plan; the details are in `docs/OPEN_QUESTIONS.md` (answe
 - **Realtime** was pulled forward into Phase 2 (Q-9's default).
 - **Q-16's default is in use** (one mailbox, 90-day import, no label mirroring); Q-20 is still open, so no real mailbox is connected.
 - **Q-7, Q-17, Q-18 answered (defaults):** Hermes' own terminal tools off; one Warpgate user `dopl-agent` with key auth and per-target roles; Qwen 3.8 27B with a 128k context (D-115 to D-124).
+- **The AI teammate may run without approvals** when an admin turns that on (D-140). The owner chose this knowingly, including for untrusted input and production hosts.
 - **Q-12, Q-19, Q-22 defaults are in use:** simplified public status wording; guests see only their own requests; Discord webhooks send titles and links only unless "Include content" is on, with events chosen per webhook.
 
 ---
