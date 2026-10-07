@@ -36,6 +36,14 @@ export const AgentStatusSchema = z.object({ status: z.enum(["ACTIVE", "DISABLED"
 
 export const AgentPauseSchema = z.object({ paused: z.boolean() });
 
+/** Settings → AI teammate → "Skip approvals" (D-140). */
+export const AgentSkipApprovalsSchema = z.object({ skipApprovals: z.boolean() });
+
+/** Whether a profile's `settings` JSON has approvals switched off (D-140). */
+export function skipsApprovals(settings: unknown): boolean {
+  return AgentSkipApprovalsSchema.safeParse(settings).data?.skipApprovals === true;
+}
+
 export const AgentHostSchema = z.object({
   id: z.uuid().optional(),
   name: z

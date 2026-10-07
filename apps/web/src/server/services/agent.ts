@@ -30,11 +30,13 @@ import {
   AgentHostSchema,
   AgentPauseSchema,
   AgentProfileSchema,
+  AgentSkipApprovalsSchema,
   AgentStatusSchema,
   ApprovalDecisionSchema,
   CommandRuleSchema,
   McpTokenSchema,
   RuleTestSchema,
+  skipsApprovals,
   StopRunSchema,
 } from "@dopl/shared/schemas/agent";
 import { ConflictError, NotFoundError } from "../action-result";
@@ -268,6 +270,32 @@ export async function setAgentPaused(ctx: WorkspaceCtx, raw: unknown) {
   });
 }
 
+/**
+ * "Skip approvals" (D-140): the agent runs every command and write without
+ * asking, in tainted runs and on hosts that always ask too. Refusals still
+ * apply (host allowlist, DENY rules, Pause). Admins only, audit-logged.
+ */
+export async function setAgentApprovalsSkipped(ctx: WorkspaceCtx, raw: unknown) {
+  assertManage(ctx);
+  const { skipApprovals } = AgentSkipApprovalsSchema.parse(raw);
+  const profile = await loadProfile(ctx);
+  return withMutation(ctx, async (m) => {
+    await m.tx.agentProfile.update({
+      where: { id: profile.id },
+      data: {
+        settings: { ...((profile.settings ?? {}) as Prisma.InputJsonObject), skipApprovals },
+      },
+    });
+    await audit(m.tx, ctx, {
+      action: skipApprovals ? "agent.approvals.skipped" : "agent.approvals.required",
+      targetType: "agent_profile",
+      targetId: profile.id,
+    });
+    settingsChanged(m);
+    return { skipApprovals };
+  });
+}
+
 export interface ConnectionCheck {
   ok: boolean;
   model: string | null;
@@ -448,7 +476,7 @@ export async function deleteCommandRule(ctx: WorkspaceCtx, id: string) {
 export async function testCommand(ctx: WorkspaceCtx, raw: unknown) {
   assertManage(ctx);
   const input = RuleTestSchema.parse(raw);
-  const [host, rules, workspace] = await Promise.all([
+  const [host, rules, workspace, profile] = await Promise.all([
     input.hostId
       ? db.agentHost.findFirst({
           where: { id: input.hostId, workspaceId: ctx.workspace.id },
@@ -463,6 +491,10 @@ export async function testCommand(ctx: WorkspaceCtx, raw: unknown) {
       where: { id: ctx.workspace.id },
       select: { agentPausedAt: true },
     }),
+    db.agentProfile.findFirst({
+      where: { workspaceId: ctx.workspace.id },
+      select: { settings: true },
+    }),
   ]);
   const decision = evaluateInfraExec({
     paused: Boolean(workspace.agentPausedAt),
@@ -471,6 +503,7 @@ export async function testCommand(ctx: WorkspaceCtx, raw: unknown) {
     rules,
     command: input.command,
     tainted: input.tainted,
+    skipApprovals: skipsApprovals(profile?.settings),
   });
   const command = normalizeCommand(input.command);
   const matching = rules

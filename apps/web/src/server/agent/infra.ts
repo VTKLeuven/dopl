@@ -30,9 +30,10 @@ const runRef = (run: McpRun): RunRef & { untrusted: boolean } => ({
 });
 
 /**
- * `infra_exec` (D-031): deny, run at once (allowlisted, clean run) or ask a
- * human. Allowed and approved commands run in the worker; this call waits
- * for the result for up to TOOL_WAIT_MS.
+ * `infra_exec` (D-031): deny, run at once (allowlisted in a clean run, or
+ * approvals switched off, D-140) or ask a human. Allowed and approved
+ * commands run in the worker; this call waits for the result for up to
+ * TOOL_WAIT_MS.
  */
 export async function infraExec(
   principal: McpPrincipal,
@@ -66,6 +67,7 @@ export async function infraExec(
     rules,
     command,
     tainted: run.untrusted,
+    skipApprovals: run.skipApprovals,
   });
   const ref = runRef(run);
 
@@ -107,7 +109,7 @@ export async function infraExec(
         input: {
           host: host!.name,
           reason: args.reason,
-          decision: "allowlisted",
+          decision: decision.ruleId ? "allowlisted" : "approvals_skipped",
           ruleId: decision.ruleId,
         },
       });

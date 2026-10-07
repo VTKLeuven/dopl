@@ -1,6 +1,7 @@
 import "server-only";
 import { hashToken } from "@dopl/shared/crypto";
 import { runTokenHash, type McpScope } from "@dopl/shared/domain/agent";
+import { skipsApprovals } from "@dopl/shared/schemas/agent";
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
 
@@ -112,12 +113,16 @@ export async function resolveRun(principal: McpPrincipal, runToken: string) {
     throw new McpError("invalid_run_token");
   if (run.status !== "RUNNING" && run.status !== "WAITING_FOR_APPROVAL")
     throw new McpError("run_not_active", `This run is ${run.status.toLowerCase()}.`);
-  const ws = await db.workspace.findUniqueOrThrow({
-    where: { id: run.workspaceId },
-    select: { agentPausedAt: true },
-  });
+  const [ws, profile] = await Promise.all([
+    db.workspace.findUniqueOrThrow({
+      where: { id: run.workspaceId },
+      select: { agentPausedAt: true },
+    }),
+    db.agentProfile.findUnique({ where: { userId: run.agentUserId }, select: { settings: true } }),
+  ]);
   if (ws.agentPausedAt) throw new McpError("agent_paused", "The AI teammate is paused.");
-  return run;
+  /** An admin switched approvals off (D-140): nothing this run does waits for a person. */
+  return { ...run, skipApprovals: skipsApprovals(profile?.settings) };
 }
 export type McpRun = Awaited<ReturnType<typeof resolveRun>>;
 

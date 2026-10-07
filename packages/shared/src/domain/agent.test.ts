@@ -137,6 +137,40 @@ describe("evaluateInfraExec", () => {
       }),
     ).toEqual({ decision: "approve", riskFlags: ["production_host"] });
   });
+  it("with approvals skipped, runs everything that isn't denied (D-140)", () => {
+    const skip = { ...base, skipApprovals: true };
+    expect(evaluateInfraExec({ ...skip, command: "docker compose up -d" })).toEqual({
+      decision: "run",
+      ruleId: null,
+    });
+    expect(evaluateInfraExec({ ...skip, tainted: true, command: "docker ps" })).toEqual({
+      decision: "run",
+      ruleId: null,
+    });
+    expect(
+      evaluateInfraExec({
+        ...skip,
+        host: { ...host, alwaysRequireApproval: true, environment: "PRODUCTION" },
+        command: "systemctl restart nginx",
+      }),
+    ).toEqual({ decision: "run", ruleId: null });
+    // A clean run still names the allow rule that matched.
+    expect(evaluateInfraExec({ ...skip, command: "docker ps" })).toEqual({
+      decision: "run",
+      ruleId: "ALLOW_READONLY:docker ps( --format \\S+)?",
+    });
+    // Refusals aren't approvals: they still apply.
+    expect(evaluateInfraExec({ ...skip, command: "uptime && reboot" })).toMatchObject({
+      decision: "deny",
+      reason: "denied_by_rule",
+    });
+    expect(evaluateInfraExec({ ...skip, host: null, command: "uptime" })).toMatchObject({
+      reason: "host_not_allowed",
+    });
+    expect(evaluateInfraExec({ ...skip, paused: true, command: "uptime" })).toMatchObject({
+      reason: "agent_paused",
+    });
+  });
   it("refuses empty and oversized commands", () => {
     expect(evaluateInfraExec({ ...base, command: "   " })).toMatchObject({
       reason: "invalid_command",

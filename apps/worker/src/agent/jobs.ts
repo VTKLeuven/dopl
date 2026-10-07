@@ -20,6 +20,7 @@ import {
   redactSecrets,
   runSessionId,
 } from "@dopl/shared/domain/agent";
+import { skipsApprovals } from "@dopl/shared/schemas/agent";
 import type { TxEnqueue } from "../enqueue";
 import { emitRealtime } from "../realtime";
 import type { Executor } from "./executor";
@@ -483,7 +484,7 @@ async function follow(
       }
       case "approval.requested": {
         await flush(true);
-        await openRuntimeApproval(deps, run, ev);
+        await openRuntimeApproval(deps, runtime, runtimeRunId, run, ev);
         return false;
       }
       case "approval.cancelled": {
@@ -584,13 +585,24 @@ async function follow(
 
 async function openRuntimeApproval(
   deps: AgentDeps,
+  runtime: AgentRuntime,
+  runtimeRunId: string,
   run: LoadedRun,
   ev: Extract<RuntimeEvent, { type: "approval.requested" }>,
 ) {
   const profile = await deps.db.agentProfile.findFirst({
     where: { userId: run.agentUserId },
-    select: { approvalTimeoutSec: true },
+    select: { approvalTimeoutSec: true, settings: true },
   });
+  if (skipsApprovals(profile?.settings)) {
+    try {
+      await skipRuntimeApproval(deps, runtime, runtimeRunId, run, ev);
+      return;
+    } catch (err) {
+      // Hermes didn't take the answer: fall back to asking a person.
+      deps.logger.warn({ err, runId: run.id }, "auto-approving a runtime request failed");
+    }
+  }
   await deps.db.$transaction(async (tx) => {
     const emit = emitter(tx, run.workspaceId);
     const existing = await tx.agentApproval.findFirst({
@@ -644,6 +656,46 @@ async function openRuntimeApproval(
       metadata: { runId: run.id, kind: "RUNTIME_TOOL", command, tool: ev.tool },
     });
     await emitAgentEvent(emit, run, "agentApproval.created", { approvalId: approval.id });
+  });
+}
+
+/**
+ * Approvals are switched off (D-140): answer Hermes `once` (never `session`
+ * or `always`, D-030) and record it on the run and in the audit log. A
+ * request seen again after a re-attach is answered and recorded only once.
+ */
+async function skipRuntimeApproval(
+  deps: AgentDeps,
+  runtime: AgentRuntime,
+  runtimeRunId: string,
+  run: LoadedRun,
+  ev: Extract<RuntimeEvent, { type: "approval.requested" }>,
+) {
+  const seen = await deps.db.agentRunStep.findFirst({
+    where: { runId: run.id, input: { path: ["runtimeApproval"], equals: ev.requestId } },
+    select: { id: true },
+  });
+  if (seen) return;
+  await runtime.resolveApproval(runtimeRunId, ev.requestId, "once");
+  const command = ev.description || ev.tool;
+  await deps.db.$transaction(async (tx) => {
+    const step = await createStep(tx, emitter(tx, run.workspaceId), run, {
+      kind: "TOOL_CALL",
+      status: "SUCCEEDED",
+      title: ev.tool,
+      toolName: ev.tool,
+      command: redactSecrets(command).slice(0, 4000),
+      input: { runtimeApproval: ev.requestId, decision: "approvals_skipped" },
+      finished: true,
+    });
+    await agentAudit(tx, {
+      workspaceId: run.workspaceId,
+      actorId: run.agentUserId,
+      action: "agent.approval.skipped",
+      targetType: "agent_run_step",
+      targetId: step.id,
+      metadata: { runId: run.id, kind: "RUNTIME_TOOL", command, tool: ev.tool },
+    });
   });
 }
 
@@ -705,8 +757,9 @@ async function finalize(
  * Runs one command the MCP server allowed or a person approved. Everything
  * is checked again here (defense in depth, red team 3): the run is active,
  * the workspace isn't paused, the host is enabled, no DENY rule matches, and
- * the command either has an APPROVED approval or still matches its allow
- * rule in a clean run. Never retried: a command runs at most once.
+ * the command either has an APPROVED approval, still matches its allow rule
+ * in a clean run, or approvals are still switched off (D-140). Never
+ * retried: a command runs at most once.
  */
 export async function handleAgentExec(deps: AgentDeps, stepId: string) {
   const { db, logger } = deps;
@@ -742,6 +795,7 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
           status: true,
           untrusted: true,
           agentUserId: true,
+          agentUser: { select: { agentProfile: { select: { settings: true } } } },
         },
       },
     },
@@ -779,6 +833,7 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
     rules,
     command: step.command,
     tainted: run.untrusted,
+    skipApprovals: skipsApprovals(run.agentUser.agentProfile?.settings),
   });
   if (decision.decision === "deny")
     return refuse(
@@ -790,7 +845,8 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
   if (step.approval) {
     if (step.approval.status !== "APPROVED") return refuse("Not run: it wasn't approved.");
   } else if (decision.decision !== "run") {
-    // Allowlisted when requested, but the rules or the run changed since.
+    // Allowlisted (or approvals were off) when requested, but the rules,
+    // the run or the setting changed since.
     return refuse("Not run: it needs approval now (the rules or the run changed).");
   }
 
@@ -846,6 +902,7 @@ export async function handleAgentExec(deps: AgentDeps, stepId: string) {
         allowRule: step.approval
           ? null
           : ((step.input as { ruleId?: string } | null)?.ruleId ?? null),
+        approvalsSkipped: !step.approval && decision.decision === "run" && !decision.ruleId,
       },
     }),
   );

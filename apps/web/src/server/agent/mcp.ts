@@ -424,15 +424,17 @@ async function listHosts(_p: McpPrincipal, run: McpRun) {
   ]);
   return {
     untrusted_run: run.untrusted,
-    note: run.untrusted
-      ? "This run read untrusted content, so every command needs approval."
-      : "Commands matching a read-only pattern run at once; everything else needs approval.",
+    note: run.skipApprovals
+      ? "Approvals are switched off: every command runs at once unless a DENY rule blocks it. Still change as little as possible."
+      : run.untrusted
+        ? "This run read untrusted content, so every command needs approval."
+        : "Commands matching a read-only pattern run at once; everything else needs approval.",
     hosts: hosts.map((h) => ({
       name: h.name,
       hostname: h.hostname,
       environment: h.environment,
       description: h.description,
-      always_requires_approval: h.alwaysRequireApproval,
+      always_requires_approval: h.alwaysRequireApproval && !run.skipApprovals,
       read_only_patterns: h.alwaysRequireApproval
         ? []
         : rules.filter((r) => r.hostId === null || r.hostId === h.id).map((r) => r.pattern),
@@ -560,8 +562,9 @@ export function buildMcpServer(principal: McpPrincipal) {
         }
 
         const ctx = agentCtx(principal, run.id);
-        // A write in a tainted run waits for a person (D-033).
-        if (WRITE_TOOLS.has(name) && run.untrusted) {
+        // A write in a tainted run waits for a person (D-033), unless an
+        // admin switched approvals off (D-140).
+        if (WRITE_TOOLS.has(name) && run.untrusted && !run.skipApprovals) {
           const { stepId, approvalId } = await stepWithApproval(
             ctx,
             runRef(run),

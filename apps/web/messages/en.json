@@ -2406,6 +2406,7 @@
     "pendingTitle": "Waiting for approval",
     "pendingEmptyTitle": "Nothing waiting",
     "pendingEmptyBody": "When {name} wants to run a command that isn't on the read-only list, it shows up here and in your Inbox.",
+    "pendingEmptySkipped": "Approvals are switched off, so {name} doesn't wait for anyone. What it runs shows up under Recent runs.",
     "recentTitle": "Recent runs",
     "runsEmptyTitle": "No runs yet",
     "runsEmptyBody": "Mention @{name} in a comment or message, DM it, or assign it a work item.",
@@ -2417,6 +2418,10 @@
       "resumedToast": "Dopl is back to work.",
       "bannerTitle": "Dopl is paused",
       "bannerBody": "{name} paused it. It takes no new requests and runs no commands until someone turns this off."
+    },
+    "approvalsSkipped": {
+      "bannerTitle": "{name} doesn't ask for approval",
+      "bannerBody": "An admin switched approvals off: commands and changes run at once, also after reading email or form content. Pause stops everything."
     },
     "errors": {
       "generic": "Something went wrong. Try again."
@@ -2588,6 +2593,24 @@
       "offHint": "Turn this on to stop Dopl everywhere.",
       "error": "Couldn't change it. Try again."
     },
+    "approvals": {
+      "title": "Approvals",
+      "hint": "By default a person approves every command that isn't on the read-only list, and everything Dopl does after reading email or form content.",
+      "off": "Asking for approval",
+      "offHint": "Turn this on to let Dopl work without asking anyone.",
+      "on": "Skipping every approval",
+      "onHint": "Dopl runs every command and change at once, on every host. DENY rules, the host list and Pause still apply.",
+      "bannerTitle": "Nobody checks Dopl's commands",
+      "bannerBody": "Text in an email or a form can now make Dopl run commands on your servers. Keep DENY rules for what must never happen, and use Pause to stop it.",
+      "confirmTitle": "Skip every approval?",
+      "confirmBody": "Dopl will stop asking before it does anything.",
+      "confirmCommands": "Every command runs at once, also on production hosts and hosts set to always ask.",
+      "confirmUntrusted": "This includes runs that read email, form or guest content, so a message written to trick Dopl can run commands without anyone seeing them first.",
+      "confirmKept": "Hosts that aren't listed, DENY rules and Pause still stop it. Every command stays on the run and in the audit log.",
+      "cancel": "Cancel",
+      "confirm": "Skip approvals",
+      "error": "Couldn't change it. Try again."
+    },
     "tokens": {
       "title": "MCP tokens",
       "hint": "Hermes calls Dopl's tools with one of these. Only a hash is stored; you see a token once.",
@@ -2687,6 +2710,7 @@
       "tainted": "The run read untrusted content",
       "runs": "Runs at once",
       "matched": "Read-only rule: {pattern}",
+      "approvalsSkipped": "Approvals are switched off.",
       "refused": "Refused",
       "reason": {
         "agent_paused": "Dopl is paused.",

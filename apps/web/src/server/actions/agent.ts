@@ -11,6 +11,7 @@ import {
   deleteCommandRule,
   markItemReviewed,
   revokeMcpToken,
+  setAgentApprovalsSkipped,
   setAgentPaused,
   setAgentStatus,
   stopAgentRun,
@@ -35,6 +36,10 @@ export async function setAgentStatusAction(ws: string, input: unknown) {
 export async function setAgentPausedAction(ws: string, input: unknown) {
   const ctx = await requireWorkspaceCtx(ws);
   return run(() => setAgentPaused(ctx, input));
+}
+export async function setAgentApprovalsSkippedAction(ws: string, input: unknown) {
+  const ctx = await requireWorkspaceCtx(ws);
+  return run(() => setAgentApprovalsSkipped(ctx, input));
 }
 export async function checkAgentConnectionAction(ws: string) {
   const ctx = await requireWorkspaceCtx(ws);

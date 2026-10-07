@@ -1,8 +1,9 @@
 /**
  * Phase 8 red-team tests on the worker side: Pause stops a running run
  * within 5 s (4), a DENY rule blocks a command even after approval (3), a
- * restarted worker reconciles a run through the runtime's status (8), and
- * command output is redacted.
+ * restarted worker reconciles a run through the runtime's status (8),
+ * command output is redacted, and "Skip approvals" (D-140) runs commands
+ * and answers Hermes without anyone deciding.
  */
 import { describe, expect, it } from "vitest";
 import pino from "pino";
@@ -106,6 +107,12 @@ async function makeRun(s: Setup, data: { status: "QUEUED" | "RUNNING"; runtimeRu
   });
 }
 
+const skipApprovals = (s: Setup, on: boolean) =>
+  db.agentProfile.update({
+    where: { userId: s.agent.id },
+    data: { settings: { skipApprovals: on } },
+  });
+
 /** A runtime whose event stream stays open until aborted. */
 function hangingRuntime(): AgentRuntime & { stops: number; started: number } {
   const rt = {
@@ -198,6 +205,49 @@ describe("agent.run", () => {
     expect(reply).toMatchObject({ authorId: s.agent.id, bodyText: "The proxy is healthy." });
   });
 
+  it("answers Hermes' own approval requests with once while approvals are skipped (D-140)", async () => {
+    const s = await setup();
+    await skipApprovals(s, true);
+    const run = await makeRun(s, { status: "QUEUED" });
+    const answers: Array<[string, string, string]> = [];
+    const request = {
+      type: "approval.requested" as const,
+      requestId: "req_1",
+      tool: "terminal",
+      description: "ls /tmp",
+    };
+    const runtime: AgentRuntime = {
+      ...hangingRuntime(),
+      startRun: () => Promise.resolve({ runtimeRunId: "run_auto" }),
+      async *events(): AsyncIterable<RuntimeEvent> {
+        // The request is seen twice, as after a re-attach.
+        const events: RuntimeEvent[] = [
+          request,
+          request,
+          { type: "run.completed", output: "Done." },
+        ];
+        for (const ev of events) yield await Promise.resolve(ev);
+      },
+      resolveApproval: (runId, requestId, choice) => {
+        answers.push([runId, requestId, choice]);
+        return Promise.resolve();
+      },
+    };
+    await handleAgentRun(deps({ runtimeFor: () => runtime }), run.id);
+    expect(answers).toEqual([["run_auto", "req_1", "once"]]);
+    expect(await db.agentApproval.count({ where: { runId: run.id } })).toBe(0);
+    const step = await db.agentRunStep.findFirstOrThrow({
+      where: { runId: run.id, kind: "TOOL_CALL" },
+    });
+    expect(step).toMatchObject({ status: "SUCCEEDED", toolName: "terminal", command: "ls /tmp" });
+    expect(
+      await db.auditLog.count({ where: { action: "agent.approval.skipped", targetId: step.id } }),
+    ).toBe(1);
+    expect((await db.agentRun.findUniqueOrThrow({ where: { id: run.id } })).status).toBe(
+      "COMPLETED",
+    );
+  });
+
   it("doesn't take over a run whose follower is still alive", async () => {
     const s = await setup();
     const run = await makeRun(s, { status: "RUNNING", runtimeRunId: "run_live" });
@@ -268,6 +318,29 @@ describe("agent.exec", () => {
     const { step } = await commandStep(s, "uptime", null); // no allow rule exists
     await handleAgentExec(deps(), step.id);
     expect((await db.agentRunStep.findUniqueOrThrow({ where: { id: step.id } })).status).toBe(
+      "FAILED",
+    );
+  });
+
+  it("runs a command nobody approved while approvals are skipped, tainted run or not (D-140)", async () => {
+    const s = await setup();
+    await skipApprovals(s, true);
+    const { run, step } = await commandStep(s, "docker compose up -d", null);
+    await db.agentRun.update({ where: { id: run.id }, data: { untrusted: true } });
+    await handleAgentExec(deps(), step.id);
+    expect((await db.agentRunStep.findUniqueOrThrow({ where: { id: step.id } })).status).toBe(
+      "SUCCEEDED",
+    );
+    const started = await db.auditLog.findFirstOrThrow({
+      where: { action: "agent.command.started", targetId: step.id },
+    });
+    expect(started.metadata).toMatchObject({ approvalId: null, approvalsSkipped: true });
+
+    // Switched back on before the worker got to it: it isn't run.
+    await skipApprovals(s, false);
+    const { step: later } = await commandStep(s, "docker compose up -d", null);
+    await handleAgentExec(deps(), later.id);
+    expect((await db.agentRunStep.findUniqueOrThrow({ where: { id: later.id } })).status).toBe(
       "FAILED",
     );
   });

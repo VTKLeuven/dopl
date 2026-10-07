@@ -152,13 +152,15 @@ export type InfraDenyReason =
 
 export type InfraDecision =
   | { decision: "deny"; reason: InfraDenyReason; ruleId?: string }
-  | { decision: "run"; ruleId: string }
+  /** `ruleId` is null when it runs only because approvals are switched off (D-140). */
+  | { decision: "run"; ruleId: string | null }
   | { decision: "approve"; riskFlags: RiskFlag[] };
 
 /**
  * D-031's order: deny (paused, run over, unknown/disabled host, DENY rule),
  * then run at once (clean run, host without forced approval, an ALLOW rule
- * matching the whole line), otherwise ask a human.
+ * matching the whole line), otherwise ask a human. With `skipApprovals`
+ * (D-140) nobody is asked: whatever isn't denied runs, tainted or not.
  */
 export function evaluateInfraExec(input: {
   paused: boolean;
@@ -167,6 +169,7 @@ export function evaluateInfraExec(input: {
   rules: RuleLike[];
   command: string;
   tainted: boolean;
+  skipApprovals?: boolean;
 }): InfraDecision {
   const command = normalizeCommand(input.command);
   if (input.paused) return { decision: "deny", reason: "agent_paused" };
@@ -185,6 +188,7 @@ export function evaluateInfraExec(input: {
     const allow = applicable.find((r) => r.kind === "ALLOW_READONLY" && ruleMatches(r, command));
     if (allow) return { decision: "run", ruleId: allow.id };
   }
+  if (input.skipApprovals) return { decision: "run", ruleId: null };
   return {
     decision: "approve",
     riskFlags: riskFlags({
