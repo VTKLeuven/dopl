@@ -50,13 +50,15 @@ export function MyItems({ ws, items }: { ws: string; items: MyItem[] }) {
                     href={`/${ws}/p/${i.project.identifier}/items?peek=${i.identifier}` as never}
                     className="flex h-[var(--row-height)] items-center gap-2.5 px-4 focus-ring hover:bg-surface-hover"
                   >
-                    <PriorityIcon priority={i.priority} />
+                    <span className="contents @max-sm:hidden">
+                      <PriorityIcon priority={i.priority} />
+                    </span>
                     <span className="w-[76px] shrink-0 text-small font-medium text-fg-muted tabular">
                       {i.identifier}
                     </span>
                     <StateIcon group={i.stateGroup} color={i.stateColor} label={i.stateName} />
                     <span className="min-w-0 flex-1 truncate text-body font-medium">{i.title}</span>
-                    <span className="hidden items-center gap-1.5 text-small text-fg-muted sm:inline-flex">
+                    <span className="hidden items-center gap-1.5 text-small text-fg-muted @lg:inline-flex">
                       <ProjectBadge name={i.project.name} color={i.project.color} size={16} />
                       {i.project.name}
                     </span>

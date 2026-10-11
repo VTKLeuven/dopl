@@ -102,6 +102,12 @@ export const NotesQuerySchema = z.object({
   q: z.string().trim().max(100).optional().catch(undefined),
   /** Notes attached to (or converted into) one work item. */
   item: z.uuid().optional().catch(undefined),
+  /** Leave pinned notes out (Home's recent notes, next to its pinned ones). */
+  unpinned: z
+    .literal("1")
+    .transform(() => true as const)
+    .optional()
+    .catch(undefined),
   limit: z.coerce.number().int().min(1).max(300).catch(300),
 });
 export type NotesQuery = z.infer<typeof NotesQuerySchema>;

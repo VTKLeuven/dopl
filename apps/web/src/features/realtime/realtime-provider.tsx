@@ -57,6 +57,8 @@ export function RealtimeProvider() {
       for (const scope of scopes) void qc.invalidateQueries({ queryKey: ["items", scope] });
       for (const scope of scopes) void qc.invalidateQueries({ queryKey: ["relations", scope] });
       if (scopes.size) void qc.invalidateQueries({ queryKey: ["items", "workspace"] });
+      // Home's view widgets (D-141) list items too.
+      if (scopes.size) void qc.invalidateQueries({ queryKey: ["home", ws, "view"] });
       invalidateDetails(qc, items);
       for (const m of metas) void qc.invalidateQueries({ queryKey: ["meta", m] });
       for (const p of intake) void qc.invalidateQueries({ queryKey: ["intake", p] });
@@ -116,6 +118,12 @@ export function RealtimeProvider() {
         schedule();
         return;
       }
+      // Home's widgets (D-141), saved in another tab: refetch once local saves settle.
+      if (ev.type === "home.layout") {
+        comms.push(["home", ws, "layout"]);
+        schedule();
+        return;
+      }
       // Dashboards (Phase 6): the list and layouts; charts refresh on their own schedule.
       if (ev.type.startsWith("dashboard.")) {
         void qc.invalidateQueries({ queryKey: ["analytics", ws, "dashboards"] });
@@ -135,6 +143,7 @@ export function RealtimeProvider() {
           scopes.add(id);
         } else if (ev.type.startsWith("view.")) {
           refreshPage = true;
+          void qc.invalidateQueries({ queryKey: ["home", ws, "view"] });
         } else if (ev.type.startsWith("intake.")) {
           // The triage queue, its counts and the sidebar badge.
           intake.add(id);
@@ -148,6 +157,7 @@ export function RealtimeProvider() {
         // Projects, members, labels, views: sidebar and settings are server-rendered.
         refreshPage = true;
         void qc.invalidateQueries({ queryKey: ["palette"] });
+        void qc.invalidateQueries({ queryKey: ["home", ws, "view"] });
       }
       schedule();
     };
