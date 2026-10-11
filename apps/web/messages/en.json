@@ -221,14 +221,157 @@
     "morning": "morning",
     "afternoon": "afternoon",
     "evening": "evening",
-    "emptyTitle": "Nothing assigned to you yet",
-    "emptyDescription": "Items assigned to you will show up here, sorted by due date.",
-    "assigned": "Assigned to me",
     "overdue": "Overdue",
     "thisWeek": "Due this week",
     "later": "Later",
     "noDue": "No due date",
-    "assignedCount": "{count, plural, one {# open item assigned to you} other {# open items assigned to you}}"
+    "assignedCount": "{count, plural, one {# open item assigned to you} other {# open items assigned to you}}",
+    "zones": {
+      "top": "Full width",
+      "main": "Main column",
+      "side": "Side column"
+    },
+    "edit": {
+      "customize": "Customize",
+      "done": "Done",
+      "addWidget": "Add widget",
+      "reset": "Reset",
+      "resetHint": "Go back to the default Home",
+      "resetDone": "Home is back to the default layout",
+      "hint": "Drag a widget by its handle to move it, or use its menu. Changes save as you go.",
+      "dropHere": "Drop a widget here",
+      "drag": "Drag to move",
+      "dragLabel": "Move {name}",
+      "menu": "{name} options",
+      "settings": "Settings…",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveTo": "Move to",
+      "remove": "Remove",
+      "removed": "Removed {name}",
+      "saveFailed": "Couldn't save your Home. Your last change was undone.",
+      "emptyTitle": "Your Home is empty",
+      "emptyDescription": "Add widgets to choose what you see here: notes, to-dos, your work, mail or charts."
+    },
+    "catalog": {
+      "description": "Pick what to show. You can move, configure or remove it afterwards.",
+      "notes": "Notes",
+      "work": "Work",
+      "inbox": "Inbox and mail",
+      "analytics": "Analytics",
+      "onHome": "Already on your Home",
+      "back": "Back"
+    },
+    "settings": {
+      "title": "{name} settings",
+      "count": "Notes to show",
+      "tag": "Tag",
+      "tagSearch": "Search tags…",
+      "tagEmpty": "No tags yet. Write #tag in a note to create one.",
+      "view": "View",
+      "viewSearch": "Search views…",
+      "viewEmpty": "No views yet. Save a view from any list to show it here.",
+      "chart": "Chart",
+      "chartSearch": "Search charts…",
+      "chartEmpty": "No chart matches.",
+      "range": "Period"
+    },
+    "widget": {
+      "error": "Couldn't load this widget.",
+      "retry": "Retry"
+    },
+    "widgets": {
+      "pinnedNotes": {
+        "name": "Pinned notes",
+        "description": "Your pinned notes as cards you can edit in place.",
+        "title": "Pinned notes",
+        "link": "All notes",
+        "empty": "Pin a note from its menu to keep it here."
+      },
+      "recentNotes": {
+        "name": "Recent notes",
+        "description": "The notes you changed last.",
+        "title": "Recent notes",
+        "link": "All notes",
+        "empty": "No notes yet. Press Q to capture one."
+      },
+      "taggedNotes": {
+        "name": "Notes with a tag",
+        "description": "Notes under one tag, like #infra or #meeting.",
+        "link": "Open",
+        "empty": "No notes tagged #{tag} yet."
+      },
+      "sharedNotes": {
+        "name": "Shared with me",
+        "description": "Notes your teammates shared with you or the team.",
+        "title": "Shared with me",
+        "link": "Open",
+        "empty": "Notes your teammates share with you show up here."
+      },
+      "todos": {
+        "name": "My to-dos",
+        "description": "Open checkboxes from all your notes.",
+        "title": "My to-dos",
+        "link": "View all",
+        "empty": "No open to-dos. Checkboxes in your notes show up here."
+      },
+      "review": {
+        "name": "Daily review",
+        "description": "A nudge when older notes are due for a revisit.",
+        "title": "Daily review",
+        "body": "{count, plural, one {# note to revisit today} other {# notes to revisit today}}",
+        "done": "No notes to revisit today. This widget shows up when there are."
+      },
+      "today": {
+        "name": "Today",
+        "description": "Your items and to-dos due this week, plus what's in progress.",
+        "title": "Today",
+        "empty": "Nothing due this week and nothing in progress.",
+        "overdue": "Overdue",
+        "today": "Today",
+        "inProgress": "In progress",
+        "more": "+{count} more"
+      },
+      "assigned": {
+        "name": "Assigned to me",
+        "description": "All your open items, grouped by due date.",
+        "title": "Assigned to me",
+        "empty": "Nothing assigned to you. Items assigned to you show up here, sorted by due date."
+      },
+      "week": {
+        "name": "Week calendar",
+        "description": "This week's due dates, day by day.",
+        "title": "This week",
+        "dueCount": "{count} due",
+        "more": "+{count} more"
+      },
+      "view": {
+        "name": "Saved view",
+        "description": "The first items of one of your views.",
+        "title": "Saved view",
+        "link": "Open view",
+        "empty": "No open items in this view.",
+        "gone": "This view was deleted or isn't shared with you anymore. Remove the widget or pick another view.",
+        "more": "More in this view"
+      },
+      "inbox": {
+        "name": "Inbox",
+        "description": "Your latest notifications."
+      },
+      "mail": {
+        "name": "My mail",
+        "description": "Open threads in the shared mailbox assigned to you.",
+        "title": "My mail",
+        "link": "Open mail",
+        "empty": "No open threads assigned to you.",
+        "noSubject": "(no subject)"
+      },
+      "chart": {
+        "name": "Chart",
+        "description": "One of the workspace charts from Analytics.",
+        "link": "Analytics"
+      }
+    }
   },
   "notes": {
     "title": "Notes",
@@ -467,18 +610,7 @@
     }
   },
   "myWork": {
-    "week": "This week",
-    "more": "+{count} more",
-    "dueCount": "{count} due",
-    "focus": "Today's focus",
-    "focusEmpty": "Nothing due today and nothing in progress. A good day to pick something up.",
-    "dueToday": "Due today",
-    "inProgress": "In progress",
-    "overdue": "Overdue",
-    "todos": "My to-dos",
-    "todosEmpty": "No open to-dos. Checkboxes in your notes show up here.",
     "todoCount": "{count, plural, one {# open to-do} other {# open to-dos}}",
-    "viewAll": "View all",
     "inbox": "Inbox",
     "unread": "{count} unread",
     "unreadDot": "Unread",
@@ -500,11 +632,7 @@
       "DUE_SOON": "has an item due soon",
       "SNOOZE_ENDED": "is back from snooze",
       "other": "sent an update"
-    },
-    "recentNotes": "Recent notes",
-    "notesEmpty": "No notes yet. Press Q to capture one.",
-    "reviewTitle": "Daily review",
-    "reviewBody": "{count, plural, one {# note to revisit today} other {# notes to revisit today}}"
+    }
   },
   "settings": {
     "title": "Settings",

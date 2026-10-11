@@ -239,6 +239,7 @@ export async function listNotes(ctx: WorkspaceCtx, query: NotesQuery): Promise<N
   if (query.tag) and.push(tagWhere(query.tag.toLowerCase()));
   // Trigram-indexed ILIKE (D-016).
   if (query.q) and.push({ contentText: { contains: query.q, mode: "insensitive" } });
+  if (query.unpinned) and.push({ pinnedAt: null });
   const rows = await db.note.findMany({
     where: { AND: and },
     orderBy,

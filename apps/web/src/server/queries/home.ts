@@ -1,8 +1,98 @@
 import "server-only";
+import { z } from "zod";
+import { DEFAULT_HOME_LAYOUT, parseHomeLayout } from "@dopl/shared/domain/home";
+import type { HomeLayout } from "@dopl/shared/schemas/home";
+import type { Priority, StateGroup } from "@dopl/shared/schemas/work-item";
 import { formatIdentifier } from "@dopl/shared/schemas/work-item";
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
-import { accessibleProjectsWhere } from "./projects";
+import { accessibleProjectsWhere, projectAccessById } from "./projects";
+import { getView } from "./views";
+import { listItems } from "./work-items";
+import { workspaceProjects } from "./workspace-items";
+
+/** `WorkspaceMember.preferences`: an object of per-feature UI settings (Home's is `home`). */
+export const PreferencesSchema = z.record(z.string(), z.unknown()).catch({});
+
+export interface HomeLayoutState {
+  layout: HomeLayout;
+  /** False while the member is on the default layout. */
+  custom: boolean;
+}
+
+/** The member's Home widgets (D-141), or the default until they customize. */
+export async function getHomeLayout(ctx: WorkspaceCtx): Promise<HomeLayoutState> {
+  const member = await db.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: ctx.workspace.id, userId: ctx.actor.userId } },
+    select: { preferences: true },
+  });
+  const stored = parseHomeLayout(PreferencesSchema.parse(member?.preferences ?? {}).home);
+  return stored ? { layout: stored, custom: true } : { layout: DEFAULT_HOME_LAYOUT, custom: false };
+}
+
+export interface ViewPreview {
+  view: { id: string; name: string; href: string };
+  rows: Array<{
+    id: string;
+    identifier: string;
+    title: string;
+    priority: Priority;
+    stateGroup: StateGroup;
+    stateName: string;
+    stateColor: string;
+    dueDate: string | null;
+  }>;
+  /** More items match than the preview shows. */
+  more: boolean;
+}
+
+/**
+ * The first rows of a saved view for Home's view widget: the view's own
+ * filter and "completed" mode, over the projects it covers, with the same
+ * policy checks as opening the view.
+ */
+export async function getViewPreview(
+  ctx: WorkspaceCtx,
+  id: string,
+  limit = 8,
+): Promise<ViewPreview> {
+  const view = await getView(ctx, id);
+  let projects: Array<{ id: string; identifier: string }>;
+  let href = `/${ctx.workspace.slug}/views/${view.id}`;
+  if (view.projectId) {
+    const { project } = await projectAccessById(ctx, view.projectId);
+    projects = [project];
+    href = `/${ctx.workspace.slug}/p/${project.identifier}/views/${view.id}`;
+  } else {
+    projects = await workspaceProjects(ctx);
+  }
+  const res = await listItems(
+    ctx,
+    projects,
+    { completed: view.displayOptions.completed, filters: view.filters },
+    { limit: limit + 1 },
+  );
+  const shown = res.rows.slice(0, limit);
+  const states = await db.workflowState.findMany({
+    where: { id: { in: [...new Set(shown.map((r) => r.stateId))] } },
+    select: { id: true, name: true, color: true },
+  });
+  const byId = new Map(states.map((s) => [s.id, s]));
+  return {
+    view: { id: view.id, name: view.name, href },
+    rows: shown.map((r) => ({
+      id: r.id,
+      identifier: r.identifier,
+      title: r.title,
+      priority: r.priority,
+      stateGroup: r.stateGroup,
+      stateName: byId.get(r.stateId)?.name ?? "",
+      stateColor: byId.get(r.stateId)?.color ?? "",
+      dueDate: r.dueDate,
+    })),
+    more: res.rows.length > limit || res.truncated,
+  };
+}
 
 export interface InboxSummary {
   unread: number;

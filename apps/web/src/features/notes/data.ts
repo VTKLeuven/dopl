@@ -47,6 +47,8 @@ export interface ListParams {
   q?: string | null;
   item?: string | null;
   limit?: number;
+  /** Leave pinned notes out. */
+  unpinned?: boolean;
 }
 
 export const noteKeys = {
@@ -62,6 +64,7 @@ export const noteKeys = {
       p.q ?? null,
       p.item ?? null,
       p.limit ?? null,
+      p.unpinned ?? false,
     ] as const,
   one: (ws: string, id: string) => ["notes", ws, "one", id] as const,
   tags: (ws: string) => ["notes", ws, "tags"] as const,
@@ -83,6 +86,7 @@ export function listUrl(ws: string, p: ListParams): string {
   if (p.q) s.set("q", p.q);
   if (p.item) s.set("item", p.item);
   if (p.limit) s.set("limit", String(p.limit));
+  if (p.unpinned) s.set("unpinned", "1");
   return `/api/v1/${ws}/notes?${s.toString()}`;
 }
 
@@ -197,7 +201,7 @@ function findCached(qc: QueryClient, ws: string, id: string): NoteCard | undefin
 
 /** Does a card belong in a cached list with these params? (for inserts and moves) */
 function belongs(card: NoteCard, key: readonly unknown[], me: string): boolean {
-  const [, , , filter, tag, q, item] = key as [
+  const [, , , filter, tag, q, item, , unpinned] = key as [
     string,
     string,
     string,
@@ -205,8 +209,11 @@ function belongs(card: NoteCard, key: readonly unknown[], me: string): boolean {
     string | null,
     string | null,
     string | null,
+    number | null,
+    boolean,
   ];
   if (item) return false;
+  if (unpinned && card.pinnedAt) return false;
   const mine = card.owner.id === me;
   const live = !card.deletedAt && !card.archivedAt;
   const ok =
