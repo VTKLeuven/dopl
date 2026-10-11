@@ -38,6 +38,13 @@
 - While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
 - No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
 
+## A Home you arrange (2026-10-11)
+
+- **Home is yours to arrange** (D-141): "Customize" on Home lets you add, move, configure and remove widgets: pinned notes, recent notes, notes with a tag, notes shared with you, to-dos, the daily review, Today, everything assigned to you, the week calendar, a saved view, the inbox, your mail and charts from Analytics. Drag a widget by its handle (or use its menu) between the full-width row, the main column and the side column. Changes save as you go; Reset goes back to the default.
+- **New default:** notes first. Your pinned and recent notes fill the main column; Today, the daily review, your to-dos and the inbox sit on the side. The week calendar is no longer on Home by default; add it back from the catalogue if you want it.
+- **Today** combines "Today's focus" and "Assigned to me": what's overdue, due today, due later this week or in progress, with your to-dos due by then. An item no longer shows up twice.
+- Your layout follows you to your other tabs at once. No migration (it lives in your member preferences), no new env vars or queues. Screenshots `docs/screenshots/phase-5/20` to `29`.
+
 ## Going live (2026-09-30)
 
 - **`docs/ops/deploy.md`**: from a fresh server to `https://dopl.vtk.be`: configuration, HTTPS (bundled Caddy or your own proxy, with the SSE paths unbuffered), the first run with `bootstrap` and 2FA, backups and restores, updates, troubleshooting.

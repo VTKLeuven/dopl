@@ -85,12 +85,12 @@ One Inbox for mentions, assignments and updates, with per-type preferences and e
 
 ### Notes and My Work
 
-Capture a thought from anywhere with <kbd>Q</kbd>. Notes have nested tags, checklists that roll up into My to-dos, sharing, and a daily review that brings older notes back. Any line of a note becomes a work item in one click. Home puts today's focus, your week, your items and your to-dos on one page.
+Capture a thought from anywhere with <kbd>Q</kbd>. Notes have nested tags, checklists that roll up into My to-dos, sharing, and a daily review that brings older notes back. Any line of a note becomes a work item in one click. Home is yours to arrange: by default your notes come first, with today's work, to-dos and the inbox on the side, and you can add, move or remove widgets like a saved view, your mail or a chart.
 
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/phase-5/01-notes-grid.png" alt="The notes grid with tags and checklists"><br><sub>Notes with tags, checklists and colours</sub></td>
-    <td width="50%"><img src="docs/screenshots/phase-5/12-home-my-work.png" alt="Home with today's focus, the week ahead and to-dos"><br><sub>Home: everything that's yours today</sub></td>
+    <td width="50%"><img src="docs/screenshots/phase-5/20-home-default.png" alt="Home with pinned and recent notes, and today's work on the side"><br><sub>Home: your notes first, today's work on the side</sub></td>
   </tr>
 </table>
 

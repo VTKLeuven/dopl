@@ -95,7 +95,8 @@ Phase 5 was built on `claude/phase-5` from the unfinished `wip/phase-5-notes` br
 - **What's in it:** Notes (`/vtk/notes`: quick capture, masonry grid, colours, pins, inline editing, archive, trash, sharing, search), the tag tree with rename/merge/delete, My to-dos (`/vtk/notes/todos`), converting a line or a note into a work item, the daily review (`/vtk/notes/review`), `Q` from any page, notes in ⌘K, and Home rebuilt as My Work. Details are in `docs/CHANGELOG.md`; decisions are D-092 to D-098; carry-overs are unticked under Phase 5 in `docs/ROADMAP.md`.
 - **No migrations, no new env vars, no new queues.** The nightly `maintenance.prune` now also purges notes trashed 30 days ago.
 - **Seed:** ten notes (§2). The e2e tests capture their own notes as Bram with unique text, so seeded notes don't get in the way.
-- **Screenshots:** `docs/screenshots/phase-5/` (18, including two at phone width).
+- **Screenshots:** `docs/screenshots/phase-5/` (18, including two at phone width; 20–29 show the customizable Home).
+- **Customizable Home** (added 2026-10-11, D-141): Home's widgets live in `features/home/` (`widgets.tsx` renders each type, `home-view.tsx` has edit mode and the drag between zones, `catalog.ts` lists what can be added). The layout is `WorkspaceMember.preferences.home`, parsed leniently by `parseHomeLayout` and saved whole by `saveHomeLayout` (`server/services/home.ts`). To add a widget type: its zod shape in `schemas/home.ts`, its zone in `defaultZone`, a component in `widgets.tsx`, an entry in `CATALOG` and its strings under `home.widgets`.
 - **Open question it raised:** Q-29 (can teammates edit shared notes?). The default (read-only) is in use.
 - **5b** (embeddings, semantic search, "Ask my notes") still waits on Q-6.
 
