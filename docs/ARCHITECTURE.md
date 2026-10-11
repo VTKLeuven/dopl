@@ -130,7 +130,7 @@ dopl/
 
 | Route                                                      | Page                |
 | ---------------------------------------------------------- | ------------------- |
-| `/{ws}/home`                                               | My Work             |
+| `/{ws}/home`                                               | My Work (widgets)   |
 | `/{ws}/inbox`                                              | Inbox               |
 | `/{ws}/p/{IDENT}/{list\|board\|calendar\|table\|timeline}` | Project views       |
 | `/{ws}/p/{IDENT}/intake`                                   | Intake queue        |

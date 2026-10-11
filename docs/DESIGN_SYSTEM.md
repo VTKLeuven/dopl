@@ -388,6 +388,10 @@ Dopl is desktop-first but must work at phone width for triage, approvals, inbox 
 - **Notes:**
   - A masonry grid (CSS columns, 280 px cards) with a capture bar on top. The tag tree lives in the secondary sidebar.
   - Cards are white, or tinted with the note's colour (bg-50 + border-200). Pinned notes come first. Checkboxes are interactive right on the card.
+- **Home (D-141):**
+  - The greeting and capture bar, then the member's widgets: a full-width row, the main column and a 340 px side column (one column below `lg`).
+  - A widget is a panel header (icon, `body` semibold title, muted count, one "View all →" link) over its content; no card around the whole widget. Widgets size their content with container queries, not the viewport.
+  - Edit mode: each widget gets a dashed `sky-300` outline on `--surface`, a grip handle and a ⋯ menu, and its content is inert and clipped at 288 px with a fade. Empty zones are dashed drop areas. While dragging, a chip (grip, icon, name, `--shadow-drag`) follows the pointer, the widget stays in place at 40% opacity, and a 2 px `sky-500` line shows where it lands in another zone.
 - **Public form (`/f/[slug]`):**
   - A centred 560 px white card on the canvas, with the Dopl mark and the project name small at the top, and the form title in `display`.
   - Fields are spaced 20 px apart. The submit button is the near-black primary; "Powered by Dopl" is shown in `caption`.
