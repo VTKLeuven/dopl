@@ -308,6 +308,26 @@ export const PublicSubmitSchema = z.object({
 });
 export type PublicSubmitInput = z.infer<typeof PublicSubmitSchema>;
 
+/** The first value of a search param, which Next hands over as string | string[]. */
+const firstParam = z.preprocess(
+  (v: unknown) => (Array.isArray(v) ? (v as unknown[])[0] : v),
+  z.string().optional(),
+);
+
+/**
+ * What the site that links or embeds a public form can tell it (D-142): the
+ * language to show it in, and who is filling it in. Prefill is only a starting
+ * value the person can still change, and the submit endpoint validates it like
+ * anything typed, so a value that doesn't fit is dropped rather than refused:
+ * a bad link should still open the form.
+ */
+export const PublicFormQuerySchema = z.object({
+  lang: firstParam.pipe(z.enum(["en", "nl"]).default("en")).catch("en"),
+  email: firstParam.pipe(z.email().max(254).optional()).catch(undefined),
+  name: firstParam.pipe(z.string().trim().min(1).max(120).optional()).catch(undefined),
+});
+export type PublicFormQuery = z.infer<typeof PublicFormQuerySchema>;
+
 /** Minimum time between rendering the form and submitting it. */
 export const MIN_FILL_MS = 2_000;
 

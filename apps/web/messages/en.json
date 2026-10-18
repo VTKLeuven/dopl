@@ -1892,6 +1892,9 @@
     "fileType": "This file type isn't allowed",
     "tooManyFiles": "At most {max} files",
     "removeFile": "Remove {name}",
+    "sendingAs": "Sending as <strong>{name}</strong> ({email}).",
+    "sendingAsEmail": "Sending as <strong>{email}</strong>.",
+    "changeIdentity": "Change",
     "unavailableTitle": "This form isn't available",
     "unavailableBody": "It may have been unpublished or moved. Ask whoever sent you the link."
   },

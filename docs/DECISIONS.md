@@ -1434,3 +1434,14 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 - **Data:** the server preloads the default widgets' data (items, to-dos, the note lists on the page, the inbox summary). Widgets added later load through the existing APIs, plus `GET /api/v1/{ws}/home/layout` and `GET /api/v1/{ws}/views/{id}/preview` (a view's first 8 open items, with `getView`'s policy checks). Mail and charts are offered only to members with a mailbox or analytics access.
 
 **Why:** the owner rarely used the week calendar that took the top of Home, and wrote many notes that Home showed last and below the fold. A fixed "notes first" layout would have suited them, but not teammates who do use the calendar, so each member chooses, with notes first as the default.
+
+### D-142: The public form speaks Dutch on request and takes a prefilled submitter (amends D-043 for /f)
+
+**Decision:** `/f/<slug>` reads three optional search params, parsed with `PublicFormQuerySchema` (`@dopl/shared/schemas/intake`):
+
+- **`lang=nl`** shows the form's own words (labels, errors, the success screen) in Dutch. `apps/web/messages/nl.json` holds only the `publicForm` and `feedbackPage` namespaces; `messagesFor` in `src/i18n/messages.ts` lays them over English, and a namespace that misses a key fails the typecheck. The page wraps the form in a second `NextIntlClientProvider` with just `publicForm`, so English pages ship nothing extra. `getRequestConfig` honours an explicit locale (`getTranslations({ locale })`) and otherwise stays static English, so the shell is unchanged. The form's title, description and field labels are whatever the admin typed and aren't translated.
+- **`email=` and `name=`** prefill the contact fields. With a prefilled address the two inputs fold into one line ("Sending as …") with a Change button; an address that fails validation, client or server side, unfolds them. A value that doesn't parse is dropped instead of breaking the page.
+
+The confirmation email, the status page and later replies are still English: their language would have to be stored with the submission.
+
+**Why:** VTK embeds its website-feedback form in vtk.be, which is Dutch and where the person is already signed in. The form asked, in English, for a name and email the site already had. Prefill is no new trust: anyone can type any address into a public form, and the submit endpoint validates it the same way. The address does land in the iframe's URL and so in the access log, which is the same address the submission sends anyway.

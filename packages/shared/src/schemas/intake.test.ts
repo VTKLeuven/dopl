@@ -3,6 +3,7 @@ import {
   buildValuesSchema,
   defaultFormFields,
   publicStatus,
+  PublicFormQuerySchema,
   SaveFormSchema,
   type FormField,
 } from "./intake";
@@ -114,5 +115,37 @@ describe("public status (Q-12)", () => {
     expect(publicStatus("ACCEPTED", "CANCELLED")).toBe("declined");
     expect(publicStatus("DECLINED", "TRIAGE")).toBe("declined");
     expect(publicStatus("DUPLICATE", "TRIAGE")).toBe("duplicate");
+  });
+});
+
+describe("public form query", () => {
+  it("reads the language and the prefill", () => {
+    expect(
+      PublicFormQuerySchema.parse({
+        lang: "nl",
+        email: "victor@student.kuleuven.be",
+        name: " Victor Christiaens ",
+      }),
+    ).toEqual({ lang: "nl", email: "victor@student.kuleuven.be", name: "Victor Christiaens" });
+  });
+
+  it("defaults to English without prefill", () => {
+    expect(PublicFormQuerySchema.parse({})).toEqual({ lang: "en" });
+  });
+
+  it("drops what doesn't fit instead of refusing the page", () => {
+    expect(
+      PublicFormQuerySchema.parse({ lang: "fr", email: "not-an-email", name: "x".repeat(121) }),
+    ).toEqual({ lang: "en" });
+    expect(PublicFormQuerySchema.parse({ name: "   " })).toEqual({ lang: "en" });
+  });
+
+  it("takes the first of repeated params", () => {
+    expect(
+      PublicFormQuerySchema.parse({ lang: ["nl", "en"], email: ["a@b.be", "c@d.be"] }),
+    ).toEqual({
+      lang: "nl",
+      email: "a@b.be",
+    });
   });
 });

@@ -302,6 +302,7 @@ sequenceDiagram
 ```
 
 - **Iframe snippet:** `<iframe src="https://dopl.example/f/<slug>?embed=1" style="width:100%;height:640px;border:0" loading="lazy">`. `frame-ancestors` comes from the form's `allowedEmbedOrigins` (an empty list means any origin).
+- **Language and prefill:** any form URL takes `lang=nl` (Dopl's own words in Dutch), `email=` and `name=` (the contact fields, still editable). See D-142.
 - **JS snippet:** `embed.js` is a small vanilla-JS file under 4 KB. It injects the floating button (text, position and accent from the form theme), opens the iframe in a modal, and listens for `postMessage` `{type: "dopl:resize"|"dopl:close"}`, checking the origin.
 - **Spam protection:**
   - a honeypot field

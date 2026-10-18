@@ -2,9 +2,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
+import { PublicFormQuerySchema } from "@dopl/shared/schemas/intake";
 import { getPublicForm } from "@/server/queries/public-forms";
+import { messagesFor, type AppLocale } from "@/i18n/messages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PublicForm, type FormMode } from "@/features/intake/public-form";
 
@@ -13,7 +16,8 @@ export const metadata: Metadata = { title: "Form", robots: { index: false, follo
 /**
  * Public intake form (ARCHITECTURE §6). The shell prerenders; the cached
  * form definition streams in. `?embed=1` renders without chrome for an
- * iframe, `?embed=modal` for the embed.js modal.
+ * iframe, `?embed=modal` for the embed.js modal. `?lang=nl` shows Dopl's own
+ * words in Dutch, and `?email=` / `?name=` prefill the contact fields (D-142).
  */
 export default function PublicFormPage({ params, searchParams }: PageProps<"/f/[slug]">) {
   return (
@@ -33,25 +37,47 @@ async function Form({
   const embed = typeof sp.embed === "string" ? sp.embed : null;
   const mode: FormMode = embed === "modal" ? "modal" : embed ? "embed" : "page";
   const origin = typeof sp.origin === "string" ? sp.origin : null;
+  const { lang, email, name } = PublicFormQuerySchema.parse(sp);
+  const prefill = { email, name };
   if (mode === "page")
     return (
       <div className="flex min-h-dvh justify-center px-4 pt-[8vh] pb-16">
-        <div className="flex w-full flex-col gap-3 sm:max-w-[560px]">
-          {form.onFeedbackPage ? <BackToFeedback /> : null}
-          <PublicForm form={form} mode={mode} />
+        <div className="flex w-full flex-col gap-3 sm:max-w-[560px]" lang={lang}>
+          {form.onFeedbackPage ? <BackToFeedback locale={lang} /> : null}
+          <FormLocale locale={lang}>
+            <PublicForm form={form} mode={mode} prefill={prefill} />
+          </FormLocale>
         </div>
       </div>
     );
   return (
-    <div className="min-h-dvh bg-surface">
-      <PublicForm form={form} mode={mode} originParam={origin} />
+    <div className="min-h-dvh bg-surface" lang={lang}>
+      <FormLocale locale={lang}>
+        <PublicForm form={form} mode={mode} originParam={origin} prefill={prefill} />
+      </FormLocale>
     </div>
   );
 }
 
+/**
+ * The rest of Dopl stays English (D-043), so only the form's own namespace
+ * goes to the client in another language; English needs no second provider.
+ */
+function FormLocale({ locale, children }: { locale: AppLocale; children: React.ReactNode }) {
+  if (locale === "en") return children;
+  return (
+    <NextIntlClientProvider
+      locale={locale}
+      messages={{ publicForm: messagesFor(locale).publicForm }}
+    >
+      {children}
+    </NextIntlClientProvider>
+  );
+}
+
 /** Forms listed on /feedback (D-139) lead back to the others. */
-async function BackToFeedback() {
-  const t = await getTranslations("feedbackPage");
+async function BackToFeedback({ locale }: { locale: AppLocale }) {
+  const t = await getTranslations({ locale, namespace: "feedbackPage" });
   return (
     <Link
       href="/feedback"

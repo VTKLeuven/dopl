@@ -45,20 +45,27 @@ function hostOrigin(param: string | null): string | undefined {
  * The public intake form (ARCHITECTURE §6). Same component in four places:
  * the hosted page, the iframe embed, the embed.js modal and the builder's
  * live preview (which never submits).
+ *
+ * `prefill` comes from the URL (D-142): a site where the person is signed in
+ * already knows their email and name. The two fields then fold into one line
+ * with a button to change them; they're a starting value, not a lock.
  */
 export function PublicForm({
   form,
   mode,
   originParam = null,
+  prefill,
 }: {
   form: PublicFormDefinition;
   mode: FormMode;
   originParam?: string | null;
+  prefill?: { email?: string; name?: string };
 }) {
   const t = useTranslations("publicForm");
   const [values, setValues] = useState<Values>({});
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState(prefill?.email ?? "");
+  const [name, setName] = useState(prefill?.name ?? "");
+  const [editingContact, setEditingContact] = useState(!prefill?.email);
   const [website, setWebsite] = useState("");
   const [uploads, setUploads] = useState<Record<string, Upload[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -225,6 +232,9 @@ export function PublicForm({
     }
   };
 
+  // Folded only while there's a prefilled address and nothing wrong with it.
+  const contactFolded = !editingContact && !errors.email && email.trim() !== "";
+
   const reset = () => {
     session.current = { clientSubmissionId: newId(), startedAt: Date.now() };
     setValues({});
@@ -312,44 +322,77 @@ export function PublicForm({
                 maxFileSizeMb={form.maxFileSizeMb}
               />
             ))}
-            <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="pf-email">
-                  {t("email")}
-                  <span className="text-danger-text" aria-hidden>
-                    {" "}
-                    *
-                  </span>
-                </Label>
-                <Input
-                  id="pf-email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  aria-invalid={errors.email ? true : undefined}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setErrors((e) => {
-                      const next = { ...e };
-                      delete next.email;
-                      return next;
-                    });
-                  }}
-                  placeholder={t("emailPlaceholder")}
-                />
-                {errors.email ? <FieldError>{errors.email}</FieldError> : null}
+            {contactFolded ? (
+              <div
+                className="flex items-center justify-between gap-3 border-t border-border pt-4"
+                data-testid="contact-prefilled"
+              >
+                <p className="min-w-0 text-small break-words text-fg-secondary">
+                  {name.trim()
+                    ? t.rich("sendingAs", {
+                        name: name.trim(),
+                        email: email.trim(),
+                        strong: (chunks) => (
+                          <strong className="font-medium text-fg">{chunks}</strong>
+                        ),
+                      })
+                    : t.rich("sendingAsEmail", {
+                        email: email.trim(),
+                        strong: (chunks) => (
+                          <strong className="font-medium text-fg">{chunks}</strong>
+                        ),
+                      })}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="shrink-0"
+                  onClick={() => setEditingContact(true)}
+                >
+                  {t("changeIdentity")}
+                </Button>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="pf-name">{t("name")}</Label>
-                <Input
-                  id="pf-name"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+            ) : (
+              <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pf-email">
+                    {t("email")}
+                    <span className="text-danger-text" aria-hidden>
+                      {" "}
+                      *
+                    </span>
+                  </Label>
+                  <Input
+                    id="pf-email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    aria-invalid={errors.email ? true : undefined}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setErrors((e) => {
+                        const next = { ...e };
+                        delete next.email;
+                        return next;
+                      });
+                    }}
+                    placeholder={t("emailPlaceholder")}
+                  />
+                  {errors.email ? <FieldError>{errors.email}</FieldError> : null}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="pf-name">{t("name")}</Label>
+                  <Input
+                    id="pf-name"
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
             {/* Honeypot: invisible to people, irresistible to bots. */}
             <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
               <label>

@@ -38,6 +38,12 @@
 - While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
 - No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
 
+## Public forms in Dutch, with a prefilled submitter (2026-10-18)
+
+- **`?lang=nl`** on any form link shows Dopl's own words in Dutch: labels, errors, the success screen and the Close button (D-142). The form's title and fields are what you typed in the builder, so write those in the language you embed them in.
+- **`?email=` and `?name=`** prefill the contact fields. The form then shows "Sending as …" with a Change button instead of two empty fields. vtk.be passes all three for its website-feedback form, so a signed-in member no longer types their name and address in English.
+- The confirmation email and the status page are still English. No migration, no new env vars. Screenshots `docs/screenshots/phase-3/15` and `16`.
+
 ## A Home you arrange (2026-10-11)
 
 - **Home is yours to arrange** (D-141): "Customize" on Home lets you add, move, configure and remove widgets: pinned notes, recent notes, notes with a tag, notes shared with you, to-dos, the daily review, Today, everything assigned to you, the week calendar, a saved view, the inbox, your mail and charts from Analytics. Drag a widget by its handle (or use its menu) between the full-width row, the main column and the side column. Changes save as you go; Reset goes back to the default.
