@@ -3,6 +3,7 @@ import type { Prisma } from "@dopl/db";
 import { canSeeRequest, ForbiddenError } from "@dopl/shared/policy";
 import {
   FieldOptionsSchema,
+  FieldTranslationsSchema,
   FormSettingsSchema,
   FormThemeSchema,
   publicStatus,
@@ -512,6 +513,7 @@ export async function getFormForEdit(access: ProjectAccess, formId: string) {
           placeholder: true,
           options: true,
           target: true,
+          translations: true,
         },
       },
     },
@@ -528,6 +530,7 @@ export async function getFormForEdit(access: ProjectAccess, formId: string) {
     fields: form.fields.map((f) => ({
       ...f,
       options: FieldOptionsSchema.catch([]).parse(f.options),
+      translations: FieldTranslationsSchema.catch({}).parse(f.translations),
     })),
   };
 }

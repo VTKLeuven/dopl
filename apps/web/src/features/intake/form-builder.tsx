@@ -31,8 +31,10 @@ import {
   type FormFieldType,
   type FormSettings,
   type FormTheme,
+  type FieldTranslation,
   type PublicFormDefinition,
   DEFAULT_MIME_TYPES,
+  localizePublicForm,
 } from "@dopl/shared/schemas/intake";
 import { priorities, type Priority } from "@dopl/shared/schemas/work-item";
 import type { FormForEdit } from "@/server/queries/intake";
@@ -164,6 +166,7 @@ export function FormBuilder({
   const [embedOpen, setEmbedOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [previewLocale, setPreviewLocale] = useState<"en" | "nl">("en");
   const dirty = JSON.stringify(draft) !== saved;
   const priorityLabel = (p: Priority) => ti(`priority.${p}`);
 
@@ -208,6 +211,7 @@ export function FormBuilder({
             ]
           : [],
       target: "NONE",
+      translations: {},
     };
     setDraft((d) => ({ ...d, fields: [...d.fields, field] }));
     setExpanded(key);
@@ -264,6 +268,7 @@ export function FormBuilder({
   const preview: PublicFormDefinition = {
     id: form.id,
     slug: draft.slug,
+    nl: draft.settings.nl,
     title: draft.title || t("untitled"),
     description: draft.description,
     workspaceName,
@@ -398,6 +403,48 @@ export function FormBuilder({
                 value={draft.settings.successMessage}
                 placeholder={t("successPlaceholder")}
                 onChange={(e) => patchSettings({ successMessage: e.target.value })}
+              />
+            </div>
+          </Section>
+
+          <Section title={t("dutch")} description={t("dutchHint")}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fb-title-nl">{t("formTitle")}</Label>
+              <Input
+                id="fb-title-nl"
+                value={draft.settings.nl.title ?? ""}
+                placeholder={draft.title}
+                onChange={(e) =>
+                  patchSettings({ nl: { ...draft.settings.nl, title: e.target.value || null } })
+                }
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fb-description-nl">{t("description")}</Label>
+              <Textarea
+                id="fb-description-nl"
+                rows={3}
+                value={draft.settings.nl.description ?? ""}
+                placeholder={draft.description}
+                onChange={(e) =>
+                  patchSettings({
+                    nl: { ...draft.settings.nl, description: e.target.value || null },
+                  })
+                }
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fb-success-nl">{t("successMessage")}</Label>
+              <Textarea
+                id="fb-success-nl"
+                rows={2}
+                value={draft.settings.nl.successMessage ?? ""}
+                placeholder={draft.settings.successMessage}
+                onChange={(e) =>
+                  patchSettings({
+                    nl: { ...draft.settings.nl, successMessage: e.target.value || null },
+                  })
+                }
               />
             </div>
           </Section>
@@ -587,9 +634,19 @@ export function FormBuilder({
           className="hidden min-h-0 flex-1 overflow-y-auto bg-canvas p-6 lg:block"
           aria-label={t("preview")}
         >
-          <p className="mb-3 text-caption font-medium text-fg-muted">{t("preview")}</p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-caption font-medium text-fg-muted">{t("preview")}</p>
+            <SegmentedControl
+              value={previewLocale}
+              onValueChange={(v) => setPreviewLocale(v === "nl" ? "nl" : "en")}
+              label={t("previewLanguage")}
+            >
+              <SegmentedControlItem value="en">{t("english")}</SegmentedControlItem>
+              <SegmentedControlItem value="nl">{t("dutch")}</SegmentedControlItem>
+            </SegmentedControl>
+          </div>
           <div className="flex justify-center">
-            <PublicForm form={preview} mode="preview" />
+            <PublicForm form={localizePublicForm(preview, previewLocale)} mode="preview" />
           </div>
         </div>
       </div>
@@ -662,6 +719,14 @@ function FieldCard({
   const t = useTranslations("forms");
   const id = `field-${f.key}`;
   const hasOptions = f.type === "SELECT" || f.type === "MULTI_SELECT";
+  const noPlaceholder = f.type === "CHECKBOX" || f.type === "FILE" || f.type === "MULTI_SELECT";
+  const nl: FieldTranslation = f.translations.nl ?? {
+    label: null,
+    helpText: null,
+    placeholder: null,
+  };
+  const patchNl = (p: Partial<FieldTranslation>) =>
+    onChange({ translations: { ...f.translations, nl: { ...nl, ...p } } });
   return (
     <li
       className={cn(
@@ -774,10 +839,41 @@ function FieldCard({
             <Input
               id={`${id}-placeholder`}
               value={f.placeholder ?? ""}
-              disabled={f.type === "CHECKBOX" || f.type === "FILE" || f.type === "MULTI_SELECT"}
+              disabled={noPlaceholder}
               onChange={(e) => onChange({ placeholder: e.target.value || null })}
             />
           </div>
+          <fieldset className="grid gap-3 rounded-control border border-border p-3 sm:col-span-2 sm:grid-cols-2">
+            <legend className="px-1 text-caption font-medium text-fg-muted">{t("dutch")}</legend>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor={`${id}-label-nl`}>{t("label")}</Label>
+              <Input
+                id={`${id}-label-nl`}
+                value={nl.label ?? ""}
+                placeholder={f.label}
+                onChange={(e) => patchNl({ label: e.target.value || null })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-help-nl`}>{t("helpText")}</Label>
+              <Input
+                id={`${id}-help-nl`}
+                value={nl.helpText ?? ""}
+                placeholder={f.helpText ?? ""}
+                onChange={(e) => patchNl({ helpText: e.target.value || null })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-placeholder-nl`}>{t("placeholder")}</Label>
+              <Input
+                id={`${id}-placeholder-nl`}
+                value={nl.placeholder ?? ""}
+                placeholder={f.placeholder ?? ""}
+                disabled={noPlaceholder}
+                onChange={(e) => patchNl({ placeholder: e.target.value || null })}
+              />
+            </div>
+          </fieldset>
           <label className="flex items-center gap-2 text-body sm:col-span-2">
             <Switch checked={f.required} onCheckedChange={(required) => onChange({ required })} />
             {t("required")}
@@ -821,8 +917,18 @@ function OptionsEditor({
             onChange={(e) =>
               onChange(
                 options.map((x, j) =>
-                  j === i ? { label: e.target.value, value: valueFor(e.target.value, j) } : x,
+                  j === i ? { ...x, label: e.target.value, value: valueFor(e.target.value, j) } : x,
                 ),
+              )
+            }
+          />
+          <Input
+            value={o.labelNl ?? ""}
+            placeholder={t("dutch")}
+            aria-label={t("optionNlN", { n: i + 1 })}
+            onChange={(e) =>
+              onChange(
+                options.map((x, j) => (j === i ? { ...x, labelNl: e.target.value || null } : x)),
               )
             }
           />

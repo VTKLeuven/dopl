@@ -1358,25 +1358,29 @@ model IntakeForm {
 }
 
 model IntakeFormField {
-  id          String          @id @default(uuid(7)) @db.Uuid
-  formId      String          @db.Uuid
-  form        IntakeForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  id           String          @id @default(uuid(7)) @db.Uuid
+  formId       String          @db.Uuid
+  form         IntakeForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
   /// Stable machine key; submissions store values under it.
-  key         String
-  label       String
-  type        FormFieldType
-  required    Boolean         @default(false)
-  helpText    String?
-  placeholder String?
+  key          String
+  label        String
+  type         FormFieldType
+  required     Boolean         @default(false)
+  helpText     String?
+  placeholder  String?
   /// Select options, file limits, etc.
-  options     Json            @default("[]")
-  validation  Json            @default("{}")
-  target      FormFieldTarget @default(NONE)
-  sortKey     String
+  options      Json            @default("[]")
+  validation   Json            @default("{}")
+  /// The field's words in other locales, shown on /f with ?lang= (D-143):
+  /// { "nl": { "label"?, "helpText"?, "placeholder"? } }. Option labels carry
+  /// their own `labelNl` in `options`. Empty = the base (English) words.
+  translations Json            @default("{}")
+  target       FormFieldTarget @default(NONE)
+  sortKey      String
   /// Removed fields are archived (old submissions still reference them).
-  archivedAt  DateTime?       @db.Timestamptz(3)
-  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+  archivedAt   DateTime?       @db.Timestamptz(3)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
 
   @@unique([formId, key])
   @@map("intake_form_fields")

@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
-import { PublicFormQuerySchema } from "@dopl/shared/schemas/intake";
+import { PublicFormQuerySchema, localizePublicForm } from "@dopl/shared/schemas/intake";
 import { getPublicForm } from "@/server/queries/public-forms";
 import { messagesFor, type AppLocale } from "@/i18n/messages";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,12 +32,14 @@ async function Form({
   searchParams,
 }: Pick<PageProps<"/f/[slug]">, "params" | "searchParams">) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
-  const form = await getPublicForm(slug);
-  if (!form) notFound();
+  const stored = await getPublicForm(slug);
+  if (!stored) notFound();
   const embed = typeof sp.embed === "string" ? sp.embed : null;
   const mode: FormMode = embed === "modal" ? "modal" : embed ? "embed" : "page";
   const origin = typeof sp.origin === "string" ? sp.origin : null;
   const { lang, email, name } = PublicFormQuerySchema.parse(sp);
+  // The admin's own words in the asked locale where they translated them (D-143).
+  const form = localizePublicForm(stored, lang);
   const prefill = { email, name };
   if (mode === "page")
     return (

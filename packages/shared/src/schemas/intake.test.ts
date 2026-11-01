@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildValuesSchema,
   defaultFormFields,
+  localizePublicForm,
   publicStatus,
   PublicFormQuerySchema,
   SaveFormSchema,
   type FormField,
+  type PublicFormDefinition,
 } from "./intake";
 
 const field = (f: Partial<FormField> & Pick<FormField, "key" | "type">): FormField => ({
@@ -15,6 +17,7 @@ const field = (f: Partial<FormField> & Pick<FormField, "key" | "type">): FormFie
   placeholder: null,
   options: [],
   target: "NONE",
+  translations: {},
   ...f,
 });
 
@@ -147,5 +150,81 @@ describe("public form query", () => {
       lang: "nl",
       email: "a@b.be",
     });
+  });
+});
+
+describe("localizePublicForm (D-143)", () => {
+  const form: PublicFormDefinition = {
+    id: "f",
+    slug: "website-feedback",
+    nl: { title: "Feedback over de site", description: null, successMessage: "Bedankt!" },
+    title: "Website feedback",
+    description: "Tell us what is wrong.",
+    workspaceName: "VTK",
+    onFeedbackPage: false,
+    successMessage: "Thanks!",
+    turnstileSiteKey: null,
+    allowedEmbedOrigins: [],
+    maxFileSizeMb: 10,
+    maxFiles: 5,
+    accept: [],
+    fields: [
+      {
+        key: "summary",
+        label: "Summary",
+        type: "SHORT_TEXT",
+        required: true,
+        helpText: null,
+        placeholder: "What do you need help with?",
+        options: [],
+        target: "TITLE",
+        translations: {
+          nl: { label: "Samenvatting", helpText: null, placeholder: "Waarmee kunnen we helpen?" },
+        },
+      },
+      {
+        key: "area",
+        label: "Area",
+        type: "SELECT",
+        required: false,
+        helpText: "Pick one.",
+        placeholder: null,
+        options: [
+          { value: "tickets", label: "Tickets", labelNl: "Tickets" },
+          { value: "shifts", label: "Shifts", labelNl: "Shiften" },
+          { value: "other", label: "Other" },
+        ],
+        target: "NONE",
+        translations: {},
+      },
+    ],
+  };
+
+  it("takes every Dutch word that was filled in and keeps the rest", () => {
+    const nl = localizePublicForm(form, "nl");
+    expect(nl.title).toBe("Feedback over de site");
+    expect(nl.description).toBe("Tell us what is wrong.");
+    expect(nl.successMessage).toBe("Bedankt!");
+    expect(nl.fields[0]).toMatchObject({
+      label: "Samenvatting",
+      helpText: null,
+      placeholder: "Waarmee kunnen we helpen?",
+    });
+    expect(nl.fields[1]?.helpText).toBe("Pick one.");
+    expect(nl.fields[1]?.options.map((o) => o.label)).toEqual(["Tickets", "Shiften", "Other"]);
+  });
+
+  it("leaves English as typed and sends no translations to the client", () => {
+    const en = localizePublicForm(form, "en");
+    expect(en.title).toBe("Website feedback");
+    expect(en.fields[0]?.label).toBe("Summary");
+    expect(en.fields[1]?.options.map((o) => o.label)).toEqual(["Tickets", "Shifts", "Other"]);
+    expect(en.fields.every((f) => Object.keys(f.translations).length === 0)).toBe(true);
+    expect(en.fields[1]?.options.some((o) => "labelNl" in o)).toBe(false);
+  });
+
+  it("gives every new form Dutch words for its default fields", () => {
+    const labels = defaultFormFields().map((f) => f.translations.nl?.label);
+    expect(labels).toEqual(["Samenvatting", "Details", "Screenshots of bestanden"]);
   });
 });

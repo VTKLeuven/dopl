@@ -1445,3 +1445,18 @@ Admins and members with "Approves Dopl" (Settings → Members) may decide approv
 The confirmation email, the status page and later replies are still English: their language would have to be stored with the submission.
 
 **Why:** VTK embeds its website-feedback form in vtk.be, which is Dutch and where the person is already signed in. The form asked, in English, for a name and email the site already had. Prefill is no new trust: anyone can type any address into a public form, and the submit endpoint validates it the same way. The address does land in the iframe's URL and so in the access log, which is the same address the submission sends anyway.
+
+### D-143: A form's own words can be translated to Dutch (amends D-142)
+
+**Decision:** next to every word an admin types in the form builder there's an optional Dutch version, which `/f/<slug>?lang=nl` shows instead of the base word:
+
+- **Fields:** label, help text and placeholder in `IntakeFormField.translations` (`{ "nl": { … } }`, a JSONB column), and a choice's label as `labelNl` in `options`.
+- **The form:** title, description and success message in `settings.nl`.
+- **Empty means "not translated"**: the base word shows. A form nobody translated looks exactly as before.
+- `localizePublicForm` (`@dopl/shared/schemas/intake`) picks the words on the server and drops the translations, so the client gets only what it shows. The cached form definition stays one entry per slug.
+- New forms get Dutch words for their three default fields (`defaultFormFields`). The manual migration gives existing forms the same, only where the field's English words are still the defaults: a reworded field would get a translation that no longer matches.
+- The builder's live preview switches between English and Dutch for the form's own words; Dopl's chrome in the preview stays English, as in the rest of the app.
+
+Only Dutch, like D-142: a second locale is a new key in the same shapes. The confirmation email and status page are still English, and `/feedback` still lists the base titles.
+
+**Why:** with `?lang=nl` vtk.be showed Dopl's words in Dutch, but the form's own fields ("Summary", "What do you need help with?", "Screenshots or files") stayed English on a Dutch page, and the site has English visitors too, so writing the form in Dutch only would just move the problem. One form with both languages, chosen by the embedding page, fits the site's own NL/EN switch.

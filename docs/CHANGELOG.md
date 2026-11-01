@@ -38,6 +38,13 @@
 - While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
 - No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
 
+## A form's own words in Dutch too (2026-11-01)
+
+- **Dutch next to every word you type in the builder** (D-143): a "Dutch" section for the title, description and success message, a "Dutch" box in each field for its label, help text and placeholder, and a Dutch label next to each choice. `?lang=nl` shows those; an empty box falls back to the English word.
+- The live preview has an English/Dutch switch, so you see the Dutch words before you publish.
+- New forms start with Dutch words for their three default fields. The migration gives existing forms the same, but only for default fields whose English words were never changed, so vtk.be's website-feedback form reads Dutch at once.
+- Migrations `20261101111339_intake_field_translations` (a `translations` column on form fields) and `20261101111400_manual_default_field_translations`. No new env vars or queues. Screenshot `docs/screenshots/phase-3/17`.
+
 ## Public forms in Dutch, with a prefilled submitter (2026-10-18)
 
 - **`?lang=nl`** on any form link shows Dopl's own words in Dutch: labels, errors, the success screen and the Close button (D-142). The form's title and fields are what you typed in the builder, so write those in the language you embed them in.

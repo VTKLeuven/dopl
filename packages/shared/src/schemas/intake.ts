@@ -70,12 +70,35 @@ export const FieldKeySchema = z
   .string()
   .regex(/^[a-z][a-z0-9_]{0,39}$/, "Lowercase letters, digits and _ only");
 
+/** Empty input is "not translated": the base word shows instead (D-143). */
+const translatedText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => v || null);
+
 export const FieldOptionSchema = z.object({
   value: z.string().trim().min(1).max(100),
   label: z.string().trim().min(1).max(100),
+  /** The label on /f?lang=nl (D-143). */
+  labelNl: translatedText(100).optional(),
 });
 export type FieldOption = z.infer<typeof FieldOptionSchema>;
 export const FieldOptionsSchema = z.array(FieldOptionSchema).max(50);
+
+/** A field's own words in Dutch, for /f?lang=nl (D-143). */
+export const FieldTranslationSchema = z.object({
+  label: translatedText(120),
+  helpText: translatedText(300),
+  placeholder: translatedText(120),
+});
+export type FieldTranslation = z.infer<typeof FieldTranslationSchema>;
+
+/** Stored in `IntakeFormField.translations`; Dutch is the only other locale. */
+export const FieldTranslationsSchema = z.object({ nl: FieldTranslationSchema.optional() });
+export type FieldTranslations = z.infer<typeof FieldTranslationsSchema>;
 
 export const FormFieldInputSchema = z.object({
   key: FieldKeySchema,
@@ -86,6 +109,7 @@ export const FormFieldInputSchema = z.object({
   placeholder: z.string().trim().max(120).nullish(),
   options: FieldOptionsSchema.default([]),
   target: FormFieldTargetSchema.default("NONE"),
+  translations: FieldTranslationsSchema.default({}),
 });
 export type FormFieldInput = z.input<typeof FormFieldInputSchema>;
 export type FormField = z.infer<typeof FormFieldInputSchema>;
@@ -118,6 +142,14 @@ export const FormSettingsSchema = z.object({
   allowedMimeTypes: z.array(z.string().trim().min(3).max(120)).max(50).default([]),
   /** Listed on the public /feedback page (with its project's name) while published. */
   showOnFeedbackPage: z.boolean().default(false),
+  /** The form's own words in Dutch, for /f?lang=nl (D-143). Empty = the base words. */
+  nl: z
+    .object({
+      title: translatedText(120),
+      description: translatedText(2000),
+      successMessage: translatedText(500),
+    })
+    .default({ title: null, description: null, successMessage: null }),
 });
 export type FormSettings = z.infer<typeof FormSettingsSchema>;
 
@@ -184,6 +216,9 @@ export function defaultFormFields(): FormField[] {
       placeholder: "What do you need help with?",
       options: [],
       target: "TITLE",
+      translations: {
+        nl: { label: "Samenvatting", helpText: null, placeholder: "Waarmee kunnen we helpen?" },
+      },
     },
     {
       key: "details",
@@ -194,6 +229,13 @@ export function defaultFormFields(): FormField[] {
       placeholder: null,
       options: [],
       target: "DESCRIPTION",
+      translations: {
+        nl: {
+          label: "Details",
+          helpText: "Hoe je het probleem krijgt, foutmeldingen, wat je had verwacht.",
+          placeholder: null,
+        },
+      },
     },
     {
       key: "attachments",
@@ -204,6 +246,9 @@ export function defaultFormFields(): FormField[] {
       placeholder: null,
       options: [],
       target: "NONE",
+      translations: {
+        nl: { label: "Screenshots of bestanden", helpText: null, placeholder: null },
+      },
     },
   ];
 }
@@ -215,6 +260,8 @@ export const LONG_TEXT_MAX = 10_000;
 
 /** What a public form needs to render (never includes settings secrets). */
 export interface PublicFormDefinition {
+  /** The form's Dutch words; `localizePublicForm` applies and then drops them. */
+  nl: FormSettings["nl"];
   id: string;
   slug: string;
   title: string;
@@ -237,7 +284,42 @@ export interface PublicFormDefinition {
     placeholder: string | null;
     options: FieldOption[];
     target: FormFieldTarget;
+    translations: FieldTranslations;
   }>;
+}
+
+/**
+ * The form in one locale (D-142, D-143): every word with a Dutch translation
+ * takes it, every other word stays as the admin typed it. The translations
+ * themselves are dropped, so the client gets only the words it shows.
+ */
+export function localizePublicForm(
+  form: PublicFormDefinition,
+  locale: "en" | "nl",
+): PublicFormDefinition {
+  const nl = locale === "nl";
+  const pick = (base: string, translated: string | null | undefined) =>
+    nl && translated ? translated : base;
+  const pickNullable = (base: string | null, translated: string | null | undefined) =>
+    nl && translated ? translated : base;
+  return {
+    ...form,
+    nl: { title: null, description: null, successMessage: null },
+    title: pick(form.title, form.nl.title),
+    description: pick(form.description, form.nl.description),
+    successMessage: pick(form.successMessage, form.nl.successMessage),
+    fields: form.fields.map((f) => {
+      const t = f.translations.nl;
+      return {
+        ...f,
+        translations: {},
+        label: pick(f.label, t?.label),
+        helpText: pickNullable(f.helpText, t?.helpText),
+        placeholder: pickNullable(f.placeholder, t?.placeholder),
+        options: f.options.map(({ labelNl, ...o }) => ({ ...o, label: pick(o.label, labelNl) })),
+      };
+    }),
+  };
 }
 
 type FieldDef = Pick<FormField, "key" | "type" | "required" | "options">;

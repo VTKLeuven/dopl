@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import {
   DEFAULT_MIME_TYPES,
   FieldOptionsSchema,
+  FieldTranslationsSchema,
   FormSettingsSchema,
   type PublicFormDefinition,
 } from "@dopl/shared/schemas/intake";
@@ -52,6 +53,7 @@ export async function getPublicForm(slug: string): Promise<PublicFormDefinition 
           placeholder: true,
           options: true,
           target: true,
+          translations: true,
         },
       },
     },
@@ -61,6 +63,7 @@ export async function getPublicForm(slug: string): Promise<PublicFormDefinition 
   return {
     id: form.id,
     slug: form.slug,
+    nl: settings.nl,
     title: form.title,
     description: docToPlainText(form.description as PMNode | null),
     workspaceName: form.project.workspace.name,
@@ -75,6 +78,7 @@ export async function getPublicForm(slug: string): Promise<PublicFormDefinition 
     fields: form.fields.map((f) => ({
       ...f,
       options: FieldOptionsSchema.catch([]).parse(f.options),
+      translations: FieldTranslationsSchema.catch({}).parse(f.translations),
     })),
   };
 }
