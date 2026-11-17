@@ -263,6 +263,23 @@ export const MCP_SCOPES = [
 ] as const;
 export type McpScope = (typeof MCP_SCOPES)[number];
 
+/** Scopes that only read: a token holding nothing else is read-only (D-144). */
+export const MCP_READ_SCOPES = [
+  "work_items:read",
+  "email_threads:read_assigned",
+] as const satisfies readonly McpScope[];
+
+/**
+ * A read-only MCP token may call the read tools without a run_token (D-144).
+ * A token that can write or run commands never may: otherwise an agent in a
+ * run could read untrusted content outside that run and dodge its taint (D-033).
+ */
+export function isReadOnlyTokenScopes(scopes: readonly string[]): boolean {
+  return (
+    scopes.length > 0 && scopes.every((s) => (MCP_READ_SCOPES as readonly string[]).includes(s))
+  );
+}
+
 /** Where a run was asked for, which sets its Hermes session (D-030). */
 export function runSessionId(run: {
   workItemId: string | null;

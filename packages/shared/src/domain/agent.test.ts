@@ -4,6 +4,7 @@ import {
   deriveRunToken,
   evaluateInfraExec,
   isCompound,
+  isReadOnlyTokenScopes,
   normalizeCommand,
   redactSecrets,
   riskFlags,
@@ -221,5 +222,15 @@ describe("run tokens", () => {
     expect(a).not.toBe(deriveRunToken("k".repeat(32), "run-2"));
     expect(a).not.toBe(deriveRunToken("j".repeat(32), "run-1"));
     expect(runTokenHash(a)).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("isReadOnlyTokenScopes", () => {
+  it("is true only when every scope reads", () => {
+    expect(isReadOnlyTokenScopes(["work_items:read"])).toBe(true);
+    expect(isReadOnlyTokenScopes(["work_items:read", "email_threads:read_assigned"])).toBe(true);
+    expect(isReadOnlyTokenScopes(["work_items:read", "comments:write"])).toBe(false);
+    expect(isReadOnlyTokenScopes(["infra:exec"])).toBe(false);
+    expect(isReadOnlyTokenScopes([])).toBe(false);
   });
 });

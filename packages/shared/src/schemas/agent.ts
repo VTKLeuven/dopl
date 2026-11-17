@@ -128,9 +128,19 @@ export const runToken = z
   .max(200)
   .describe("The run_token from your instructions");
 
+/**
+ * Read tools take the run_token when there is one; a read-only token may
+ * leave it out to read outside a run (D-144).
+ */
+const optionalRunToken = runToken
+  .optional()
+  .describe(
+    "The run_token from your instructions. Leave it out only with a read-only token, outside a run.",
+  );
+
 export const McpTools = {
   search_work_items: {
-    run_token: runToken,
+    run_token: optionalRunToken,
     query: z.string().max(200).optional().describe("Words in the title or identifier"),
     project: z.string().max(12).optional().describe("Project identifier, e.g. INFRA"),
     assigned_to_me: z.boolean().optional(),
@@ -138,7 +148,7 @@ export const McpTools = {
     limit: z.number().int().min(1).max(50).optional(),
   },
   get_work_item: {
-    run_token: runToken,
+    run_token: optionalRunToken,
     identifier: z.string().max(40).describe("e.g. INFRA-42"),
   },
   create_work_item: {
@@ -160,8 +170,8 @@ export const McpTools = {
     identifier: z.string().max(40),
     body: z.string().min(1).max(20_000).describe("Plain text; blank lines separate paragraphs"),
   },
-  list_assigned_threads: { run_token: runToken },
-  get_email_thread: { run_token: runToken, thread_id: z.uuid() },
+  list_assigned_threads: { run_token: optionalRunToken },
+  get_email_thread: { run_token: optionalRunToken, thread_id: z.uuid() },
   list_hosts: { run_token: runToken },
   infra_exec: {
     run_token: runToken,

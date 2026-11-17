@@ -476,7 +476,7 @@ Dopl is a headless control plane running in a job worker. HTTP with bearer auth,
 - `/api/mcp` is a Next route handler using `@modelcontextprotocol/sdk` 1.x with the **Streamable HTTP** transport. Hermes supports remote HTTP MCP servers with custom headers and a per-server `timeout`.
 - **Auth:** `Authorization: Bearer <ApiToken>` (kind MCP, hashed, scoped, and optionally limited to certain projects), configured in Hermes's `mcp_servers.dopl.headers`.
 - **Run correlation:** Hermes's MCP connections are static per server, so every Dopl tool takes a required `run_token` argument. This is a random, per-run capability token that Dopl puts in the run's instructions; only its hash is stored in `AgentRun.runTokenHash`. Dopl resolves the token to the run, and from there gets the scope, the taint state and the audit linkage.
-  - A call without a valid token for a RUNNING run of _this_ agent is refused.
+  - A call without a valid token for a RUNNING run of _this_ agent is refused. Exception: a read-only token may call the read tools without a run token (D-144).
   - The token is useless outside Dopl's MCP endpoint and expires when the run ends. It is not an infrastructure secret.
 - **Long waits:**
   - `infra_exec` blocks for up to 10 minutes and sends MCP progress notifications, so the connection stays alive. Hermes's `timeout` for the Dopl server is set to 900 s.
@@ -1460,3 +1460,16 @@ The confirmation email, the status page and later replies are still English: the
 Only Dutch, like D-142: a second locale is a new key in the same shapes. The confirmation email and status page are still English, and `/feedback` still lists the base titles.
 
 **Why:** with `?lang=nl` vtk.be showed Dopl's words in Dutch, but the form's own fields ("Summary", "What do you need help with?", "Screenshots or files") stayed English on a Dutch page, and the site has English visitors too, so writing the form in Dutch only would just move the problem. One form with both languages, chosen by the embedding page, fits the site's own NL/EN switch.
+
+### D-144: A read-only MCP token can read outside a run (amends D-032)
+
+**Decision:** the read tools (`search_work_items`, `get_work_item`, `list_assigned_threads`, `get_email_thread`) take `run_token` as optional. Without one, the call is a read outside a run:
+
+- **Only a read-only token may.** A token whose scopes are all reads (`work_items:read`, `email_threads:read_assigned`; `isReadOnlyTokenScopes` in `@dopl/shared/domain/agent`) works without a run token. A token with `work_items:write`, `comments:write` or `infra:exec` is refused (`run_token_required`) and must always name its run, as before.
+- **The same limits apply:** the token's scopes and project limit, the agent's project access, and Pause. Outside a run the agent reads only email threads assigned to it, since there's no run item to be linked to. Personal mailboxes stay out (D-138).
+- **Untrusted content is still marked:** titles, descriptions, comments and email from outside the team come back inside `<untrusted>` tags, and untrusted titles stay out of search results. No run means nothing to taint and no step on a timeline. Each email thread read outside a run is audit-logged as `agent.mcp.email_read`, with the token's id.
+- `list_hosts`, `infra_exec`, `infra_wait` and every write still need a run token. With a run token, a read-only token behaves exactly as before: steps and taint included.
+- Settings → AI teammate → MCP tokens marks a read-only token as "read-only, works outside runs".
+- **Never give Hermes a read-only token next to its own.** A runtime holding both could read with one outside its run and act with the other, untainted. Read-only tokens are for clients that don't also hold a write-capable token.
+
+**Why:** people want to ask about work items and assigned mail from another MCP client (a desktop assistant, a script) without starting a run in Dopl first. A run token exists to tie writes and commands to a run's taint and approvals (D-033). Letting a write-capable token skip it would let an agent in a run read an injected email "outside" the run and keep the run untainted, so its next allowlisted command or write would skip approval. A read-only token can't act on anything it reads, so there's nothing to gate.

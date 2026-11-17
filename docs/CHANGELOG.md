@@ -38,6 +38,12 @@
 - While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
 - No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
 
+## Read-only MCP tokens without a run (2026-11-16)
+
+- **Read Dopl from another MCP client** (D-144): a token with only read scopes (work items, assigned email) can call `search_work_items`, `get_work_item`, `list_assigned_threads` and `get_email_thread` without a `run_token`. Tokens that can write or run commands still need one for every call. Settings → AI teammate → MCP tokens marks read-only tokens.
+- Outside a run, untrusted content is still marked, only assigned threads can be read, Pause still stops it, and each email thread read is audit-logged (`agent.mcp.email_read`).
+- No migration, no new env vars or queues.
+
 ## A form's own words in Dutch too (2026-11-01)
 
 - **Dutch next to every word you type in the builder** (D-143): a "Dutch" section for the title, description and success message, a "Dutch" box in each field for its label, help text and placeholder, and a Dutch label next to each choice. `?lang=nl` shows those; an empty box falls back to the English word.

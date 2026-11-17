@@ -5,7 +5,8 @@ import { authenticateMcp } from "@/server/agent/mcp-auth";
 /**
  * Dopl's MCP server for the AI teammate (D-032): Streamable HTTP in
  * stateless mode, one server per request. Hermes authenticates with an MCP
- * token; every tool also takes the run's `run_token`.
+ * token; every tool also takes the run's `run_token`, except that a
+ * read-only token may call the read tools outside a run (D-144).
  */
 async function handle(req: Request): Promise<Response> {
   const principal = await authenticateMcp(req.headers.get("authorization"));
