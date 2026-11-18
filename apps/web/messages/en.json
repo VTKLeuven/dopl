@@ -2752,7 +2752,7 @@
       "hint": "Hermes calls Dopl's tools with one of these. Only a hash is stored; you see a token once.",
       "empty": "No tokens yet. Hermes can't reach Dopl without one.",
       "allScopes": "all tools",
-      "readOnly": "read-only, works outside runs",
+      "runless": "works outside runs",
       "projects": "{count, plural, one {# project} other {# projects}}",
       "allProjects": "all projects",
       "lastUsed": "used {when}",
@@ -2767,7 +2767,7 @@
       "copy": "Copy",
       "copied": "Copied",
       "done": "Done",
-      "createHint": "Scopes limit which tools work; projects limit where. A token with only read scopes can also read outside a run, for example from another MCP client, without a run token.",
+      "createHint": "Scopes limit which tools work; projects limit where. Reading, changing states, commenting and triaging requests also work outside a run (for example from another MCP client) when the token has no other scopes. Creating or editing items and running commands always need a run.",
       "name": "Name",
       "scopes": "Scopes",
       "projectLimit": "Projects",
@@ -2781,8 +2781,10 @@
     },
     "scope": {
       "work_items_read": "Read work items",
+      "work_items_state": "Change work item states",
       "work_items_write": "Create and update work items",
       "comments_write": "Comment",
+      "intake_triage": "Review, accept and decline requests",
       "email_threads_read_assigned": "Read email threads assigned or linked to it",
       "infra_exec": "Run commands (with approvals)"
     },

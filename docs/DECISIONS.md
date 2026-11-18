@@ -476,7 +476,7 @@ Dopl is a headless control plane running in a job worker. HTTP with bearer auth,
 - `/api/mcp` is a Next route handler using `@modelcontextprotocol/sdk` 1.x with the **Streamable HTTP** transport. Hermes supports remote HTTP MCP servers with custom headers and a per-server `timeout`.
 - **Auth:** `Authorization: Bearer <ApiToken>` (kind MCP, hashed, scoped, and optionally limited to certain projects), configured in Hermes's `mcp_servers.dopl.headers`.
 - **Run correlation:** Hermes's MCP connections are static per server, so every Dopl tool takes a required `run_token` argument. This is a random, per-run capability token that Dopl puts in the run's instructions; only its hash is stored in `AgentRun.runTokenHash`. Dopl resolves the token to the run, and from there gets the scope, the taint state and the audit linkage.
-  - A call without a valid token for a RUNNING run of _this_ agent is refused. Exception: a read-only token may call the read tools without a run token (D-144).
+  - A call without a valid token for a RUNNING run of _this_ agent is refused. Exception: a token with only outside-run scopes may call the reads, state changes, comments and intake triage without a run token (D-144, D-145).
   - The token is useless outside Dopl's MCP endpoint and expires when the run ends. It is not an infrastructure secret.
 - **Long waits:**
   - `infra_exec` blocks for up to 10 minutes and sends MCP progress notifications, so the connection stays alive. Hermes's `timeout` for the Dopl server is set to 900 s.
@@ -484,7 +484,8 @@ Dopl is a headless control plane running in a job worker. HTTP with bearer auth,
   - The agent is told to call `infra_wait(run_token, approval_id)`, which also blocks for up to 10 minutes.
   - Approvals expire after `AgentProfile.approvalTimeoutSec` (default 1 hour).
 - **Tool set (v1):**
-  - `search_work_items`, `get_work_item`, `create_work_item`, `update_work_item`, `add_comment`
+  - `search_work_items`, `get_work_item`, `create_work_item`, `update_work_item`, `set_work_item_state`, `add_comment`
+  - `list_intake`, `get_intake`, `accept_intake`, `decline_intake` (D-145)
   - `list_assigned_threads`, `get_email_thread`
   - `list_hosts`, `infra_exec`, `infra_wait`
 
@@ -1473,3 +1474,17 @@ Only Dutch, like D-142: a second locale is a new key in the same shapes. The con
 - **Never give Hermes a read-only token next to its own.** A runtime holding both could read with one outside its run and act with the other, untainted. Read-only tokens are for clients that don't also hold a write-capable token.
 
 **Why:** people want to ask about work items and assigned mail from another MCP client (a desktop assistant, a script) without starting a run in Dopl first. A run token exists to tie writes and commands to a run's taint and approvals (D-033). Letting a write-capable token skip it would let an agent in a run read an injected email "outside" the run and keep the run untainted, so its next allowlisted command or write would skip approval. A read-only token can't act on anything it reads, so there's nothing to gate.
+
+### D-145: State changes, comments and intake triage also work outside a run (amends D-144)
+
+**Decision:** the line between "works outside a run" and "needs a run" is drawn per scope, and a token is on one side as a whole:
+
+- **Outside-run scopes:** `work_items:read`, `email_threads:read_assigned`, `comments:write`, and two new ones: `work_items:state` (`set_work_item_state`) and `intake:triage` (`list_intake`, `get_intake`, `accept_intake`, `decline_intake`). `MCP_RUNLESS_SCOPES` / `isRunlessTokenScopes` in `@dopl/shared/domain/agent` replace D-144's read-only check.
+- **Run-only scopes:** `work_items:write` (`create_work_item`, `update_work_item`) and `infra:exec`. A token holding either needs a run token for **every** tool, reads included, exactly as D-144 argued: otherwise an agent in a run could read untrusted content outside it and keep the run untainted.
+- A token with only outside-run scopes may leave `run_token` out. Each write made that way is audit-logged as `agent.mcp.write` (tool, arguments, token id); reads of email stay `agent.mcp.email_read`. Pause, the token's project limit, the agent's project access and the triage permission still apply.
+- With a run token nothing changes: steps on the timeline, taint on read, and approval for every write in a tainted run. Reading requests (`list_intake`, `get_intake`) taints the run, since their content comes from outside the team.
+- Request content is always returned inside `<untrusted>` tags, inside a run or not.
+- `work_items:state` is separate from `work_items:write` so a client can move items along without being able to create or rename them (and without needing a run). `comments:write` keeps its name: tokens that held only it and read scopes now also comment outside a run.
+- Duplicate marking and snoozing stay UI-only for now.
+
+**Why:** people want to triage requests and move work along from another MCP client (a desktop assistant) without starting a run in Dopl. The risk that remains is prompt injection in _that_ client: a request written to trick it could get itself accepted or move an item. It can't create items or reach servers, every such write is audit-logged with its token, and revoking the token stops it. **Never give Hermes an outside-run token next to its own**: it could then act outside its run, untainted and unapproved.

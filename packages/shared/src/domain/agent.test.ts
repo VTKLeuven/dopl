@@ -4,7 +4,7 @@ import {
   deriveRunToken,
   evaluateInfraExec,
   isCompound,
-  isReadOnlyTokenScopes,
+  isRunlessTokenScopes,
   normalizeCommand,
   redactSecrets,
   riskFlags,
@@ -225,12 +225,20 @@ describe("run tokens", () => {
   });
 });
 
-describe("isReadOnlyTokenScopes", () => {
-  it("is true only when every scope reads", () => {
-    expect(isReadOnlyTokenScopes(["work_items:read"])).toBe(true);
-    expect(isReadOnlyTokenScopes(["work_items:read", "email_threads:read_assigned"])).toBe(true);
-    expect(isReadOnlyTokenScopes(["work_items:read", "comments:write"])).toBe(false);
-    expect(isReadOnlyTokenScopes(["infra:exec"])).toBe(false);
-    expect(isReadOnlyTokenScopes([])).toBe(false);
+describe("isRunlessTokenScopes", () => {
+  it("is true only when every scope works outside a run", () => {
+    expect(isRunlessTokenScopes(["work_items:read"])).toBe(true);
+    expect(isRunlessTokenScopes(["work_items:read", "email_threads:read_assigned"])).toBe(true);
+    expect(
+      isRunlessTokenScopes([
+        "work_items:read",
+        "work_items:state",
+        "comments:write",
+        "intake:triage",
+      ]),
+    ).toBe(true);
+    expect(isRunlessTokenScopes(["work_items:read", "work_items:write"])).toBe(false);
+    expect(isRunlessTokenScopes(["comments:write", "infra:exec"])).toBe(false);
+    expect(isRunlessTokenScopes([])).toBe(false);
   });
 });

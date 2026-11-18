@@ -129,14 +129,16 @@ export const runToken = z
   .describe("The run_token from your instructions");
 
 /**
- * Read tools take the run_token when there is one; a read-only token may
- * leave it out to read outside a run (D-144).
+ * Runless tools take the run_token when there is one; a token with only
+ * runless scopes may leave it out outside a run (D-144, D-145).
  */
 const optionalRunToken = runToken
   .optional()
   .describe(
-    "The run_token from your instructions. Leave it out only with a read-only token, outside a run.",
+    "The run_token from your instructions. Leave it out only outside a run, with a token that works outside runs.",
   );
+
+const priority = z.enum(["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"]);
 
 export const McpTools = {
   search_work_items: {
@@ -156,19 +158,50 @@ export const McpTools = {
     project: z.string().max(12).describe("Project identifier, e.g. INFRA"),
     title: z.string().min(1).max(300),
     description: z.string().max(20_000).optional().describe("Plain text"),
-    priority: z.enum(["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"]).optional(),
+    priority: priority.optional(),
   },
   update_work_item: {
     run_token: runToken,
     identifier: z.string().max(40),
     title: z.string().min(1).max(300).optional(),
     state: z.string().max(60).optional().describe("Name of a workflow state in the project"),
-    priority: z.enum(["URGENT", "HIGH", "MEDIUM", "LOW", "NONE"]).optional(),
+    priority: priority.optional(),
+  },
+  set_work_item_state: {
+    run_token: optionalRunToken,
+    identifier: z.string().max(40).describe("e.g. INFRA-42"),
+    state: z.string().min(1).max(60).describe("Name of a workflow state in the project"),
   },
   add_comment: {
-    run_token: runToken,
+    run_token: optionalRunToken,
     identifier: z.string().max(40),
     body: z.string().min(1).max(20_000).describe("Plain text; blank lines separate paragraphs"),
+  },
+  list_intake: {
+    run_token: optionalRunToken,
+    project: z.string().max(12).optional().describe("Project identifier, e.g. INFRA"),
+    limit: z.number().int().min(1).max(50).optional(),
+  },
+  get_intake: {
+    run_token: optionalRunToken,
+    intake_id: z.uuid().describe("intake_id from list_intake"),
+  },
+  accept_intake: {
+    run_token: optionalRunToken,
+    intake_id: z.uuid(),
+    state: z
+      .string()
+      .min(1)
+      .max(60)
+      .optional()
+      .describe("Workflow state to put it in; the project's default when left out"),
+    priority: priority.optional(),
+  },
+  decline_intake: {
+    run_token: optionalRunToken,
+    intake_id: z.uuid(),
+    reason: z.string().max(2000).optional().describe("Shown to the submitter when notify is on"),
+    notify: z.boolean().optional().describe("Email the submitter (default true)"),
   },
   list_assigned_threads: { run_token: optionalRunToken },
   get_email_thread: { run_token: optionalRunToken, thread_id: z.uuid() },

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Bot, Copy, ImageUp, KeyRound, PlugZap, Plus } from "lucide-react";
 import { AVATAR_MAX_BYTES } from "@dopl/shared/domain/avatar";
-import { isReadOnlyTokenScopes, MCP_SCOPES, type McpScope } from "@dopl/shared/domain/agent";
+import { isRunlessTokenScopes, MCP_SCOPES, type McpScope } from "@dopl/shared/domain/agent";
 import type { AgentSettings } from "@/server/queries/agent";
 import type { ConnectionCheck } from "@/server/services/agent";
 import {
@@ -556,7 +556,7 @@ function TokensSection({
                   <span className="font-mono">{tok.tokenPrefix}…</span>
                   {" · "}
                   {tok.scopes.length === MCP_SCOPES.length ? t("allScopes") : tok.scopes.join(", ")}
-                  {isReadOnlyTokenScopes(tok.scopes) ? ` · ${t("readOnly")}` : ""}
+                  {isRunlessTokenScopes(tok.scopes) ? ` · ${t("runless")}` : ""}
                   {" · "}
                   {tok.projectIds.length
                     ? t("projects", { count: tok.projectIds.length })

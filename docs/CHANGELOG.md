@@ -38,6 +38,13 @@
 - While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
 - No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
 
+## Triage and state changes from another MCP client (2026-11-18)
+
+- **Two new scopes** (D-145): `work_items:state` (move an item to another state) and `intake:triage` (review, accept and decline requests). New tools: `set_work_item_state`, `list_intake`, `get_intake`, `accept_intake`, `decline_intake`.
+- **More works outside a run:** a token whose scopes are all reads, `work_items:state`, `comments:write` or `intake:triage` can call those tools without a `run_token`. `work_items:write` (create and edit) and `infra:exec` still need a run for every call, and a token holding either needs a run for everything. Settings → AI teammate → MCP tokens labels the first kind "works outside runs".
+- Each write outside a run is audit-logged as `agent.mcp.write` with the token, tool and arguments. Request content is always marked untrusted; inside a run, reading requests taints the run, so accepting or declining one then waits for approval.
+- Existing tokens with only `work_items:read`, `comments:write` and `email_threads:read_assigned` now also comment without a run. No migration, no new env vars or queues.
+
 ## Read-only MCP tokens without a run (2026-11-16)
 
 - **Read Dopl from another MCP client** (D-144): a token with only read scopes (work items, assigned email) can call `search_work_items`, `get_work_item`, `list_assigned_threads` and `get_email_thread` without a `run_token`. Tokens that can write or run commands still need one for every call. Settings → AI teammate → MCP tokens marks read-only tokens.

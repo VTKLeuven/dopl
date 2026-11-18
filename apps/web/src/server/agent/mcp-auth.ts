@@ -1,6 +1,6 @@
 import "server-only";
 import { hashToken } from "@dopl/shared/crypto";
-import { isReadOnlyTokenScopes, runTokenHash, type McpScope } from "@dopl/shared/domain/agent";
+import { isRunlessTokenScopes, runTokenHash, type McpScope } from "@dopl/shared/domain/agent";
 import { skipsApprovals } from "@dopl/shared/schemas/agent";
 import { db } from "../db";
 import type { WorkspaceCtx } from "../session";
@@ -10,8 +10,8 @@ export interface McpPrincipal {
   workspace: WorkspaceCtx["workspace"];
   agent: { userId: string; name: string; email: string; image: string | null };
   scopes: Set<McpScope>;
-  /** Only read scopes: the read tools work without a run_token (D-144). */
-  readOnly: boolean;
+  /** Only runless scopes: its tools work without a run_token (D-144, D-145). */
+  runless: boolean;
   /** Empty = every project the agent can see. */
   projectIds: string[];
 }
@@ -65,7 +65,7 @@ export async function authenticateMcp(header: string | null): Promise<McpPrincip
       image: token.user.image,
     },
     scopes: new Set(token.scopes as McpScope[]),
-    readOnly: isReadOnlyTokenScopes(token.scopes),
+    runless: isRunlessTokenScopes(token.scopes),
     projectIds: token.projectIds,
   };
 }
@@ -131,16 +131,16 @@ export async function resolveRun(principal: McpPrincipal, runToken: string) {
 export type McpRun = Awaited<ReturnType<typeof resolveRun>>;
 
 /**
- * A read without a run_token (D-144): only a read-only token may, so an agent
- * holding a token that can write or run commands can't read untrusted
- * content outside its run and keep the run untainted (D-033). Pause still
- * stops it (red team 4).
+ * A call without a run_token (D-144, D-145): only a token whose scopes all
+ * work outside runs may, so an agent holding a token that can create items or
+ * run commands can't read untrusted content outside its run and keep the run
+ * untainted (D-033). Pause still stops it (red team 4).
  */
-export async function requireRunlessRead(principal: McpPrincipal) {
-  if (!principal.readOnly)
+export async function requireRunless(principal: McpPrincipal) {
+  if (!principal.runless)
     throw new McpError(
       "run_token_required",
-      "This token can write or run commands, so every call needs the run_token. Reading outside a run needs a read-only token.",
+      "This token can create items or run commands, so every call needs the run_token. Working outside a run needs a token with only outside-run scopes.",
     );
   const ws = await db.workspace.findUniqueOrThrow({
     where: { id: principal.workspace.id },
@@ -151,7 +151,7 @@ export async function requireRunlessRead(principal: McpPrincipal) {
 
 /**
  * The agent as a workspace actor, so MCP calls reuse the normal services.
- * `runId` is null for a read outside a run (D-144).
+ * `runId` is null for a call outside a run (D-144, D-145).
  */
 export function agentCtx(principal: McpPrincipal, runId: string | null): WorkspaceCtx {
   return {

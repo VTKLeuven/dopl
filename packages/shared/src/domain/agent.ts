@@ -256,27 +256,37 @@ export const MCP_TOKEN_PREFIX = "dopl_mcp_";
 /** Scopes an MCP token can carry (ApiToken.scopes). */
 export const MCP_SCOPES = [
   "work_items:read",
+  "work_items:state",
   "work_items:write",
   "comments:write",
+  "intake:triage",
   "email_threads:read_assigned",
   "infra:exec",
 ] as const;
 export type McpScope = (typeof MCP_SCOPES)[number];
 
-/** Scopes that only read: a token holding nothing else is read-only (D-144). */
-export const MCP_READ_SCOPES = [
+/**
+ * Scopes that also work outside a run (D-144, D-145): reading, moving an item
+ * to another state, commenting and triaging requests. Creating and editing
+ * items and running commands always need a run.
+ */
+export const MCP_RUNLESS_SCOPES = [
   "work_items:read",
+  "work_items:state",
+  "comments:write",
+  "intake:triage",
   "email_threads:read_assigned",
 ] as const satisfies readonly McpScope[];
 
 /**
- * A read-only MCP token may call the read tools without a run_token (D-144).
- * A token that can write or run commands never may: otherwise an agent in a
- * run could read untrusted content outside that run and dodge its taint (D-033).
+ * A token holding only runless scopes may call its tools without a run_token
+ * (D-145). A token with any run-only scope never may, not even for a read:
+ * otherwise an agent in a run could read untrusted content outside that run
+ * and dodge its taint (D-033).
  */
-export function isReadOnlyTokenScopes(scopes: readonly string[]): boolean {
+export function isRunlessTokenScopes(scopes: readonly string[]): boolean {
   return (
-    scopes.length > 0 && scopes.every((s) => (MCP_READ_SCOPES as readonly string[]).includes(s))
+    scopes.length > 0 && scopes.every((s) => (MCP_RUNLESS_SCOPES as readonly string[]).includes(s))
   );
 }
 
