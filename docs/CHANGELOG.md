@@ -38,6 +38,11 @@
 - While it's on, the Dopl page shows everyone a banner, the hosts list no longer says "always asks", and the rule tester says a command runs because approvals are off.
 - No migration (the switch lives in the agent profile's settings), no new env vars or queues. Screenshots `docs/screenshots/phase-8/12` to `17`.
 
+## A "done" email for requests (2026-11-19)
+
+- **The person who asked hears when it's done** (D-146): setting an accepted request to a Done state emails them "Your request is done" (guests also get it in their Inbox). It goes out once per request, even if the item is reopened and closed again.
+- **No two emails at once:** the "accepted" email now waits 30 seconds. If the item is set to Done in that time (or accepted straight into Done), they get only the "done" email. Migration `20261119162212_intake_email_link`; no new env vars or queues.
+
 ## Triage and state changes from another MCP client (2026-11-18)
 
 - **Two new scopes** (D-145): `work_items:state` (move an item to another state) and `intake:triage` (review, accept and decline requests). New tools: `set_work_item_state`, `list_intake`, `get_intake`, `accept_intake`, `decline_intake`.

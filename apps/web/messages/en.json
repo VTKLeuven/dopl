@@ -1273,7 +1273,7 @@
       "EMAIL_REPLY": "{from} wrote",
       "DUE_SOON": "Due soon",
       "SNOOZE_ENDED": "A request you snoozed is back in the queue",
-      "INTAKE_UPDATED": "{status, select, accepted {Your request was accepted} declined {Your request was declined} duplicate {Your request was merged with an existing one} other {Your request was updated}}",
+      "INTAKE_UPDATED": "{status, select, accepted {Your request was accepted} completed {Your request is done} declined {Your request was declined} duplicate {Your request was merged with an existing one} other {Your request was updated}}",
       "THREAD_REPLY": "{actor} replied in a thread",
       "INTEGRATION_FAILED": "The Discord webhook {name} was turned off after repeated failures",
       "movedTo": "{actor} moved it to {to}",

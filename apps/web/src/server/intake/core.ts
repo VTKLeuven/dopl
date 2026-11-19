@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma, TransactionClient } from "@dopl/db";
 import { generateToken, hashToken } from "@dopl/shared/crypto";
+import { emailTemplates } from "@dopl/shared/emails";
 import { docToPlainText, type PMNode } from "@dopl/shared/rich-text";
 import { keyBefore } from "@dopl/shared/sort-keys";
 import type { Priority } from "@dopl/shared/schemas/work-item";
@@ -222,8 +223,16 @@ export async function issueStatusUrl(
   return `${env.APP_URL}/s/${token}`;
 }
 
+/**
+ * How long the "accepted" email waits. Requests are often accepted and set to
+ * Done in one go; if it's Done by then, the submitter gets one "done" email
+ * instead of two at once (D-146).
+ */
+export const ACCEPTED_EMAIL_DELAY_MS = 30_000;
+
 type SubmitterEvent =
   | { kind: "accepted" }
+  | { kind: "completed" }
   | { kind: "declined"; reason: string }
   | { kind: "duplicate" }
   | { kind: "reply"; authorName: string; excerpt: string };
@@ -232,9 +241,18 @@ type SubmitterEvent =
  * Tells the person who asked. Contacts get an email with a fresh status link;
  * people with an account (guests, members) get an Inbox notification and the
  * same email pointing at their request page. Blocked contacts get nothing.
+ *
+ * "accepted" is held for ACCEPTED_EMAIL_DELAY_MS; "completed" takes over a
+ * held one, and goes out at most once per request (D-146).
  */
 export async function notifySubmitter(m: BaseMutation, intakeId: string, event: SubmitterEvent) {
   const { tx } = m;
+  if (event.kind === "completed") {
+    const sent = await tx.outboundEmail.count({
+      where: { intakeItemId: intakeId, templateKey: "intake.completed" },
+    });
+    if (sent > 0) return;
+  }
   const intake = await tx.intakeItem.findUniqueOrThrow({
     where: { id: intakeId },
     select: {
@@ -285,23 +303,50 @@ export async function notifySubmitter(m: BaseMutation, intakeId: string, event: 
   } else return;
 
   const base = { workspaceName: ws.name, title, statusUrl };
-  const common = { to, workspaceId: m.workspaceId, contactId, userId };
+  const common = { to, workspaceId: m.workspaceId, contactId, userId, intakeItemId: intake.id };
   switch (event.kind) {
     case "accepted":
-      return queueEmail(tx, { ...common, template: "intake.accepted", data: base });
+      await queueEmail(tx, {
+        ...common,
+        template: "intake.accepted",
+        data: base,
+        startAfter: new Date(Date.now() + ACCEPTED_EMAIL_DELAY_MS),
+      });
+      return;
+    case "completed": {
+      // Still held (the worker hasn't claimed it): it becomes the "done" email
+      // and leaves when it was due. The claim is QUEUED → SENDING, so exactly
+      // one of this update and the worker wins.
+      const payload = emailTemplates["intake.completed"].parse(base);
+      const held = await tx.outboundEmail.updateMany({
+        where: { intakeItemId: intake.id, templateKey: "intake.accepted", status: "QUEUED" },
+        data: {
+          kind: "intake.completed",
+          templateKey: "intake.completed",
+          subject: "intake.completed",
+          payload,
+        },
+      });
+      if (held.count > 0) return;
+      await queueEmail(tx, { ...common, template: "intake.completed", data: base });
+      return;
+    }
     case "declined":
-      return queueEmail(tx, {
+      await queueEmail(tx, {
         ...common,
         template: "intake.declined",
         data: { ...base, reason: event.reason },
       });
+      return;
     case "duplicate":
-      return queueEmail(tx, { ...common, template: "intake.duplicate", data: base });
+      await queueEmail(tx, { ...common, template: "intake.duplicate", data: base });
+      return;
     case "reply":
-      return queueEmail(tx, {
+      await queueEmail(tx, {
         ...common,
         template: "intake.reply",
         data: { ...base, authorName: event.authorName, excerpt: event.excerpt },
       });
+      return;
   }
 }

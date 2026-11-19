@@ -243,7 +243,8 @@ function recordDecision(
 /**
  * Accept: the request becomes a normal work item. It gets the next number now
  * (declined spam never burns numbers, D-018), a real state, and optionally
- * assignees, labels and a priority. The submitter is told.
+ * assignees, labels and a priority. The submitter is told (the email waits a
+ * moment in case the item is set to Done right away, D-146).
  */
 export async function acceptIntake(ctx: WorkspaceCtx, raw: AcceptIntakeInput) {
   const input = AcceptIntakeSchema.parse(raw);
@@ -329,7 +330,10 @@ export async function acceptIntake(ctx: WorkspaceCtx, raw: AcceptIntakeInput) {
       entityId: intake.id,
       projectId,
     });
-    await notifySubmitter(m, intake.id, { kind: "accepted" });
+    // Accepted straight into Done: one "done" email, no "accepted" one (D-146).
+    await notifySubmitter(m, intake.id, {
+      kind: state.group === "COMPLETED" ? "completed" : "accepted",
+    });
     return { id: intake.id, workItemId: intake.workItemId, identifier };
   });
 }

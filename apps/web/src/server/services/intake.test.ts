@@ -256,6 +256,68 @@ describe("triage", () => {
     await expect(acceptIntake(admin, { id: second.id })).rejects.toThrow("already_triaged");
   });
 
+  it("holds the accepted email so Done right after sends one done email instead (D-146)", async () => {
+    const { admin, project, form } = await setup();
+    const intake = await submit(form.slug);
+    await acceptIntake(admin, { id: intake.id, stateId: project.byName("Todo").id });
+    const held = await db.outboundEmail.findFirstOrThrow({
+      where: { intakeItemId: intake.id, templateKey: "intake.accepted" },
+    });
+    expect(held.status).toBe("QUEUED");
+    const job = await db.$queryRaw<{ wait: number }[]>`
+      SELECT extract(epoch FROM start_after - now())::float AS wait
+      FROM pgboss.job WHERE name = 'email.send' AND data->>'outboundEmailId' = ${held.id}`;
+    expect(job[0]?.wait).toBeGreaterThan(20);
+
+    await updateWorkItem(admin, { id: intake.workItemId, stateId: project.byName("Done").id });
+    const mails = await db.outboundEmail.findMany({
+      where: { intakeItemId: intake.id, templateKey: { not: "intake.confirmation" } },
+    });
+    expect(mails.map((x) => [x.id, x.templateKey])).toEqual([[held.id, "intake.completed"]]);
+
+    // Reopened and done again: still only the one done email.
+    await updateWorkItem(admin, { id: intake.workItemId, stateId: project.byName("Todo").id });
+    await updateWorkItem(admin, { id: intake.workItemId, stateId: project.byName("Done").id });
+    expect(
+      await db.outboundEmail.count({
+        where: { intakeItemId: intake.id, templateKey: { not: "intake.confirmation" } },
+      }),
+    ).toBe(1);
+  });
+
+  it("sends a separate done email once the accepted one has gone out (D-146)", async () => {
+    const { admin, project, form } = await setup();
+    const intake = await submit(form.slug);
+    await acceptIntake(admin, { id: intake.id, stateId: project.byName("Todo").id });
+    await db.outboundEmail.updateMany({
+      where: { intakeItemId: intake.id, templateKey: "intake.accepted" },
+      data: { status: "SENT", sentAt: new Date() },
+    });
+    await updateWorkItem(admin, { id: intake.workItemId, stateId: project.byName("Done").id });
+    const mails = await db.outboundEmail.findMany({
+      where: { intakeItemId: intake.id, templateKey: { not: "intake.confirmation" } },
+      orderBy: { createdAt: "asc" },
+      select: { templateKey: true, status: true },
+    });
+    expect(mails).toEqual([
+      { templateKey: "intake.accepted", status: "SENT" },
+      { templateKey: "intake.completed", status: "QUEUED" },
+    ]);
+  });
+
+  it("accepting straight into Done sends only the done email (D-146)", async () => {
+    const { admin, project, form } = await setup();
+    const intake = await submit(form.slug);
+    await acceptIntake(admin, { id: intake.id, stateId: project.byName("Done").id });
+    expect(
+      await db.outboundEmail.findMany({
+        where: { intakeItemId: intake.id },
+        orderBy: { createdAt: "asc" },
+        select: { templateKey: true },
+      }),
+    ).toEqual([{ templateKey: "intake.confirmation" }, { templateKey: "intake.completed" }]);
+  });
+
   it("keeps requests in triage until accepted and supports snooze and duplicates", async () => {
     const { admin, project, form } = await setup();
     const intake = await submit(form.slug);

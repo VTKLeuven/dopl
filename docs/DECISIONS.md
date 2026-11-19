@@ -1488,3 +1488,17 @@ Only Dutch, like D-142: a second locale is a new key in the same shapes. The con
 - Duplicate marking and snoozing stay UI-only for now.
 
 **Why:** people want to triage requests and move work along from another MCP client (a desktop assistant) without starting a run in Dopl. The risk that remains is prompt injection in _that_ client: a request written to trick it could get itself accepted or move an item. It can't create items or reach servers, every such write is audit-logged with its token, and revoking the token stops it. **Never give Hermes an outside-run token next to its own**: it could then act outside its run, untainted and unapproved.
+
+### D-146: Accepted requests email the submitter when they're done, and "accepted" waits 30 seconds
+
+**Decision:** an accepted request whose work item moves into a COMPLETED state tells the submitter, through `notifySubmitter(…, { kind: "completed" })` and the new `intake.completed` template. The hook sits in `applyUpdate` (`services/work-items.ts`), which every state change goes through: the detail page, the board, bulk edits and the agent's MCP tool.
+
+- **"accepted" is held for 30 seconds** (`ACCEPTED_EMAIL_DELAY_MS`): its `email.send` job gets `startAfter`. The outbox row now carries `intakeItemId`.
+- **Done within the window:** the held row, still `QUEUED`, is rewritten in place into the "done" email and leaves when the "accepted" one would have. The worker claims a row with `QUEUED → SENDING`, so either the rewrite or the claim wins and exactly one email goes out. If the worker already claimed it, a separate "done" email is queued.
+- **Accepted straight into a Done state** sends only the "done" email.
+- **At most one "done" email per request:** an existing `intake.completed` row for the request means reopening and closing again sends nothing.
+- Guests and members also get an `INTAKE_UPDATED` notification with status `completed`. In-app notifications aren't delayed: they share the `request:<id>` group, so they don't pile up.
+
+Moving from Done back to an open state within the window still sends the "done" email; undoing that isn't worth the extra state.
+
+**Why:** submitters only heard "we're on it" and never that it was finished. The team often accepts a request and closes it in the same minute, which would have sent two emails seconds apart.

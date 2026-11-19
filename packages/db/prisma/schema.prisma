@@ -1526,10 +1526,14 @@ model OutboundEmail {
   attempts          Int            @default(0)
   contactId         String?        @db.Uuid
   userId            String?        @db.Uuid
+  /// The request an intake.* email is about, so a held "accepted" email can
+  /// become the "done" one (D-146).
+  intakeItemId      String?        @db.Uuid
   sentAt            DateTime?      @db.Timestamptz(3)
   createdAt         DateTime       @default(now()) @db.Timestamptz(3)
 
   @@index([status, createdAt])
+  @@index([intakeItemId])
   @@map("outbound_emails")
 }
 

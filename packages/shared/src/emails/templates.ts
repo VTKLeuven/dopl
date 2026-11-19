@@ -23,6 +23,11 @@ export const emailTemplates = {
     statusUrl: z.url(),
   }),
   "intake.accepted": z.object({ workspaceName: z.string(), title: z.string(), statusUrl: z.url() }),
+  "intake.completed": z.object({
+    workspaceName: z.string(),
+    title: z.string(),
+    statusUrl: z.url(),
+  }),
   "intake.declined": z.object({
     workspaceName: z.string(),
     title: z.string(),
@@ -168,6 +173,19 @@ export function renderEmail<K extends EmailTemplateKey>(
           cta: { label: "View status", url: d.statusUrl },
         }),
         text: `${d.workspaceName} accepted your request "${d.title}".\n\nStatus: ${d.statusUrl}`,
+      };
+    }
+    case "intake.completed": {
+      const d = data as EmailTemplateData<"intake.completed">;
+      return {
+        subject: `Done: ${d.title}`,
+        html: layout({
+          appUrl,
+          heading: "Your request is done",
+          body: `${esc(d.workspaceName)} finished <strong>${esc(d.title)}</strong>. If something still isn't right, reply on the status page.`,
+          cta: { label: "View status", url: d.statusUrl },
+        }),
+        text: `${d.workspaceName} finished your request "${d.title}". If something still isn't right, reply on the status page.\n\nStatus: ${d.statusUrl}`,
       };
     }
     case "intake.declined": {

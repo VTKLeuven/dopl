@@ -22,6 +22,7 @@ import { docToPlainText, extractMentions, sanitizeDoc, type PMNode } from "@dopl
 import { keyBefore, keyBetween, keysBetween } from "@dopl/shared/sort-keys";
 import { ConflictError, NotFoundError } from "../action-result";
 import { findAgent, queueAgentRun, type WorkspaceAgent } from "../agent/runs";
+import { notifySubmitter } from "../intake/core";
 import { withMutation, type BaseMutation, type Mutation } from "../mutation";
 import { notify as notifyInbox } from "../notifications/notify";
 import { projectAccessById, type ProjectAccess } from "../queries/projects";
@@ -508,13 +509,20 @@ async function applyUpdate(m: Mutation, input: ReturnType<typeof UpdateWorkItemS
       projectId,
       detail: { from: item.state.name, to: next.name },
     });
-    if (next.group === "COMPLETED" && item.state.group !== "COMPLETED")
+    if (next.group === "COMPLETED" && item.state.group !== "COMPLETED") {
       m.webhook({
         event: "work_item.completed",
         entityType: "WORK_ITEM",
         entityId: item.id,
         projectId,
       });
+      // An accepted request is done: the person who asked hears it (D-146).
+      const intake = await tx.intakeItem.findUnique({
+        where: { workItemId: item.id },
+        select: { id: true, status: true },
+      });
+      if (intake?.status === "ACCEPTED") await notifySubmitter(m, intake.id, { kind: "completed" });
+    }
     if (item.parentId && isDone(item.stateGroup) !== isDone(next.group)) {
       await tx.workItem.update({
         where: { id: item.parentId },

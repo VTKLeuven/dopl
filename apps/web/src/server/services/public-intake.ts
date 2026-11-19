@@ -336,6 +336,7 @@ export async function submitPublicForm(
           to: contact.email,
           workspaceId: form.workspaceId,
           contactId: contact.id,
+          intakeItemId: created.intakeId,
           data: {
             workspaceName: form.project.workspace.name,
             formTitle: form.title,
